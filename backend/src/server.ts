@@ -86,16 +86,41 @@ const PORT = process.env.PORT || 3000;
  * CORS middleware tells the browser: "It's OK, allow these requests"
  */
 app.use(cors({
-  origin: [
-    process.env.CLIENT_APP_URL || 'http://localhost:8081',      // Legacy mobile app
-    process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3001', // Admin dashboard
-    'http://localhost:3002',                                   // ClickFlicks Client app
-    'http://localhost:3003',                                   // ClickFlicks Photographer app
-    'http://localhost:3000',                                   // Local development
-    'capacitor://localhost',                                   // Capacitor iOS
-    'http://localhost'                                         // Capacitor Android
-  ],
-  credentials: true  // Allow cookies and authentication headers
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      process.env.CLIENT_APP_URL,
+      process.env.ADMIN_DASHBOARD_URL,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+      'http://localhost',
+      'https://localhost',
+      'capacitor://localhost',
+      'ionic://localhost',
+    ].filter(Boolean);
+
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('https://localhost:') ||
+      origin.startsWith('capacitor://') ||
+      origin.startsWith('ionic://') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.vercel.app')
+    ) {
+      return callback(null, true);
+    }
+
+    // Default allow for seamless API usage across mobile webviews
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 /**
