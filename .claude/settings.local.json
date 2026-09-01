@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(wc:*)",
+      "Bash(bun run build)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 5)",
+      "Bash(powershell:*)",
+      "Bash(npx next build:*)",
+      "Bash(move \"src\\\\hooks\\\\use-toast-undo.ts\" \"src\\\\hooks\\\\use-toast-undo.tsx\")",
+      "Bash(find:*)"
+    ]
+  }
+}

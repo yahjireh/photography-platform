@@ -1,0 +1,10 @@
+{
+  "name": "LensCreate - Client App",
+  "description": "A premium mobile-first photography marketplace connecting clients with top photographers in Ghana.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

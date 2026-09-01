@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ClickFlicksPhotographer</string>
+    <string name="title_activity_main">ClickFlicksPhotographer</string>
+    <string name="package_name">com.clickflicks.photographer</string>
+    <string name="custom_url_scheme">com.clickflicks.photographer</string>
+</resources>

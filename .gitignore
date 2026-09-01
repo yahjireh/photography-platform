@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Environment variables & secrets (CRITICAL: Do NOT commit secrets)
+.env
+.env.*
+!.env.example
+*.env
+*/.env
+*/*/.env
+*/.env.*
+*/*/.env.*
+
+# Build outputs
+dist/
+*/dist/
+*/*/dist/
+.next/
+*/.next/
+build/
+*/build/
+out/
+*/out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Uploads & Temporary media
+backend/uploads/
+uploads/
+*.tmp
+.tempmediaStorage/
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

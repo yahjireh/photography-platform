@@ -1,0 +1,588 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model availability {
+  id              String             @id @default(uuid())
+  photographer_id String
+  available_date  DateTime           @db.Date
+  start_time      DateTime?          @db.Time(6)
+  end_time        DateTime?          @db.Time(6)
+  status          AvailabilityStatus @default(AVAILABLE)
+  notes           String?
+  created_at      DateTime           @default(now())
+  photographers   photographers      @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+}
+
+model booking_photos {
+  id              String    @id @default(uuid())
+  booking_id      String
+  image_url       String
+  thumbnail_url   String
+  file_size_bytes Int
+  status          String    @default("UPLOADED")
+  uploaded_at     DateTime  @default(now())
+  delivered_at    DateTime?
+  bookings        bookings  @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+}
+
+model bookings {
+  id                                    String           @id @default(uuid())
+  booking_number                        String           @unique
+  client_id                             String
+  photographer_id                       String
+  occasion_type                         OccasionType
+  event_location                        String
+  event_latitude                        Float?
+  event_longitude                       Float?
+  event_date                            DateTime         @db.Date
+  event_start_time                      DateTime         @db.Time(6)
+  event_end_time                        DateTime?        @db.Time(6)
+  estimated_hours                       Int?
+  total_amount                          Decimal          @db.Decimal(10, 2)
+  deposit_amount                        Decimal          @db.Decimal(10, 2)
+  balance_amount                        Decimal          @db.Decimal(10, 2)
+  platform_commission                   Decimal          @db.Decimal(10, 2)
+  status                                BookingStatus    @default(PENDING)
+  package_id                            String?
+  delivery_deadline_days                Int?             @default(7)
+  delivery_deadline                     DateTime?
+  deposit_paid                          Boolean          @default(false)
+  deposit_paid_at                       DateTime?
+  full_payment_paid                     Boolean          @default(false)
+  client_confirmed_arrival_at           DateTime?
+  balance_paid                          Boolean          @default(false)
+  balance_paid_at                       DateTime?
+  work_delivery_status                  String?          @default("PENDING")
+  access_pin                            String?
+  delivery_url                          String?
+  delivery_notes                        String?
+  days_count                            Int?             @default(1)
+  is_multiday                           Boolean          @default(false)
+  budget_offered                        Decimal?         @db.Decimal(10, 2)
+  special_requirements                  String?
+  cancellation_reason                   String?
+  accepted_at                           DateTime?
+  confirmed_at                          DateTime?
+  shoot_started_at                      DateTime?
+  shoot_completed_at                    DateTime?
+  photos_delivered_at                   DateTime?
+  created_at                            DateTime         @default(now())
+  updated_at                            DateTime         @updatedAt
+  booking_photos                        booking_photos[]
+  packages                              packages?        @relation(fields: [package_id], references: [id])
+  users_bookings_client_idTousers       users            @relation("bookings_client_idTousers", fields: [client_id], references: [id])
+  users_bookings_photographer_idTousers users            @relation("bookings_photographer_idTousers", fields: [photographer_id], references: [id])
+  disputes                              disputes[]
+  messages                              messages[]
+  payments                              payments[]
+  reviews                               reviews?
+}
+
+model disputes {
+  id                                      String        @id @default(uuid())
+  booking_id                              String
+  raised_by_id                            String
+  raised_against_id                       String
+  reason                                  String
+  description                             String
+  status                                  DisputeStatus @default(OPEN)
+  priority                                String        @default("MEDIUM")
+  evidence_urls                           Json?
+  admin_notes                             String?
+  resolution                              String?
+  resolved_by_id                          String?
+  resolved_at                             DateTime?
+  created_at                              DateTime      @default(now())
+  updated_at                              DateTime      @updatedAt
+  bookings                                bookings      @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  users_disputes_raised_by_idTousers      users         @relation("disputes_raised_by_idTousers", fields: [raised_by_id], references: [id])
+  users_disputes_raised_against_idTousers users         @relation("disputes_raised_against_idTousers", fields: [raised_against_id], references: [id])
+  users_disputes_resolved_by_idTousers    users?        @relation("disputes_resolved_by_idTousers", fields: [resolved_by_id], references: [id])
+}
+
+model messages {
+  id                                String    @id @default(uuid())
+  booking_id                        String
+  sender_id                         String
+  receiver_id                       String
+  message_text                      String
+  attachments                       Json?
+  is_read                           Boolean   @default(false)
+  read_at                           DateTime?
+  created_at                        DateTime  @default(now())
+  bookings                          bookings  @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  users_messages_receiver_idTousers users     @relation("messages_receiver_idTousers", fields: [receiver_id], references: [id])
+  users_messages_sender_idTousers   users     @relation("messages_sender_idTousers", fields: [sender_id], references: [id])
+}
+
+model notifications {
+  id         String           @id @default(uuid())
+  user_id    String
+  type       NotificationType
+  title      String
+  message    String
+  data       Json?
+  is_read    Boolean          @default(false)
+  read_at    DateTime?
+  created_at DateTime         @default(now())
+  users      users            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model payments {
+  id                          String        @id @default(uuid())
+  booking_id                  String
+  paystack_reference          String        @unique
+  payment_stage               PaymentStage
+  amount                      Decimal       @db.Decimal(10, 2)
+  status                      PaymentStatus @default(PENDING)
+  hold_status                 HoldStatus    @default(HELD)
+  paystack_authorization_code String?
+  paystack_metadata           Json?
+  held_at                     DateTime?
+  released_at                 DateTime?
+  release_notes               String?
+  created_at                  DateTime      @default(now())
+  updated_at                  DateTime      @updatedAt
+  bookings                    bookings      @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+}
+
+model paystack_subaccounts {
+  id              String        @id @default(uuid())
+  photographer_id String        @unique
+  subaccount_code String        @unique
+  account_number  String
+  bank_code       String
+  bank_name       String
+  account_name    String
+  status          String        @default("ACTIVE")
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  photographers   photographers @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+}
+
+model photographers {
+  id                   String                @id @default(uuid())
+  user_id              String                @unique
+  bio                  String?
+  services             OccasionType[]
+  equipment_list       Json?
+  years_experience     Int?
+  hourly_rate          Decimal?              @db.Decimal(10, 2)
+  day_rate             Decimal?              @db.Decimal(10, 2)
+  portfolio_website    String?
+  instagram_handle     String?
+  verification_status  VerificationStatus    @default(PENDING)
+  kyc_documents        Json?
+  kyc_verified_at      DateTime?
+  average_rating       Float?                @default(0)
+  total_bookings       Int                   @default(0)
+  created_at           DateTime              @default(now())
+  updated_at           DateTime              @updatedAt
+  availability         availability[]
+  paystack_subaccounts paystack_subaccounts?
+  users                users                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  portfolio_items      portfolio_items[]
+  subscriptions        subscriptions?
+  photographer_kyc     photographer_kyc?
+  packages             packages[]
+}
+
+model packages {
+  id              String        @id @default(uuid())
+  photographer_id String
+  name            String
+  description     String?
+  occasion_type   OccasionType
+  price           Decimal       @db.Decimal(10, 2)
+  delivery_days   Int           @default(7)
+  features        Json          @default("[]")
+  is_popular      Boolean       @default(false)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  photographers   photographers @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+  bookings        bookings[]
+
+  @@index([photographer_id])
+  @@index([occasion_type])
+}
+
+model portfolio_items {
+  id              String        @id @default(uuid())
+  photographer_id String
+  image_url       String
+  thumbnail_url   String
+  title           String?
+  description     String?
+  occasion_type   OccasionType
+  metadata        Json?
+  display_order   Int           @default(0)
+  is_featured     Boolean       @default(false)
+  created_at      DateTime      @default(now())
+  photographers   photographers @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+}
+
+model reviews {
+  id                               String   @id @default(uuid())
+  booking_id                       String   @unique
+  reviewer_id                      String
+  reviewee_id                      String
+  reviewer_type                    UserType
+  rating                           Int
+  comment                          String?
+  rating_breakdown                 Json?
+  is_visible                       Boolean  @default(true)
+  created_at                       DateTime @default(now())
+  bookings                         bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  users_reviews_reviewee_idTousers users    @relation("reviews_reviewee_idTousers", fields: [reviewee_id], references: [id])
+  users_reviews_reviewer_idTousers users    @relation("reviews_reviewer_idTousers", fields: [reviewer_id], references: [id])
+}
+
+model subscriptions {
+  id                          String             @id @default(uuid())
+  photographer_id             String             @unique
+  tier                        SubscriptionTier   @default(FREE)
+  monthly_price               Decimal            @db.Decimal(10, 2)
+  commission_rate             Decimal            @db.Decimal(5, 2)
+  featured_listing_weight     Int                @default(0)
+  can_accept_advance_bookings Boolean            @default(true)
+  start_date                  DateTime           @db.Date
+  end_date                    DateTime           @db.Date
+  status                      SubscriptionStatus @default(ACTIVE)
+  paystack_subscription_code  String?            @unique
+  created_at                  DateTime           @default(now())
+  updated_at                  DateTime           @updatedAt
+  photographers               photographers      @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+}
+
+model users {
+  id                                         String          @id @default(uuid())
+  email                                      String          @unique
+  password_hash                              String
+  user_type                                  UserType
+  first_name                                 String
+  last_name                                  String
+  phone_number                               String?
+  profile_image_url                          String?
+  location_city                              String?
+  location_country                           String?
+  latitude                                   Float?
+  longitude                                  Float?
+  is_verified                                Boolean         @default(false)
+  is_active                                  Boolean         @default(true)
+  email_verified_at                          DateTime?
+  created_at                                 DateTime        @default(now())
+  updated_at                                 DateTime        @updatedAt
+  bookings_bookings_client_idTousers         bookings[]      @relation("bookings_client_idTousers")
+  bookings_bookings_photographer_idTousers   bookings[]      @relation("bookings_photographer_idTousers")
+  disputes_disputes_raised_by_idTousers      disputes[]      @relation("disputes_raised_by_idTousers")
+  disputes_disputes_raised_against_idTousers disputes[]      @relation("disputes_raised_against_idTousers")
+  disputes_disputes_resolved_by_idTousers    disputes[]      @relation("disputes_resolved_by_idTousers")
+  messages_messages_receiver_idTousers       messages[]      @relation("messages_receiver_idTousers")
+  messages_messages_sender_idTousers         messages[]      @relation("messages_sender_idTousers")
+  notifications                              notifications[]
+  photographers                              photographers?
+  reviews_reviews_reviewee_idTousers         reviews[]       @relation("reviews_reviewee_idTousers")
+  reviews_reviews_reviewer_idTousers         reviews[]       @relation("reviews_reviewer_idTousers")
+}
+
+model photographer_kyc {
+  id                        String                      @id @default(uuid())
+  photographer_id           String                      @unique
+  user_id                   String
+  kyc_status                KycStatus                   @default(DRAFT)
+  submitted_at              DateTime?
+  last_updated_at           DateTime                    @default(now())
+  approved_at               DateTime?
+  rejected_at               DateTime?
+  legal_name                String
+  date_of_birth             DateTime                    @db.Date
+  nationality               String                      @default("Ghana")
+  id_type                   IdType
+  id_number                 String
+  identity_check_result     CheckResult?
+  identity_fail_reason_code ReasonCode?
+  identity_notes            String?
+  email                     String
+  email_verified            Boolean                     @default(false)
+  phone                     String
+  phone_verified            Boolean                     @default(false)
+  city                      String?
+  region                    String?
+  service_area              String?
+  contact_check_result      CheckResult?
+  contact_notes             String?
+  categories                PhotoCategory[]             @default([])
+  years_experience          YearsExperience?
+  portfolio_link            String?
+  portfolio_check_result    CheckResult?
+  portfolio_quality         PortfolioQuality?
+  originality_flag          OriginalityFlag?
+  portfolio_notes           String?
+  payout_method             PayoutMethod
+  account_holder_name       String
+  bank_name                 String?
+  bank_account_number       String?
+  momo_network              MomoNetwork?
+  momo_number               String?
+  payout_name_match         NameMatch                   @default(NOT_CHECKED)
+  payout_check_result       CheckResult?
+  payout_notes              String?
+  is_search_visible         Boolean                     @default(false)
+  can_accept_bookings       Boolean                     @default(false)
+  can_receive_payouts       Boolean                     @default(false)
+  kyc_verified_badge        Boolean                     @default(false)
+  decision_reason_code      ReasonCode?
+  decision_notes            String?
+  request_info_items        RequestInfoItem[]           @default([])
+  reviewed_by               String?
+  reviewed_at               DateTime?
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime                    @updatedAt
+  photographers             photographers               @relation(fields: [photographer_id], references: [id], onDelete: Cascade)
+  documents                 photographer_kyc_documents[]
+  audit_timeline            photographer_kyc_audit[]
+
+  @@index([user_id])
+  @@index([kyc_status])
+  @@index([submitted_at])
+}
+
+model photographer_kyc_documents {
+  id               String           @id @default(uuid())
+  photographer_id  String
+  kyc_id           String
+  document_type    String
+  file_name        String
+  file_url         String
+  file_size        Int?
+  mime_type        String?
+  is_verified      Boolean          @default(false)
+  verified_by      String?
+  verified_at      DateTime?
+  rejection_reason String?
+  uploaded_at      DateTime         @default(now())
+  deleted_at       DateTime?
+  photographer_kyc photographer_kyc @relation(fields: [kyc_id], references: [id], onDelete: Cascade)
+
+  @@index([photographer_id])
+  @@index([kyc_id])
+  @@index([document_type])
+}
+
+model photographer_kyc_audit {
+  id               String           @id @default(uuid())
+  photographer_id  String
+  kyc_id           String
+  event_type       String
+  field_name       String?
+  old_value        String?
+  new_value        String?
+  admin_user_id    String
+  admin_name       String
+  action_notes     String?
+  created_at       DateTime         @default(now())
+  photographer_kyc photographer_kyc @relation(fields: [kyc_id], references: [id], onDelete: Cascade)
+
+  @@index([photographer_id])
+  @@index([kyc_id])
+  @@index([created_at(sort: Desc)])
+  @@index([admin_user_id])
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum HoldStatus {
+  HELD
+  RELEASED_TO_PHOTOGRAPHER
+  REFUNDED_TO_CLIENT
+}
+
+enum NotificationType {
+  BOOKING_REQUEST
+  BOOKING_ACCEPTED
+  BOOKING_REJECTED
+  BOOKING_CONFIRMED
+  PAYMENT_RECEIVED
+  SHOOT_STARTED
+  SHOOT_COMPLETED
+  PHOTOS_UPLOADED
+  PHOTOS_DELIVERED
+  REVIEW_RECEIVED
+  SUBSCRIPTION_EXPIRING
+  KYC_VERIFIED
+  KYC_REJECTED
+  MESSAGE_RECEIVED
+}
+
+enum OccasionType {
+  WEDDING
+  BIRTHDAY
+  CORPORATE_EVENT
+  CONFERENCE
+  PRODUCT_SHOOT
+  PORTRAIT
+  FAMILY_SHOOT
+  REAL_ESTATE
+  SPORTS
+  GRADUATION
+  OTHER
+}
+
+enum PaymentStage {
+  DEPOSIT
+  BALANCE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum UserType {
+  CLIENT
+  PHOTOGRAPHER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum KycStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  NEEDS_MORE_INFO
+  SUSPENDED
+}
+
+enum IdType {
+  GHANA_CARD
+  PASSPORT
+  DRIVERS_LICENSE
+}
+
+enum CheckResult {
+  PASS
+  FAIL
+  UNCLEAR
+}
+
+enum PayoutMethod {
+  BANK
+  MOMO
+}
+
+enum MomoNetwork {
+  MTN
+  VODAFONE
+  AIRTELTIGO
+}
+
+enum NameMatch {
+  EXACT_MATCH
+  PARTIAL_MATCH
+  NO_MATCH
+  NOT_CHECKED
+}
+
+enum PortfolioQuality {
+  GOOD
+  BORDERLINE
+  POOR
+}
+
+enum OriginalityFlag {
+  ORIGINAL
+  SUSPECTED_STOLEN
+  UNCLEAR
+}
+
+enum YearsExperience {
+  ZERO_ONE
+  TWO_FOUR
+  FIVE_NINE
+  TEN_PLUS
+}
+
+enum PhotoCategory {
+  WEDDING
+  PORTRAIT
+  EVENTS
+  FASHION
+  PRODUCT
+  REAL_ESTATE
+  DOCUMENTARY
+  OTHER
+}
+
+enum ReasonCode {
+  ID_NOT_CLEAR
+  ID_EXPIRED
+  NAME_MISMATCH
+  DUPLICATE_ID
+  DUPLICATE_PAYOUT_DETAILS
+  PORTFOLIO_INSUFFICIENT
+  PORTFOLIO_SUSPECTED_STOLEN
+  PAYMENT_DETAILS_INCOMPLETE
+  PAYMENT_NAME_MISMATCH
+  POLICY_VIOLATION
+  OTHER
+}
+
+enum RequestInfoItem {
+  ID_NOT_CLEAR
+  ID_EXPIRED
+  SELFIE_MISSING
+  PORTFOLIO_TOO_SMALL
+  PORTFOLIO_UNCLEAR
+  PAYMENT_NAME_MISMATCH
+  PAYMENT_DETAILS_INCOMPLETE
+  OTHER
+}
