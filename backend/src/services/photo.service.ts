@@ -10,6 +10,7 @@ import * as ImageService from '../services/image.service';
 import { STORAGE_CONFIG } from '../config/storage';
 import archiver from 'archiver';
 import { Readable } from 'stream';
+import 'multer';
 
 /**
  * Upload photos to a booking
