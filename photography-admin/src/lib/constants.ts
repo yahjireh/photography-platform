@@ -11,7 +11,7 @@
  * Base URL for backend API
  * This comes from environment variable
  */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://clickflicks-api.onrender.com/api';
 
 /**
  * API endpoints

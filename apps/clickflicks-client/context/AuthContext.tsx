@@ -104,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        throw new Error('Cannot reach backend server. Please ensure backend is running on http://localhost:3000');
+        throw new Error('Cannot reach server. Please check your internet connection and try again.');
       }
       const message = err.response?.data?.message || err.message || 'Login failed. Please check your credentials.';
       throw new Error(message);
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        throw new Error('Cannot reach backend server. Please ensure backend is running on http://localhost:3000');
+        throw new Error('Cannot reach server. Please check your internet connection and try again.');
       }
       const message = err.response?.data?.message || err.message || 'Registration failed. Please check your details.';
       throw new Error(message);
