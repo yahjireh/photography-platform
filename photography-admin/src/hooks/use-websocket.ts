@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { tokenManager } from '@/lib/api-client';
-import { QUERY_KEYS } from '@/lib/constants';
+import { QUERY_KEYS, API_BASE_URL } from '@/lib/constants';
 
 type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -237,7 +237,7 @@ export function useWebSocketStatus() {
     const checkHealth = async () => {
       const start = Date.now();
       try {
-        const res = await fetch('http://localhost:3000/api/admin/system/health', {
+        const res = await fetch(`${API_BASE_URL}/admin/system/health`, {
           headers: {
             'Authorization': `Bearer ${tokenManager.getToken() || ''}`
           }
@@ -253,7 +253,7 @@ export function useWebSocketStatus() {
       } catch (_) {
         // Fallback check on base API
         try {
-          const fallbackRes = await fetch('http://localhost:3000/api/photographers/search?limit=1');
+          const fallbackRes = await fetch(`${API_BASE_URL}/photographers/search?limit=1`);
           if (isMounted && fallbackRes.ok) {
             setIsLive(true);
             setLatency(Date.now() - start);

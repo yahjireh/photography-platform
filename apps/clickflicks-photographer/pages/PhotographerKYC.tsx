@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../components/ui/icons';
-import { apiClient } from '../lib/api';
+import { apiClient } from '../lib/api-client';
 
 interface PhotographerKYCProps {
   onComplete: () => void;

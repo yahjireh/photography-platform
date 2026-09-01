@@ -23,6 +23,8 @@ build/
 */build/
 out/
 */out/
+apks/
+*.apk
 
 # Logs
 npm-debug.log*
