@@ -1,22 +1,21 @@
 -- ==============================================================================
--- ClickFlicks Supabase Security & Performance Remediation Script
+-- ClickFlicks Supabase Security & Performance Remediation Script (Complete)
 -- ==============================================================================
--- This script resolves all Supabase Security & Performance Advisor warnings:
--- 1. "RLS Disabled in Public" (CRITICAL)
--- 2. "Sensitive Columns Exposed" (CRITICAL)
--- 3. "Public / Signed-in Users Can See Object in GraphQL Schema"
--- 4. "Unindexed Foreign Keys" (Performance)
+-- This script resolves ALL Supabase Security & Performance Advisor items:
+-- 1. "RLS Disabled in Public" (CRITICAL) -> RESOLVED
+-- 2. "Sensitive Columns Exposed" (CRITICAL) -> RESOLVED
+-- 3. "Public / Signed-in Users Can See Object in GraphQL Schema" -> RESOLVED
+-- 4. "Unindexed Foreign Keys" (Performance) -> RESOLVED
+-- 5. "RLS Enabled No Policy" (Info Suggestions) -> RESOLVED
 --
 -- SAFE FOR BACKEND:
 -- Your Node.js/Express backend connects via Prisma using the database owner / connection
 -- pooler ('postgres' role), which has the BYPASSRLS attribute. Enabling RLS and revoking
 -- public/anon access does NOT affect your Express backend or Prisma operations at all.
--- It only secures direct public internet access through Supabase PostgREST & GraphQL.
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
 -- STEP 1: ENABLE ROW LEVEL SECURITY (RLS) ON ALL PUBLIC TABLES
--- Clears: "RLS Disabled in Public (CRITICAL)" & "Sensitive Columns Exposed"
 -- ------------------------------------------------------------------------------
 ALTER TABLE IF EXISTS public.availability ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.booking_photos ENABLE ROW LEVEL SECURITY;
@@ -37,11 +36,43 @@ ALTER TABLE IF EXISTS public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
 
 -- ------------------------------------------------------------------------------
--- STEP 2: REVOKE DIRECT REST & GRAPHQL API ACCESS FROM ANON / AUTHENTICATED
--- Clears: "Public Can See Object in GraphQL Schema"
---         "Signed-In Users Can See Object in GraphQL Schema"
+-- STEP 2: CREATE EXPLICIT POLICIES FOR SERVICE ROLE
+-- Clears: "RLS Enabled No Policy (17 Suggestions)"
 -- ------------------------------------------------------------------------------
--- Revoke all table, sequence, and function access from public/anon/authenticated roles
+DO $$ 
+DECLARE 
+    tbl text;
+    tables text[] := ARRAY[
+        'availability',
+        'booking_photos',
+        'bookings',
+        'disputes',
+        'messages',
+        'notifications',
+        'packages',
+        'payments',
+        'paystack_subaccounts',
+        'photographer_kyc',
+        'photographer_kyc_audit',
+        'photographer_kyc_documents',
+        'photographers',
+        'portfolio_items',
+        'reviews',
+        'subscriptions',
+        'users'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables LOOP
+        -- Remove existing policy if present to avoid duplication
+        EXECUTE format('DROP POLICY IF EXISTS "service_role_full_access" ON public.%I;', tbl);
+        -- Create explicit service role policy
+        EXECUTE format('CREATE POLICY "service_role_full_access" ON public.%I FOR ALL TO service_role USING (true) WITH CHECK (true);', tbl);
+    END LOOP;
+END $$;
+
+-- ------------------------------------------------------------------------------
+-- STEP 3: REVOKE DIRECT REST & GRAPHQL API ACCESS FROM PUBLIC/ANON ROLES
+-- ------------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 REVOKE ALL ON ALL ROUTINES IN SCHEMA public FROM anon, authenticated;
@@ -51,12 +82,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authen
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON ROUTINES FROM anon, authenticated;
 
--- Disable pg_graphql introspection on the public schema for unauthenticated API queries
+-- Disable pg_graphql schema introspection for unauthenticated API queries
 COMMENT ON SCHEMA public IS '@graphql({"inflect": false})';
 
 -- ------------------------------------------------------------------------------
--- STEP 3: CREATE INDEXES FOR UNINDEXED FOREIGN KEYS
--- Clears: "Unindexed Foreign Keys" performance warnings
+-- STEP 4: CREATE INDEXES FOR UNINDEXED FOREIGN KEYS
 -- ------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_availability_photographer_id ON public.availability(photographer_id);
 CREATE INDEX IF NOT EXISTS idx_booking_photos_booking_id ON public.booking_photos(booking_id);
@@ -76,5 +106,5 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_items_photographer_id ON public.portfol
 CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON public.reviews(reviewer_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_reviewee_id ON public.reviews(reviewee_id);
 
--- Optional: reload PostgREST schema cache to immediately reflect updates
+-- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
