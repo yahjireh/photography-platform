@@ -122,3 +122,39 @@ export function useToggleMaintenance() {
     },
   });
 }
+
+export interface RateLimitRule {
+  id: string;
+  endpoint: string;
+  limit: number;
+  window: string;
+  current: number;
+}
+
+export function useRateLimits() {
+  return useQuery<RateLimitRule[], Error>({
+    queryKey: ['admin', 'system', 'ratelimits'],
+    queryFn: async () => {
+      const res = await api.get<any>('/admin/system/ratelimits');
+      return extractData(res) || [];
+    },
+  });
+}
+
+export function useUpdateRateLimits() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (limits: RateLimitRule[]) => {
+      const res = await api.put<any>('/admin/system/ratelimits', { limits });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'ratelimits'] });
+      toast.success(data?.message || 'Rate limits saved and committed to database!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}

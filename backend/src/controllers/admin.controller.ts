@@ -4118,7 +4118,7 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
 /**
  * In-memory templates store with persistent defaults
  */
-let systemTemplates = [
+export const defaultSystemTemplates = [
   { id: 'welcome', name: 'Welcome Email', subject: 'Welcome to ClickFlicks Ghana!', category: 'onboarding', lastEdited: '2026-02-20', active: true, body: 'Welcome {{user_name}} to Ghana premier photography commissioning platform.' },
   { id: 'booking_confirm', name: 'Booking Confirmation', subject: 'Your shoot booking has been approved', category: 'booking', lastEdited: '2026-02-15', active: true, body: 'Your artisan {{photographer_name}} approved your brief. Deposit 40% to confirm.' },
   { id: 'payment_receipt', name: 'Escrow Payment Receipt', subject: 'Escrow deposit received - Receipt #{{receipt_id}}', category: 'payment', lastEdited: '2026-02-25', active: true, body: 'Deposit of {{amount}} safely held in platform escrow.' },
@@ -4131,26 +4131,48 @@ let systemTemplates = [
  * GET /api/admin/communication/templates
  */
 export const getCommunicationTemplates = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: systemTemplates
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'communication_templates' }
+    });
+    const templates = row && Array.isArray(row.value) ? row.value : defaultSystemTemplates;
+    return res.json({
+      success: true,
+      data: templates
+    });
+  } catch (err: any) {
+    return res.json({ success: true, data: defaultSystemTemplates });
+  }
 };
 
 /**
  * PATCH /api/admin/communication/templates/:id
  */
 export const updateCommunicationTemplate = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const updates = req.body;
+  try {
+    const { id } = req.params;
+    const updates = req.body;
 
-  systemTemplates = systemTemplates.map(t => t.id === id ? { ...t, ...updates, lastEdited: new Date().toISOString().split('T')[0] } : t);
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'communication_templates' }
+    });
+    const currentList: any[] = row && Array.isArray(row.value) ? (row.value as any[]) : defaultSystemTemplates;
+    const updated = currentList.map(t => t.id === id ? { ...t, ...updates, lastEdited: new Date().toISOString().split('T')[0] } : t);
 
-  return res.json({
-    success: true,
-    message: 'Template updated successfully',
-    data: systemTemplates.find(t => t.id === id)
-  });
+    await prisma.system_settings.upsert({
+      where: { key: 'communication_templates' },
+      update: { value: updated },
+      create: { key: 'communication_templates', value: updated }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Template updated and saved successfully',
+      data: updated.find(t => t.id === id)
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to update template' });
+  }
 };
 
 // ============================================
@@ -4336,7 +4358,7 @@ export const toggleMaintenanceMode = async (req: Request, res: Response) => {
 // MOBILE APPS MANAGEMENT
 // ============================================
 
-let appVersions = [
+export const defaultAppVersions = [
   { platform: 'iOS', version: '2.4.1', buildNumber: '241', minRequired: '2.2.0', status: 'live', releaseDate: '2026-02-01', users: 14250, forceUpdate: false },
   { platform: 'iOS', version: '2.5.0-beta', buildNumber: '250', minRequired: '2.2.0', status: 'beta', releaseDate: '2026-02-15', users: 842, forceUpdate: false },
   { platform: 'Android', version: '2.4.2', buildNumber: '242', minRequired: '2.1.0', status: 'live', releaseDate: '2026-02-03', users: 21920, forceUpdate: false },
@@ -4352,26 +4374,48 @@ let mobileCrashes = [
  * GET /api/admin/mobile/versions
  */
 export const getMobileAppVersions = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: appVersions
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'mobile_app_versions' }
+    });
+    const versions = row && Array.isArray(row.value) ? row.value : defaultAppVersions;
+    return res.json({
+      success: true,
+      data: versions
+    });
+  } catch (err: any) {
+    return res.json({ success: true, data: defaultAppVersions });
+  }
 };
 
 /**
  * PATCH /api/admin/mobile/versions/:platform
  */
 export const updateMobileAppVersion = async (req: Request, res: Response) => {
-  const { platform } = req.params;
-  const updates = req.body;
+  try {
+    const { platform } = req.params;
+    const updates = req.body;
 
-  appVersions = appVersions.map(v => v.platform.toLowerCase() === platform.toLowerCase() ? { ...v, ...updates } : v);
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'mobile_app_versions' }
+    });
+    const currentList: any[] = row && Array.isArray(row.value) ? (row.value as any[]) : defaultAppVersions;
+    const updated = currentList.map(v => v.platform.toLowerCase() === platform.toLowerCase() ? { ...v, ...updates } : v);
 
-  return res.json({
-    success: true,
-    message: 'App version configuration updated successfully',
-    data: appVersions.find(v => v.platform.toLowerCase() === platform.toLowerCase())
-  });
+    await prisma.system_settings.upsert({
+      where: { key: 'mobile_app_versions' },
+      update: { value: updated },
+      create: { key: 'mobile_app_versions', value: updated }
+    });
+
+    return res.json({
+      success: true,
+      message: 'App version configuration updated and saved successfully',
+      data: updated.find(v => v.platform.toLowerCase() === platform.toLowerCase())
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to update app version' });
+  }
 };
 
 /**
@@ -4402,7 +4446,63 @@ export const getMobileCrashes = async (_req: Request, res: Response) => {
 };
 
 // ============================================
-// EMAIL REPORTS SCHEDULES
+// RATE LIMITS (PERSISTED IN POSTGRESQL)
+// ============================================
+
+export const defaultRateLimits = [
+  { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 10, window: '15 min', current: 3 },
+  { id: 'public', endpoint: 'Public API (/api/*)', limit: 100, window: '1 min', current: 42 },
+  { id: 'admin', endpoint: 'Admin API (/admin/*)', limit: 200, window: '1 min', current: 15 },
+  { id: 'upload', endpoint: 'File Upload (/upload/*)', limit: 20, window: '1 min', current: 2 },
+  { id: 'webhooks', endpoint: 'Webhooks (/webhooks/*)', limit: 500, window: '1 min', current: 89 },
+];
+
+/**
+ * GET /api/admin/system/ratelimits
+ */
+export const getRateLimits = async (_req: Request, res: Response) => {
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'rate_limits' }
+    });
+    const limits = row && Array.isArray(row.value) ? row.value : defaultRateLimits;
+    return res.json({
+      success: true,
+      data: limits
+    });
+  } catch (err: any) {
+    return res.json({ success: true, data: defaultRateLimits });
+  }
+};
+
+/**
+ * PUT & PATCH /api/admin/system/ratelimits
+ */
+export const updateRateLimits = async (req: Request, res: Response) => {
+  try {
+    const { limits } = req.body;
+    if (!Array.isArray(limits)) {
+      return res.status(400).json({ success: false, message: 'Limits must be an array' });
+    }
+
+    await prisma.system_settings.upsert({
+      where: { key: 'rate_limits' },
+      update: { value: limits },
+      create: { key: 'rate_limits', value: limits }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Rate limits configuration saved and committed to database successfully',
+      data: limits
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to save rate limits' });
+  }
+};
+
+// ============================================
+// EMAIL REPORTS SCHEDULES (PERSISTED IN POSTGRESQL)
 // ============================================
 
 interface ReportSchedule {
@@ -4418,64 +4518,112 @@ interface ReportSchedule {
   createdAt: string;
 }
 
-let reportSchedules: ReportSchedule[] = [];
-
 export const getReportSchedules = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: reportSchedules
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'report_schedules' }
+    });
+    const schedules = row && Array.isArray(row.value) ? (row.value as any as ReportSchedule[]) : [];
+    return res.json({
+      success: true,
+      data: schedules
+    });
+  } catch (err: any) {
+    return res.json({ success: true, data: [] });
+  }
 };
 
 export const createReportSchedule = async (req: Request, res: Response) => {
-  const newSchedule: ReportSchedule = {
-    id: `rpt_${Date.now()}`,
-    name: req.body.name || 'Custom Report',
-    type: req.body.type || 'revenue',
-    frequency: req.body.frequency || 'weekly',
-    recipients: Array.isArray(req.body.recipients) ? req.body.recipients : [],
-    enabled: req.body.enabled ?? true,
-    includeCharts: req.body.includeCharts ?? true,
-    createdAt: new Date().toISOString()
-  };
+  try {
+    const newSchedule: ReportSchedule = {
+      id: `rpt_${Date.now()}`,
+      name: req.body.name || 'Custom Report',
+      type: req.body.type || 'revenue',
+      frequency: req.body.frequency || 'weekly',
+      recipients: Array.isArray(req.body.recipients) ? req.body.recipients : [],
+      enabled: req.body.enabled ?? true,
+      includeCharts: req.body.includeCharts ?? true,
+      createdAt: new Date().toISOString()
+    };
 
-  reportSchedules.push(newSchedule);
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'report_schedules' }
+    });
+    const currentList: ReportSchedule[] = row && Array.isArray(row.value) ? (row.value as any) : [];
+    currentList.push(newSchedule);
 
-  return res.status(201).json({
-    success: true,
-    message: 'Report schedule created successfully',
-    data: newSchedule
-  });
+    await prisma.system_settings.upsert({
+      where: { key: 'report_schedules' },
+      update: { value: currentList as any },
+      create: { key: 'report_schedules', value: currentList as any }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Report schedule created and saved successfully',
+      data: newSchedule
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to create report schedule' });
+  }
 };
 
 export const updateReportSchedule = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const index = reportSchedules.findIndex(s => s.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({
-      success: false,
-      message: 'Report schedule not found'
+  try {
+    const { id } = req.params;
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'report_schedules' }
     });
+    const currentList: ReportSchedule[] = row && Array.isArray(row.value) ? (row.value as any) : [];
+    const index = currentList.findIndex(s => s.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report schedule not found'
+      });
+    }
+
+    currentList[index] = { ...currentList[index], ...req.body };
+
+    await prisma.system_settings.upsert({
+      where: { key: 'report_schedules' },
+      update: { value: currentList as any },
+      create: { key: 'report_schedules', value: currentList as any }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Report schedule updated and saved successfully',
+      data: currentList[index]
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to update report schedule' });
   }
-
-  reportSchedules[index] = { ...reportSchedules[index], ...req.body };
-
-  return res.json({
-    success: true,
-    message: 'Report schedule updated successfully',
-    data: reportSchedules[index]
-  });
 };
 
 export const deleteReportSchedule = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  reportSchedules = reportSchedules.filter(s => s.id !== id);
+  try {
+    const { id } = req.params;
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'report_schedules' }
+    });
+    const currentList: ReportSchedule[] = row && Array.isArray(row.value) ? (row.value as any) : [];
+    const updated = currentList.filter(s => s.id !== id);
 
-  return res.json({
-    success: true,
-    message: 'Report schedule deleted successfully'
-  });
+    await prisma.system_settings.upsert({
+      where: { key: 'report_schedules' },
+      update: { value: updated as any },
+      create: { key: 'report_schedules', value: updated as any }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Report schedule deleted successfully'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to delete report schedule' });
+  }
 };
 
 export const sendReportNow = async (req: Request, res: Response) => {

@@ -17,7 +17,10 @@ import {
   useFeatureFlags,
   useUpdateFeatureFlag,
   useCronJobs,
-  useToggleMaintenance
+  useToggleMaintenance,
+  useRateLimits,
+  useUpdateRateLimits,
+  RateLimitRule,
 } from '@/hooks/use-system';
 
 type SystemTab = 'health' | 'flags' | 'maintenance' | 'backup' | 'cron' | 'queue' | 'ratelimit' | 'abtesting';
@@ -37,6 +40,21 @@ export default function SystemManagementPage() {
   const { mutate: updateFlag } = useUpdateFeatureFlag();
   const { data: cronJobs = [], isLoading: isLoadingCrons } = useCronJobs();
   const { mutate: toggleMaintenance, isPending: isTogglingMaint } = useToggleMaintenance();
+  const { data: serverRateLimits = [] } = useRateLimits();
+  const { mutate: updateRateLimits, isPending: isSavingRateLimits } = useUpdateRateLimits();
+  const [rateLimitsState, setRateLimitsState] = useState<RateLimitRule[]>([
+    { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 10, window: '15 min', current: 3 },
+    { id: 'public', endpoint: 'Public API (/api/*)', limit: 100, window: '1 min', current: 42 },
+    { id: 'admin', endpoint: 'Admin API (/admin/*)', limit: 200, window: '1 min', current: 15 },
+    { id: 'upload', endpoint: 'File Upload (/upload/*)', limit: 20, window: '1 min', current: 2 },
+    { id: 'webhooks', endpoint: 'Webhooks (/webhooks/*)', limit: 500, window: '1 min', current: 89 },
+  ]);
+
+  React.useEffect(() => {
+    if (serverRateLimits && serverRateLimits.length > 0) {
+      setRateLimitsState(serverRateLimits);
+    }
+  }, [serverRateLimits]);
 
   const tabs = [
     { id: 'health' as const, label: 'System Health', icon: Activity },
@@ -421,13 +439,7 @@ export default function SystemManagementPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">API Rate Limiting Configuration</h3>
-              {[
-                { endpoint: 'Authentication (/auth/*)', limit: 10, window: '15 min', current: 3 },
-                { endpoint: 'Public API (/api/*)', limit: 100, window: '1 min', current: 42 },
-                { endpoint: 'Admin API (/admin/*)', limit: 200, window: '1 min', current: 15 },
-                { endpoint: 'File Upload (/upload/*)', limit: 20, window: '1 min', current: 2 },
-                { endpoint: 'Webhooks (/webhooks/*)', limit: 500, window: '1 min', current: 89 },
-              ].map((rule) => (
+              {rateLimitsState.map((rule) => (
                 <div key={rule.endpoint} className="flex items-center gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900 dark:text-white text-sm">{rule.endpoint}</p>
@@ -437,22 +449,27 @@ export default function SystemManagementPage() {
                     <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
                         className={cn('h-full rounded-full', rule.current / rule.limit > 0.8 ? 'bg-red-500' : rule.current / rule.limit > 0.5 ? 'bg-yellow-500' : 'bg-green-500')}
-                        style={{ width: `${(rule.current / rule.limit) * 100}%` }}
+                        style={{ width: `${Math.min(100, (rule.current / rule.limit) * 100)}%` }}
                       />
                     </div>
                   </div>
                   <input
                     type="number"
-                    defaultValue={rule.limit}
+                    value={rule.limit}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value) || 1);
+                      setRateLimitsState(prev => prev.map(r => r.endpoint === rule.endpoint ? { ...r, limit: val } : r));
+                    }}
                     className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
                   />
                 </div>
               ))}
               <button
-                onClick={() => toast.success('Rate limits updated')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                disabled={isSavingRateLimits}
+                onClick={() => updateRateLimits(rateLimitsState)}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
               >
-                Save Configuration
+                {isSavingRateLimits ? 'Saving to Database...' : 'Save Configuration'}
               </button>
             </div>
           </motion.div>

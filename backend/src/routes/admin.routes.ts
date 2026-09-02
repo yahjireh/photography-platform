@@ -98,6 +98,10 @@ import {
   getMobileStats,
   getMobileCrashes,
 
+  // Rate Limits
+  getRateLimits,
+  updateRateLimits,
+
   // Report Schedules
   getReportSchedules,
   createReportSchedule,
@@ -448,6 +452,13 @@ router.get('/system/crons', getCronJobs);
  * Toggle maintenance mode
  */
 router.post('/system/maintenance', toggleMaintenanceMode);
+
+/**
+ * GET & PUT & PATCH /api/admin/system/ratelimits
+ */
+router.get('/system/ratelimits', getRateLimits);
+router.put('/system/ratelimits', updateRateLimits);
+router.patch('/system/ratelimits', updateRateLimits);
 
 // ============================================
 // MOBILE APPS ROUTES
