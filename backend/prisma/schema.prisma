@@ -612,3 +612,9 @@ enum RequestInfoItem {
   PAYMENT_DETAILS_INCOMPLETE
   OTHER
 }
+
+model system_settings {
+  key        String   @id @db.VarChar(255)
+  value      Json
+  updated_at DateTime @default(now()) @updatedAt
+}

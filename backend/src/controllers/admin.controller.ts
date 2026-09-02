@@ -1672,11 +1672,15 @@ export const getAnalyticsOverview = async (req: Request, res: Response) => {
  * Get platform settings
  */
 // System settings in-memory store
-let platformSettings = {
+// ============================================
+// SETTINGS (PERSISTED IN POSTGRESQL)
+// ============================================
+
+export const defaultPlatformSettings = {
   general: {
-    siteName: "PhotoBook Ghana",
-    siteUrl: "https://photobook.gh",
-    supportEmail: "support@photobook.gh",
+    siteName: "ClickFlicks",
+    siteUrl: "https://clickflicks.gh",
+    supportEmail: "support@clickflicks.gh",
     supportPhone: "+233 50 123 4567",
     currency: "GHS",
     timezone: "Africa/Accra",
@@ -1698,26 +1702,22 @@ let platformSettings = {
     },
   },
   payment: {
-    paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "pk_test_xxxxxxxxxxxxx",
-    paystackSecretKey: process.env.PAYSTACK_SECRET_KEY || "sk_test_xxxxxxxxxxxxx",
+    paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "pk_test_28b6530177a30570a89ce19287697208bdb8b66a",
+    paystackSecretKey: "", // Masked for security
     minimumWithdrawal: 100,
-    processingTime: 24,
-    withdrawalProcessingDays: 1,
+    processingTime: 1,
   },
   notifications: {
     emailEnabled: true,
     smsEnabled: true,
     pushEnabled: true,
-    emailNotifications: true,
-    smsNotifications: true,
-    pushNotifications: true,
     bookingAlerts: true,
     paymentAlerts: true,
     disputeAlerts: true,
   },
   security: {
     requireEmailVerification: true,
-    requirePhoneVerification: true,
+    requirePhoneVerification: false,
     twoFactorEnabled: false,
     twoFactorAuth: false,
     sessionTimeout: 1440,
@@ -1727,95 +1727,172 @@ let platformSettings = {
     maxImagesPerBooking: 100,
     allowedFileTypes: [".jpg", ".jpeg", ".png", ".raw", ".cr2", ".nef", ".zip"],
   },
-  siteName: "PhotoBook Ghana",
-  siteUrl: "https://photobook.gh",
-  supportEmail: "support@photobook.gh",
-  supportPhone: "+233 50 123 4567",
-  currency: "GHS",
-  timezone: "Africa/Accra",
-  maintenanceMode: false,
-  freeCommissionRate: 15,
-  proCommissionRate: 10,
-  enterpriseCommissionRate: 5,
-  proMonthlyPrice: 50,
-  proYearlyPrice: 500,
-  enterpriseMonthlyPrice: 200,
-  enterpriseYearlyPrice: 2000,
-  paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || "pk_test_xxxxxxxxxxxxx",
-  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY || "sk_test_xxxxxxxxxxxxx",
-  minimumWithdrawal: 100,
-  withdrawalProcessingDays: 1,
-  emailNotifications: true,
-  smsNotifications: true,
-  pushNotifications: true,
-  bookingAlerts: true,
-  paymentAlerts: true,
-  disputeAlerts: true,
-  requireEmailVerification: true,
-  requirePhoneVerification: true,
-  twoFactorAuth: false,
-  sessionTimeout: 1440,
-  maxFileSize: 50,
-  allowedFileTypes: [".jpg", ".jpeg", ".png", ".raw", ".cr2", ".nef", ".zip"],
-  maxImagesPerBooking: 100,
+  ipWhitelist: [] as string[],
 };
 
 /**
  * GET /api/admin/settings
+ * Fetch platform system settings from database
  */
 export const getSettings = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: platformSettings
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'platform_settings' }
+    });
+
+    if (!row || !row.value || typeof row.value !== 'object') {
+      return res.json({
+        success: true,
+        data: defaultPlatformSettings
+      });
+    }
+
+    const dbVal = row.value as any;
+    const resolved = {
+      ...defaultPlatformSettings,
+      ...dbVal,
+      general: { ...defaultPlatformSettings.general, ...(dbVal.general || {}) },
+      commissionRates: { ...defaultPlatformSettings.commissionRates, ...(dbVal.commissionRates || {}) },
+      subscription: {
+        ...defaultPlatformSettings.subscription,
+        ...(dbVal.subscription || {}),
+        PRO: { ...defaultPlatformSettings.subscription.PRO, ...(dbVal.subscription?.PRO || {}) },
+        ENTERPRISE: { ...defaultPlatformSettings.subscription.ENTERPRISE, ...(dbVal.subscription?.ENTERPRISE || {}) }
+      },
+      payment: { ...defaultPlatformSettings.payment, ...(dbVal.payment || {}) },
+      notifications: { ...defaultPlatformSettings.notifications, ...(dbVal.notifications || {}) },
+      security: { ...defaultPlatformSettings.security, ...(dbVal.security || {}) },
+      policies: { ...defaultPlatformSettings.policies, ...(dbVal.policies || {}) },
+      ipWhitelist: Array.isArray(dbVal.ipWhitelist) ? dbVal.ipWhitelist : defaultPlatformSettings.ipWhitelist
+    };
+
+    return res.json({
+      success: true,
+      data: resolved
+    });
+  } catch (error: any) {
+    console.error('Error getting settings:', error);
+    return res.json({
+      success: true,
+      data: defaultPlatformSettings
+    });
+  }
 };
 
 export const getAdminSettings = getSettings;
 
 /**
  * PATCH /api/admin/settings
+ * Update and persist platform settings to database
  */
 export const updateSettings = async (req: Request, res: Response) => {
-  const updates = req.body;
-  if (updates && typeof updates === 'object') {
-    platformSettings = {
-      ...platformSettings,
+  try {
+    const updates = req.body;
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ success: false, message: 'Invalid payload' });
+    }
+
+    // Fetch existing settings
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'platform_settings' }
+    });
+
+    const existing: any = (row?.value as any) || defaultPlatformSettings;
+
+    const mergedSettings = {
+      ...defaultPlatformSettings,
+      ...existing,
       ...updates,
       general: {
-        ...platformSettings.general,
+        ...defaultPlatformSettings.general,
+        ...(existing.general || {}),
         ...(updates.general || {}),
-        siteName: updates.siteName || updates.general?.siteName || platformSettings.general.siteName,
-        supportEmail: updates.supportEmail || updates.general?.supportEmail || platformSettings.general.supportEmail,
-        currency: updates.currency || updates.general?.currency || platformSettings.general.currency,
+        ...(updates.siteName ? { siteName: updates.siteName } : {}),
+        ...(updates.siteUrl ? { siteUrl: updates.siteUrl } : {}),
+        ...(updates.supportEmail ? { supportEmail: updates.supportEmail } : {}),
+        ...(updates.supportPhone ? { supportPhone: updates.supportPhone } : {}),
+        ...(updates.currency ? { currency: updates.currency } : {}),
+        ...(updates.timezone ? { timezone: updates.timezone } : {}),
+        ...(updates.maintenanceMode !== undefined ? { maintenanceMode: updates.maintenanceMode } : {}),
       },
       commissionRates: {
-        ...platformSettings.commissionRates,
+        ...defaultPlatformSettings.commissionRates,
+        ...(existing.commissionRates || {}),
         ...(updates.commissionRates || {}),
-        FREE: updates.freeCommissionRate ?? updates.commissionRates?.FREE ?? platformSettings.commissionRates.FREE,
-        PRO: updates.proCommissionRate ?? updates.commissionRates?.PRO ?? platformSettings.commissionRates.PRO,
-        ENTERPRISE: updates.enterpriseCommissionRate ?? updates.commissionRates?.ENTERPRISE ?? platformSettings.commissionRates.ENTERPRISE,
+        ...(updates.freeCommissionRate !== undefined ? { FREE: updates.freeCommissionRate } : {}),
+        ...(updates.proCommissionRate !== undefined ? { PRO: updates.proCommissionRate } : {}),
+        ...(updates.enterpriseCommissionRate !== undefined ? { ENTERPRISE: updates.enterpriseCommissionRate } : {}),
+      },
+      subscription: {
+        ...defaultPlatformSettings.subscription,
+        ...(existing.subscription || {}),
+        ...(updates.subscription || {}),
+        PRO: {
+          ...defaultPlatformSettings.subscription.PRO,
+          ...(existing.subscription?.PRO || {}),
+          ...(updates.subscription?.PRO || {}),
+        },
+        ENTERPRISE: {
+          ...defaultPlatformSettings.subscription.ENTERPRISE,
+          ...(existing.subscription?.ENTERPRISE || {}),
+          ...(updates.subscription?.ENTERPRISE || {}),
+        }
       },
       payment: {
-        ...platformSettings.payment,
+        ...defaultPlatformSettings.payment,
+        ...(existing.payment || {}),
         ...(updates.payment || {}),
-        minimumWithdrawal: updates.minimumWithdrawal ?? updates.payment?.minimumWithdrawal ?? platformSettings.payment.minimumWithdrawal,
+        ...(updates.minimumWithdrawal !== undefined ? { minimumWithdrawal: updates.minimumWithdrawal } : {}),
+        ...(updates.processingTime !== undefined ? { processingTime: updates.processingTime } : {}),
+        ...(updates.paystackPublicKey ? { paystackPublicKey: updates.paystackPublicKey } : {}),
       },
       notifications: {
-        ...platformSettings.notifications,
+        ...defaultPlatformSettings.notifications,
+        ...(existing.notifications || {}),
         ...(updates.notifications || {}),
+        ...(updates.emailNotifications !== undefined ? { emailEnabled: updates.emailNotifications } : {}),
+        ...(updates.smsNotifications !== undefined ? { smsEnabled: updates.smsNotifications } : {}),
+        ...(updates.pushNotifications !== undefined ? { pushEnabled: updates.pushNotifications } : {}),
+        ...(updates.bookingAlerts !== undefined ? { bookingAlerts: updates.bookingAlerts } : {}),
+        ...(updates.paymentAlerts !== undefined ? { paymentAlerts: updates.paymentAlerts } : {}),
+        ...(updates.disputeAlerts !== undefined ? { disputeAlerts: updates.disputeAlerts } : {}),
       },
       security: {
-        ...platformSettings.security,
+        ...defaultPlatformSettings.security,
+        ...(existing.security || {}),
         ...(updates.security || {}),
-      }
+        ...(updates.requireEmailVerification !== undefined ? { requireEmailVerification: updates.requireEmailVerification } : {}),
+        ...(updates.requirePhoneVerification !== undefined ? { requirePhoneVerification: updates.requirePhoneVerification } : {}),
+        ...(updates.twoFactorAuth !== undefined ? { twoFactorEnabled: updates.twoFactorAuth } : {}),
+        ...(updates.sessionTimeout !== undefined ? { sessionTimeout: updates.sessionTimeout } : {}),
+      },
+      policies: {
+        ...defaultPlatformSettings.policies,
+        ...(existing.policies || {}),
+        ...(updates.policies || {}),
+        ...(updates.maxFileSize !== undefined ? { maxFileSize: updates.maxFileSize } : {}),
+        ...(updates.maxImagesPerBooking !== undefined ? { maxImagesPerBooking: updates.maxImagesPerBooking } : {}),
+        ...(Array.isArray(updates.allowedFileTypes) ? { allowedFileTypes: updates.allowedFileTypes } : {}),
+      },
+      ipWhitelist: Array.isArray(updates.ipWhitelist) ? updates.ipWhitelist : (existing.ipWhitelist || [])
     };
-  }
 
-  return res.json({
-    success: true,
-    message: "Settings updated successfully",
-    data: platformSettings
-  });
+    // Save to PostgreSQL!
+    await prisma.system_settings.upsert({
+      where: { key: 'platform_settings' },
+      update: { value: mergedSettings },
+      create: { key: 'platform_settings', value: mergedSettings }
+    });
+
+    return res.json({
+      success: true,
+      message: "Settings updated and saved successfully",
+      data: mergedSettings
+    });
+  } catch (error: any) {
+    console.error('Error saving settings to database:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update settings', error: error.message });
+  }
 };
 
 export const updateAdminSettings = updateSettings;
@@ -4158,26 +4235,48 @@ export const getSystemHealth = async (_req: Request, res: Response) => {
  * GET /api/admin/system/flags
  */
 export const getFeatureFlags = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: systemFlags
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'system_flags' }
+    });
+    const flags = row && Array.isArray(row.value) ? row.value : systemFlags;
+    return res.json({
+      success: true,
+      data: flags
+    });
+  } catch (err: any) {
+    return res.json({ success: true, data: systemFlags });
+  }
 };
 
 /**
  * PATCH /api/admin/system/flags/:id
  */
 export const updateFeatureFlag = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { enabled } = req.body;
+  try {
+    const { id } = req.params;
+    const { enabled } = req.body;
 
-  systemFlags = systemFlags.map(f => f.id === id ? { ...f, enabled: !!enabled } : f);
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'system_flags' }
+    });
+    const currentList: any[] = row && Array.isArray(row.value) ? (row.value as any[]) : systemFlags;
+    const updated = currentList.map(f => f.id === id ? { ...f, enabled: !!enabled } : f);
 
-  return res.json({
-    success: true,
-    message: 'Feature flag updated successfully',
-    data: systemFlags.find(f => f.id === id)
-  });
+    await prisma.system_settings.upsert({
+      where: { key: 'system_flags' },
+      update: { value: updated },
+      create: { key: 'system_flags', value: updated }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Feature flag updated and saved successfully',
+      data: updated.find(f => f.id === id)
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to update feature flag' });
+  }
 };
 
 /**
@@ -4201,12 +4300,36 @@ export const getCronJobs = async (_req: Request, res: Response) => {
  * POST /api/admin/system/maintenance
  */
 export const toggleMaintenanceMode = async (req: Request, res: Response) => {
-  const { maintenanceMode } = req.body;
-  return res.json({
-    success: true,
-    message: `Maintenance mode ${maintenanceMode ? 'enabled' : 'disabled'}`,
-    maintenanceMode: !!maintenanceMode
-  });
+  try {
+    const { maintenanceMode } = req.body;
+
+    // Update platform_settings
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'platform_settings' }
+    });
+    const existing = (row?.value as any) || defaultPlatformSettings;
+    const updated = {
+      ...existing,
+      general: {
+        ...(existing.general || {}),
+        maintenanceMode: !!maintenanceMode
+      }
+    };
+
+    await prisma.system_settings.upsert({
+      where: { key: 'platform_settings' },
+      update: { value: updated },
+      create: { key: 'platform_settings', value: updated }
+    });
+
+    return res.json({
+      success: true,
+      message: `Maintenance mode ${maintenanceMode ? 'enabled' : 'disabled'} and saved`,
+      maintenanceMode: !!maintenanceMode
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to toggle maintenance mode' });
+  }
 };
 
 // ============================================

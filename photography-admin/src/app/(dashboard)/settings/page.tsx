@@ -75,12 +75,13 @@ interface SystemSettings {
   maxFileSize: number;
   allowedFileTypes: string[];
   maxImagesPerBooking: number;
+  ipWhitelist: string[];
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  siteName: "PhotoBook Ghana",
-  siteUrl: "https://photobook.gh",
-  supportEmail: "support@photobook.gh",
+  siteName: "ClickFlicks",
+  siteUrl: "https://clickflicks.gh",
+  supportEmail: "support@clickflicks.gh",
   supportPhone: "+233 50 123 4567",
   currency: "GHS",
   timezone: "Africa/Accra",
@@ -95,13 +96,13 @@ const DEFAULT_SETTINGS: SystemSettings = {
   enterpriseMonthlyPrice: 200,
   enterpriseYearlyPrice: 2000,
 
-  paystackPublicKey: "pk_test_xxxxxxxxxxxxx",
-  paystackSecretKey: "sk_test_xxxxxxxxxxxxx",
+  paystackPublicKey: "pk_test_28b6530177a30570a89ce19287697208bdb8b66a",
+  paystackSecretKey: "",
   minimumWithdrawal: 100,
-  withdrawalProcessingDays: 3,
+  withdrawalProcessingDays: 1,
 
   emailNotifications: true,
-  smsNotifications: false,
+  smsNotifications: true,
   pushNotifications: true,
   bookingAlerts: true,
   paymentAlerts: true,
@@ -110,11 +111,12 @@ const DEFAULT_SETTINGS: SystemSettings = {
   requireEmailVerification: true,
   requirePhoneVerification: false,
   twoFactorAuth: false,
-  sessionTimeout: 30,
+  sessionTimeout: 1440,
 
-  maxFileSize: 10,
-  allowedFileTypes: ["jpg", "jpeg", "png", "pdf"],
-  maxImagesPerBooking: 500,
+  maxFileSize: 50,
+  allowedFileTypes: ["jpg", "jpeg", "png", "pdf", "raw"],
+  maxImagesPerBooking: 100,
+  ipWhitelist: [],
 };
 
 const CURRENCY_OPTIONS = [
@@ -143,43 +145,44 @@ export default function SettingsPage() {
   useEffect(() => {
     if (apiSettings) {
       setSettings({
-        siteName: apiSettings.general.siteName,
-        siteUrl: apiSettings.general.siteUrl,
-        supportEmail: apiSettings.general.supportEmail,
-        supportPhone: "", // Not in API
-        currency: apiSettings.general.currency,
-        timezone: apiSettings.general.timezone,
-        maintenanceMode: apiSettings.general.maintenanceMode,
+        siteName: apiSettings.general?.siteName || DEFAULT_SETTINGS.siteName,
+        siteUrl: apiSettings.general?.siteUrl || DEFAULT_SETTINGS.siteUrl,
+        supportEmail: apiSettings.general?.supportEmail || DEFAULT_SETTINGS.supportEmail,
+        supportPhone: apiSettings.general?.supportPhone || DEFAULT_SETTINGS.supportPhone,
+        currency: apiSettings.general?.currency || DEFAULT_SETTINGS.currency,
+        timezone: apiSettings.general?.timezone || DEFAULT_SETTINGS.timezone,
+        maintenanceMode: apiSettings.general?.maintenanceMode ?? DEFAULT_SETTINGS.maintenanceMode,
 
-        freeCommissionRate: apiSettings.commissionRates.FREE,
-        proCommissionRate: apiSettings.commissionRates.PRO,
-        enterpriseCommissionRate: apiSettings.commissionRates.ENTERPRISE,
+        freeCommissionRate: apiSettings.commissionRates?.FREE ?? DEFAULT_SETTINGS.freeCommissionRate,
+        proCommissionRate: apiSettings.commissionRates?.PRO ?? DEFAULT_SETTINGS.proCommissionRate,
+        enterpriseCommissionRate: apiSettings.commissionRates?.ENTERPRISE ?? DEFAULT_SETTINGS.enterpriseCommissionRate,
 
-        proMonthlyPrice: apiSettings.subscription.PRO.monthly,
-        proYearlyPrice: apiSettings.subscription.PRO.yearly,
-        enterpriseMonthlyPrice: apiSettings.subscription.ENTERPRISE.monthly,
-        enterpriseYearlyPrice: apiSettings.subscription.ENTERPRISE.yearly,
+        proMonthlyPrice: apiSettings.subscription?.PRO?.monthly ?? DEFAULT_SETTINGS.proMonthlyPrice,
+        proYearlyPrice: apiSettings.subscription?.PRO?.yearly ?? DEFAULT_SETTINGS.proYearlyPrice,
+        enterpriseMonthlyPrice: apiSettings.subscription?.ENTERPRISE?.monthly ?? DEFAULT_SETTINGS.enterpriseMonthlyPrice,
+        enterpriseYearlyPrice: apiSettings.subscription?.ENTERPRISE?.yearly ?? DEFAULT_SETTINGS.enterpriseYearlyPrice,
 
-        paystackPublicKey: apiSettings.payment.paystackPublicKey || "",
-        paystackSecretKey: "", // Not returned from API for security
-        minimumWithdrawal: apiSettings.payment.minimumWithdrawal,
-        withdrawalProcessingDays: apiSettings.payment.processingTime,
+        paystackPublicKey: apiSettings.payment?.paystackPublicKey || DEFAULT_SETTINGS.paystackPublicKey,
+        paystackSecretKey: apiSettings.payment?.paystackSecretKey || "",
+        minimumWithdrawal: apiSettings.payment?.minimumWithdrawal ?? DEFAULT_SETTINGS.minimumWithdrawal,
+        withdrawalProcessingDays: apiSettings.payment?.processingTime ?? DEFAULT_SETTINGS.withdrawalProcessingDays,
 
-        emailNotifications: apiSettings.notifications.emailEnabled,
-        smsNotifications: apiSettings.notifications.smsEnabled,
-        pushNotifications: apiSettings.notifications.pushEnabled,
-        bookingAlerts: true, // Not in API
-        paymentAlerts: true, // Not in API
-        disputeAlerts: true, // Not in API
+        emailNotifications: apiSettings.notifications?.emailEnabled ?? DEFAULT_SETTINGS.emailNotifications,
+        smsNotifications: apiSettings.notifications?.smsEnabled ?? DEFAULT_SETTINGS.smsNotifications,
+        pushNotifications: apiSettings.notifications?.pushEnabled ?? DEFAULT_SETTINGS.pushNotifications,
+        bookingAlerts: apiSettings.notifications?.bookingAlerts ?? DEFAULT_SETTINGS.bookingAlerts,
+        paymentAlerts: apiSettings.notifications?.paymentAlerts ?? DEFAULT_SETTINGS.paymentAlerts,
+        disputeAlerts: apiSettings.notifications?.disputeAlerts ?? DEFAULT_SETTINGS.disputeAlerts,
 
-        requireEmailVerification: apiSettings.security.requireEmailVerification,
-        requirePhoneVerification: apiSettings.security.requirePhoneVerification,
-        twoFactorAuth: apiSettings.security.twoFactorEnabled,
-        sessionTimeout: apiSettings.security.sessionTimeout,
+        requireEmailVerification: apiSettings.security?.requireEmailVerification ?? DEFAULT_SETTINGS.requireEmailVerification,
+        requirePhoneVerification: apiSettings.security?.requirePhoneVerification ?? DEFAULT_SETTINGS.requirePhoneVerification,
+        twoFactorAuth: apiSettings.security?.twoFactorEnabled ?? DEFAULT_SETTINGS.twoFactorAuth,
+        sessionTimeout: apiSettings.security?.sessionTimeout ?? DEFAULT_SETTINGS.sessionTimeout,
 
-        maxFileSize: apiSettings.policies.maxFileSize,
-        allowedFileTypes: apiSettings.policies.allowedFileTypes,
-        maxImagesPerBooking: apiSettings.policies.maxImagesPerBooking,
+        maxFileSize: apiSettings.policies?.maxFileSize ?? DEFAULT_SETTINGS.maxFileSize,
+        allowedFileTypes: apiSettings.policies?.allowedFileTypes || DEFAULT_SETTINGS.allowedFileTypes,
+        maxImagesPerBooking: apiSettings.policies?.maxImagesPerBooking ?? DEFAULT_SETTINGS.maxImagesPerBooking,
+        ipWhitelist: apiSettings.ipWhitelist || [],
       });
     }
   }, [apiSettings]);
@@ -191,6 +194,7 @@ export default function SettingsPage() {
         siteName: settings.siteName,
         siteUrl: settings.siteUrl,
         supportEmail: settings.supportEmail,
+        supportPhone: settings.supportPhone,
         currency: settings.currency,
         timezone: settings.timezone,
         maintenanceMode: settings.maintenanceMode,
@@ -212,6 +216,7 @@ export default function SettingsPage() {
       },
       payment: {
         paystackPublicKey: settings.paystackPublicKey,
+        paystackSecretKey: settings.paystackSecretKey,
         minimumWithdrawal: settings.minimumWithdrawal,
         processingTime: settings.withdrawalProcessingDays,
       },
@@ -219,6 +224,9 @@ export default function SettingsPage() {
         emailEnabled: settings.emailNotifications,
         smsEnabled: settings.smsNotifications,
         pushEnabled: settings.pushNotifications,
+        bookingAlerts: settings.bookingAlerts,
+        paymentAlerts: settings.paymentAlerts,
+        disputeAlerts: settings.disputeAlerts,
       },
       security: {
         requireEmailVerification: settings.requireEmailVerification,
@@ -231,6 +239,7 @@ export default function SettingsPage() {
         maxImagesPerBooking: settings.maxImagesPerBooking,
         allowedFileTypes: settings.allowedFileTypes,
       },
+      ipWhitelist: settings.ipWhitelist || [],
     });
   };
 
@@ -1047,6 +1056,93 @@ export default function SettingsPage() {
                         }}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* IP Whitelist Section */}
+              {activeSection === "ipwhitelist" && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Admin IP Access Whitelist</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Restrict administrator panel access to specific IP addresses or subnets. If empty, access is permitted from any network with valid administrator credentials.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                      <strong>Caution:</strong> Adding an IP address here will restrict admin login strictly to the listed addresses. Make sure your current IP address is included before saving.
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Whitelisted IP Addresses ({settings.ipWhitelist?.length || 0})
+                    </label>
+
+                    {settings.ipWhitelist && settings.ipWhitelist.length > 0 ? (
+                      <div className="space-y-2">
+                        {settings.ipWhitelist.map((ip, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/60 rounded-lg border border-gray-200 dark:border-gray-600"
+                          >
+                            <span className="font-mono text-sm text-gray-900 dark:text-gray-100">{ip}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextList = settings.ipWhitelist.filter((_, i) => i !== index);
+                                updateSetting("ipWhitelist", nextList);
+                              }}
+                              className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+                        No IP restrictions active. Admin panel is accessible from any IP with valid credentials.
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2">
+                      <input
+                        type="text"
+                        id="new-ip-input"
+                        placeholder="e.g. 197.251.134.12 or 10.0.0.1/24"
+                        className="flex-1 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const val = (e.target as HTMLInputElement).value.trim();
+                            if (val && !settings.ipWhitelist?.includes(val)) {
+                              updateSetting("ipWhitelist", [...(settings.ipWhitelist || []), val]);
+                              (e.target as HTMLInputElement).value = "";
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById("new-ip-input") as HTMLInputElement;
+                          if (input && input.value.trim()) {
+                            const val = input.value.trim();
+                            if (!settings.ipWhitelist?.includes(val)) {
+                              updateSetting("ipWhitelist", [...(settings.ipWhitelist || []), val]);
+                              input.value = "";
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 text-sm font-semibold bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg"
+                      >
+                        Add IP
+                      </button>
                     </div>
                   </div>
                 </motion.div>

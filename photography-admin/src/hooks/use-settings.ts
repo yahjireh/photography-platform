@@ -13,6 +13,7 @@ export interface Settings {
     siteName: string;
     siteUrl: string;
     supportEmail: string;
+    supportPhone?: string;
     currency: string;
     timezone: string;
     maintenanceMode: boolean;
@@ -34,6 +35,7 @@ export interface Settings {
   };
   payment: {
     paystackPublicKey?: string;
+    paystackSecretKey?: string;
     minimumWithdrawal: number;
     processingTime: number;
   };
@@ -41,6 +43,9 @@ export interface Settings {
     emailEnabled: boolean;
     smsEnabled: boolean;
     pushEnabled: boolean;
+    bookingAlerts?: boolean;
+    paymentAlerts?: boolean;
+    disputeAlerts?: boolean;
   };
   security: {
     requireEmailVerification: boolean;
@@ -53,6 +58,7 @@ export interface Settings {
     maxImagesPerBooking: number;
     allowedFileTypes: string[];
   };
+  ipWhitelist?: string[];
 }
 
 export function useSettings() {
@@ -62,7 +68,8 @@ export function useSettings() {
       const response = await api.get<Settings>('/admin/settings');
       return extractData(response) as Settings;
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 0, // Always load fresh from database
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -76,9 +83,9 @@ export function useUpdateSettings(
       const response = await api.patch<Settings>('/admin/settings', updates);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      toast.success('Settings updated successfully');
+      toast.success(data?.message || 'Settings saved and persisted successfully');
     },
     onError: (error) => {
       toast.error(handleApiError(error));
