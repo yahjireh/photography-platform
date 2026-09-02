@@ -1947,10 +1947,29 @@ apps/
 - **Direct Navigation:** Eliminated demo role-picker launcher to ensure each app boots natively into its user experience.
 - **Backend REST API Integration:** Added Axios API clients (`lib/api-client.ts`), `AuthContext` providers, and custom hooks (`useAuth`, `usePhotographers`, `useBookings`, `useReviews`, `usePhotographerProfile`, `usePhotographerBookings`, `useMessages`) to connect both mobile frontends to the live backend REST API with automatic JWT token management and fallback support.
 - **Backend CORS Updates:** Updated Express CORS middleware in `backend/src/server.ts` to allow requests from client app (`http://localhost:3002`), photographer studio app (`http://localhost:3003`), and mobile webviews (`capacitor://localhost`, `http://localhost`).
+- **Firebase Native Credentials:** Synchronized real `google-services.json` and `GoogleService-Info.plist` across both mobile apps and built debug APKs (`apks/clickflicks-client.apk`, `apks/clickflicks-photographer.apk`).
+- **Supabase Database Hardening:** Enabled Row Level Security (RLS) across all 17 public tables, revoked direct `anon`/`authenticated` REST and GraphQL access, added explicit `service_role` policies, and created foreign key indexes across all relational tables.
+- **Admin Notification Pipeline:** Replaced mock notifications with live PostgreSQL multi-table aggregations (disputes, KYC, users, bookings, payments, reviews), dynamic origin badges, persistent read tracking, and instant WebSocket invalidation.
+- **Identity & Verification Layer:** Implemented DNS MX domain lookups, disposable email blacklisting, Ghanaian/international phone normalization, and 6-digit email/SMS OTP verification with an auto-advancing modal and strict 3-attempt code burning.
+- **Two-Factor Authentication (2FA):** Implemented RFC 6238 TOTP with scannable QR code generation for Google Authenticator / Authy and 8 backup emergency recovery codes.
+- **Hardened Rate Limiting:** Implemented tiered rate limiting (5 req/15min for Auth, 3 req/15min for OTP dispatch, 5 req/15min for OTP verification, 500 req/15min general API, 120 req/min for Paystack webhooks) with progressive exponential backoff (15 min -> 1 hr -> 24 hr) and anti-rotating-proxy account lockout guards.
 
-### **Remaining Mobile App Work**
-1. Connect Firebase project credentials (`google-services.json` for Android, `GoogleService-Info.plist` for iOS) for live FCM push delivery
-2. Test end-to-end booking transactions on physical iOS and Android devices
+---
+
+### **Production Launch Checklist**
+1. **CORS Domain Whitelist Hardening:** Once custom production web domains are finalized (e.g. `https://clickflicks.com`, `https://admin.clickflicks.com`), restrict the Express CORS origin whitelist in `backend/src/server.ts` to strictly allow only your production domains and mobile app schemes (`capacitor://localhost`, `ionic://localhost`).
+2. **Google Play Release Keystore:** When preparing to publish to the Google Play Store Console, generate an Android release signing keystore (`.jks`) to produce release AABs/APKs, replacing the debug keystore used for physical testing.
+3. **Paystack Production Mode:** Switch `PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY` in the Render environment settings from test keys (`sk_test_...`, `pk_test_...`) to live merchant credentials.
+4. **Physical Device End-to-End Testing:** Verify real-world push delivery, camera permissions, and Paystack mobile checkout flows on physical iOS and Android test devices.
+
+---
+
+### **Future Considerations (When Platform Grows)**
+1. **Distributed Redis Rate Limiting:**
+   - *Trigger*: When platform traffic increases and Render is scaled horizontally to **2 or more backend instances** behind a load balancer.
+   - *Implementation*: Connect a managed Redis instance (e.g., Upstash Redis or Render Redis) using `rate-limit-redis`. This centralizes rate-limiting counters across all cluster instances so distributed clients face identical limits and counters persist across server restarts.
+2. **Cloudflare WAF / CDN Integration:**
+   - The backend rate limiter already contains pre-built support for `CF-Connecting-IP`. When routing web traffic through Cloudflare, edge caching and DDoS challenge rules can be enabled with zero code changes.
 
 ---
 
