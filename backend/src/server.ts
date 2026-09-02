@@ -23,6 +23,7 @@ import reviewRoutes from './routes/review.routes';
 import messageRoutes from './routes/message.routes';
 import adminRoutes from './routes/admin.routes';
 import packageRoutes from './routes/package.routes';
+import { generalApiLimiter } from './middleware/rate-limiter.middleware';
 
 /**
  * TEACHING MOMENT: Load environment variables
@@ -45,6 +46,9 @@ dotenv.config();
 
 // Create Express application
 const app = express();
+
+// Trust first proxy (Render, Vercel, Cloudflare) for accurate client IP resolution
+app.set('trust proxy', 1);
 
 /**
  * Get port from environment variables, default to 3000
@@ -285,9 +289,14 @@ app.get('/health', (_req: Request, res: Response) => {
  */
 
 /** Mount payment routes
- * Paystack Webhook Endpoint
+ * Paystack Webhook Endpoint (exempt from API rate limiting)
  */
 app.post('/api/webhooks/paystack', paystackWebhook);
+
+/**
+ * Apply general API rate limiting to all /api endpoints
+ */
+app.use('/api', generalApiLimiter);
 
 /**
  * Mount authentication routes
