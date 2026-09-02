@@ -33,10 +33,11 @@ import { X } from "lucide-react";
 interface StatusBadgeProps {
   emailVerified: boolean;
   phoneVerified: boolean;
+  userType?: string;
 }
 
-function StatusBadge({ emailVerified, phoneVerified }: StatusBadgeProps) {
-  if (emailVerified && phoneVerified) {
+function StatusBadge({ emailVerified, phoneVerified, userType }: StatusBadgeProps) {
+  if (userType === 'ADMIN' || emailVerified || (emailVerified && phoneVerified)) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
         <CheckCircle className="w-3 h-3" />
@@ -45,10 +46,10 @@ function StatusBadge({ emailVerified, phoneVerified }: StatusBadgeProps) {
     );
   }
 
-  if (emailVerified) {
+  if (phoneVerified) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
-        Email Only
+        Phone Only
       </span>
     );
   }
@@ -210,7 +211,13 @@ export default function UsersPage() {
     {
       id: "status",
       header: "Status",
-      cell: (user) => <StatusBadge emailVerified={user.emailVerified} phoneVerified={user.phoneVerified} />,
+      cell: (user) => (
+        <StatusBadge
+          emailVerified={user.emailVerified}
+          phoneVerified={user.phoneVerified}
+          userType={user.userType}
+        />
+      ),
       width: "15%",
       sortable: false,
     },

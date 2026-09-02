@@ -102,6 +102,14 @@ import {
   getRateLimits,
   updateRateLimits,
 
+  // Live Queues, Backups & A/B Tests
+  getSystemQueues,
+  getSystemBackups,
+  createSystemBackup,
+  deleteSystemBackup,
+  getSystemAbTests,
+  toggleSystemAbTest,
+
   // Report Schedules
   getReportSchedules,
   createReportSchedule,
@@ -459,6 +467,25 @@ router.post('/system/maintenance', toggleMaintenanceMode);
 router.get('/system/ratelimits', getRateLimits);
 router.put('/system/ratelimits', updateRateLimits);
 router.patch('/system/ratelimits', updateRateLimits);
+
+/**
+ * Live Queues
+ */
+router.get('/system/queues', getSystemQueues);
+
+/**
+ * Persistent Backups
+ */
+router.get('/system/backups', getSystemBackups);
+router.post('/system/backups', createSystemBackup);
+router.delete('/system/backups/:id', deleteSystemBackup);
+
+/**
+ * A/B Tests
+ */
+router.get('/system/abtests', getSystemAbTests);
+router.patch('/system/abtests/:id/toggle', toggleSystemAbTest);
+router.post('/system/abtests/:id/toggle', toggleSystemAbTest);
 
 // ============================================
 // MOBILE APPS ROUTES

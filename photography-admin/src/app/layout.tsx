@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "@/lib/providers";
 
 export const metadata: Metadata = {
-  title: "Photography Admin Dashboard",
-  description: "Built By Photography Platform",
+  title: "ClickFlicks Admin Dashboard",
+  description: "ClickFlicks Photography Platform Enterprise Administration",
 };
 
 export default function RootLayout({

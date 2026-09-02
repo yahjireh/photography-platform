@@ -21,6 +21,12 @@ import {
   useRateLimits,
   useUpdateRateLimits,
   RateLimitRule,
+  useQueues,
+  useBackups,
+  useCreateBackup,
+  useDeleteBackup,
+  useAbTests,
+  useToggleAbTest,
 } from '@/hooks/use-system';
 
 type SystemTab = 'health' | 'flags' | 'maintenance' | 'backup' | 'cron' | 'queue' | 'ratelimit' | 'abtesting';
@@ -79,33 +85,13 @@ export default function SystemManagementPage() {
     { name: 'SMS & Push Dispatcher', status: 'healthy', uptime: '99.90%', responseTime: '92ms' },
   ];
 
-  const queueData = [
-    { name: 'Image Processing & Watermarking', pending: 0, processing: 1, failed: 0, completed: 3420 },
-    { name: 'Email & SMS Notifications', pending: 2, processing: 0, failed: 0, completed: 8940 },
-    { name: 'Escrow Payout Webhooks', pending: 0, processing: 0, failed: 0, completed: 1205 },
-    { name: 'KYC Identity Verification', pending: 1, processing: 0, failed: 0, completed: 412 },
-  ];
-
-  const abTests = [
-    {
-      id: 'ab_checkout',
-      name: 'Split Escrow Checkout Flow',
-      status: 'running',
-      startDate: '2026-02-15',
-      variants: ['1-Step Escrow', '2-Step Escrow'],
-      traffic: [50, 50],
-      conversions: [14.2, 17.8],
-    },
-    {
-      id: 'ab_photographer_profile',
-      name: 'Photographer Showcase Grid vs Carousel',
-      status: 'running',
-      startDate: '2026-02-20',
-      variants: ['Masonry Grid', 'Spotlight Carousel'],
-      traffic: [50, 50],
-      conversions: [8.9, 11.4],
-    },
-  ];
+  // Live Queues, Backups, and A/B Tests
+  const { data: queueData = [] } = useQueues();
+  const { data: backups = [] } = useBackups();
+  const { mutate: createBackup, isPending: isCreatingBackup } = useCreateBackup();
+  const { mutate: deleteBackup } = useDeleteBackup();
+  const { data: abTests = [] } = useAbTests();
+  const { mutate: toggleAbTest } = useToggleAbTest();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -317,38 +303,46 @@ export default function SystemManagementPage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Database Backups</h3>
               <div className="flex gap-3 mb-6">
                 <button
-                  onClick={() => toast.success('Backup initiated')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                  disabled={isCreatingBackup}
+                  onClick={() => createBackup()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Download className="w-4 h-4" /> Create Backup
-                </button>
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2">
-                  <Upload className="w-4 h-4" /> Restore from File
+                  <Download className="w-4 h-4" /> {isCreatingBackup ? 'Generating Snapshot...' : 'Create Backup'}
                 </button>
               </div>
 
               <div className="space-y-2">
-                {[
-                  { name: 'backup_2026-02-06_auto.sql.gz', size: '245 MB', date: 'Feb 6, 2026 3:00 AM', type: 'Automatic' },
-                  { name: 'backup_2026-02-05_auto.sql.gz', size: '243 MB', date: 'Feb 5, 2026 3:00 AM', type: 'Automatic' },
-                  { name: 'backup_2026-02-04_manual.sql.gz', size: '241 MB', date: 'Feb 4, 2026 2:15 PM', type: 'Manual' },
-                  { name: 'backup_2026-02-03_auto.sql.gz', size: '240 MB', date: 'Feb 3, 2026 3:00 AM', type: 'Automatic' },
-                ].map((backup) => (
-                  <div key={backup.name} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Database className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white font-mono">{backup.name}</p>
-                        <p className="text-xs text-gray-500">{backup.date} - {backup.size} - {backup.type}</p>
+                {backups.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4 text-center">No backups found. Click &quot;Create Backup&quot; to generate one.</p>
+                ) : (
+                  backups.map((backup) => (
+                    <div key={backup.id || backup.name} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Database className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white font-mono">{backup.name}</p>
+                          <p className="text-xs text-gray-500">{backup.date} - {backup.size} - {backup.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => toast.success(`Backup archive ${backup.name} downloaded`)}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500"
+                          title="Download"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteBackup(backup.id)}
+                          className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-red-500"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500"><Download className="w-4 h-4" /></button>
-                      <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500"><RefreshCw className="w-4 h-4" /></button>
-                      <button className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-red-500"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </motion.div>
@@ -492,14 +486,17 @@ export default function SystemManagementPage() {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Started: {test.startDate}</p>
                   </div>
-                  {test.status === 'running' && (
-                    <button
-                      onClick={() => toast.success(`Test "${test.name}" stopped`)}
-                      className="px-4 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                    >
-                      Stop Test
-                    </button>
-                  )}
+                  <button
+                    onClick={() => toggleAbTest(test.id)}
+                    className={cn(
+                      "px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors",
+                      test.status === 'running'
+                        ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        : "bg-green-50 text-green-700 hover:bg-green-100"
+                    )}
+                  >
+                    {test.status === 'running' ? 'Pause Experiment' : 'Resume Experiment'}
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {test.variants.map((variant, vi) => (

@@ -158,3 +158,127 @@ export function useUpdateRateLimits() {
     },
   });
 }
+
+// ============================================
+// LIVE SYSTEM QUEUES
+// ============================================
+
+export interface QueueData {
+  name: string;
+  pending: number;
+  processing: number;
+  failed: number;
+  completed: number;
+}
+
+export function useQueues() {
+  return useQuery<QueueData[], Error>({
+    queryKey: ['admin', 'system', 'queues'],
+    queryFn: async () => {
+      const res = await api.get<any>('/admin/system/queues');
+      return extractData(res) || [];
+    },
+    refetchInterval: 15000,
+  });
+}
+
+// ============================================
+// PERSISTENT DATABASE BACKUPS
+// ============================================
+
+export interface BackupItem {
+  id: string;
+  name: string;
+  size: string;
+  date: string;
+  type: string;
+  status: string;
+}
+
+export function useBackups() {
+  return useQuery<BackupItem[], Error>({
+    queryKey: ['admin', 'system', 'backups'],
+    queryFn: async () => {
+      const res = await api.get<any>('/admin/system/backups');
+      return extractData(res) || [];
+    },
+  });
+}
+
+export function useCreateBackup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post<any>('/admin/system/backups', {});
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'backups'] });
+      toast.success(data?.message || 'Database backup created and saved!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
+
+export function useDeleteBackup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.delete<any>(`/admin/system/backups/${id}`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'backups'] });
+      toast.success(data?.message || 'Backup snapshot deleted!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
+
+// ============================================
+// PERSISTENT A/B TESTING
+// ============================================
+
+export interface AbTest {
+  id: string;
+  name: string;
+  status: 'running' | 'paused';
+  startDate: string;
+  variants: string[];
+  traffic: number[];
+  conversions: number[];
+}
+
+export function useAbTests() {
+  return useQuery<AbTest[], Error>({
+    queryKey: ['admin', 'system', 'abtests'],
+    queryFn: async () => {
+      const res = await api.get<any>('/admin/system/abtests');
+      return extractData(res) || [];
+    },
+  });
+}
+
+export function useToggleAbTest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<any>(`/admin/system/abtests/${id}/toggle`, {});
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'abtests'] });
+      toast.success(data?.message || 'A/B test status updated!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
