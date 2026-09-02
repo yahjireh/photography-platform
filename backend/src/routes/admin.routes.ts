@@ -63,6 +63,7 @@ import {
   // Notifications
   getNotifications,
   markNotificationAsRead,
+  markAllNotificationsAsRead,
 
   // Profile
   getAdminProfile,
@@ -94,6 +95,7 @@ import {
   getMobileStats,
   getMobileCrashes
 } from '../controllers/admin.controller';
+import * as TwoFactorController from '../controllers/two-factor.controller';
 
 const router = express.Router();
 
@@ -468,6 +470,41 @@ router.get('/notifications', getNotifications);
  * Mark notification as read
  */
 router.patch('/notifications/:id/read', markNotificationAsRead);
+
+/**
+ * PATCH /api/admin/notifications/read-all
+ * Mark all notifications as read
+ */
+router.patch('/notifications/read-all', markAllNotificationsAsRead);
+
+// ============================================
+// TWO-FACTOR AUTHENTICATION (2FA)
+// ============================================
+
+/**
+ * GET /api/admin/2fa/status
+ */
+router.get('/2fa/status', TwoFactorController.getStatus);
+
+/**
+ * POST /api/admin/2fa/setup
+ */
+router.post('/2fa/setup', TwoFactorController.setup);
+
+/**
+ * POST /api/admin/2fa/verify
+ */
+router.post('/2fa/verify', TwoFactorController.verify);
+
+/**
+ * POST /api/admin/2fa/disable
+ */
+router.post('/2fa/disable', TwoFactorController.disable);
+
+/**
+ * POST /api/admin/2fa/backup-codes
+ */
+router.post('/2fa/backup-codes', TwoFactorController.regenerateBackupCodes);
 
 // ============================================
 // PROFILE ROUTES

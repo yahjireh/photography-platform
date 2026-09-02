@@ -6,6 +6,9 @@
 import { Request, Response } from 'express';
 import { registerUser, loginUser, oauthLoginUser, requestPasswordReset, executePasswordReset } from '../services/auth.service';
 import { RegisterUserDto, LoginUserDto } from '../types/user.types';
+import { validateEmail, validatePhoneNumber } from '../services/validation.service';
+import * as OtpService from '../services/otp.service';
+import * as TwoFactorService from '../services/two-factor.service';
 
 /**
  * Handle user registration
@@ -23,14 +26,28 @@ export async function register(req: Request, res: Response): Promise<void> {
       });
       return;
     }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(userData.email)) {
+
+    // 1. Strict Email Validation (Syntax + Disposable Check + DNS MX Record Check)
+    const emailValidation = await validateEmail(userData.email);
+    if (!emailValidation.isValid) {
       res.status(400).json({
         success: false,
-        message: 'Invalid email format'
+        message: emailValidation.reason || 'Invalid email address'
       });
       return;
+    }
+
+    // 2. Strict Phone Number Validation (if provided)
+    if (userData.phone_number) {
+      const phoneValidation = validatePhoneNumber(userData.phone_number);
+      if (!phoneValidation.isValid) {
+        res.status(400).json({
+          success: false,
+          message: phoneValidation.reason || 'Invalid phone number format'
+        });
+        return;
+      }
+      userData.phone_number = phoneValidation.formatted;
     }
     
     if (userData.password.length < 8) {
@@ -50,10 +67,15 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
     
     const result = await registerUser(userData);
+
+    // Automatically trigger initial email OTP verification code
+    OtpService.sendEmailOtp(userData.email, userData.first_name).catch(err =>
+      console.error('Failed to dispatch initial email OTP:', err)
+    );
     
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'User registered successfully. A verification code has been sent to your email.',
       data: result
     });
   } catch (error: any) {
@@ -82,6 +104,33 @@ export async function login(req: Request, res: Response): Promise<void> {
     }
     
     const result = await loginUser(credentials);
+
+    // Check if 2FA is enabled for this user
+    const twoFactorStatus = await TwoFactorService.get2FAStatus(result.user.id);
+    if (twoFactorStatus.enabled) {
+      const twoFactorCode = (req.body as any).twoFactorCode;
+      if (!twoFactorCode) {
+        res.status(200).json({
+          success: true,
+          twoFactorRequired: true,
+          message: 'Two-factor authentication code required',
+          data: {
+            userId: result.user.id,
+            email: result.user.email
+          }
+        });
+        return;
+      }
+
+      const isValidCode = await TwoFactorService.validate2FALogin(result.user.id, twoFactorCode);
+      if (!isValidCode) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid two-factor authentication code. Please try again.'
+        });
+        return;
+      }
+    }
     
     res.status(200).json({
       success: true,
@@ -99,6 +148,78 @@ export async function login(req: Request, res: Response): Promise<void> {
       success: false,
       message: error.message || 'An error occurred during login'
     });
+  }
+}
+
+/**
+ * Send Email OTP
+ * POST /api/auth/otp/send-email
+ */
+export async function sendEmailOtpHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, firstName } = req.body;
+    if (!email) {
+      res.status(400).json({ success: false, message: 'Email is required' });
+      return;
+    }
+    const result = await OtpService.sendEmailOtp(email, firstName);
+    res.status(200).json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * Verify Email OTP
+ * POST /api/auth/otp/verify-email
+ */
+export async function verifyEmailOtpHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      res.status(400).json({ success: false, message: 'Email and code are required' });
+      return;
+    }
+    const result = await OtpService.verifyEmailOtp(email, code);
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * Send Phone OTP
+ * POST /api/auth/otp/send-phone
+ */
+export async function sendPhoneOtpHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ success: false, message: 'Phone number is required' });
+      return;
+    }
+    const result = await OtpService.sendPhoneOtp(phone);
+    res.status(200).json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * Verify Phone OTP
+ * POST /api/auth/otp/verify-phone
+ */
+export async function verifyPhoneOtpHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) {
+      res.status(400).json({ success: false, message: 'Phone number and code are required' });
+      return;
+    }
+    const result = await OtpService.verifyPhoneOtp(phone, code);
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 

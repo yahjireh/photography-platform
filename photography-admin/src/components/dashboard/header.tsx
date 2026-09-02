@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDashboardStore } from '@/store/dashboard-store';
 import { cn } from '@/lib/utils';
-import { useNotifications, useUnreadCount, useMarkNotificationAsRead } from '@/hooks/use-notifications';
+import { useNotifications, useUnreadCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/use-notifications';
 import { useAdminProfile, useAdminFullName, useAdminInitials } from '@/hooks/use-admin-profile';
 import { useLogout } from '@/hooks/use-auth';
 import { useWebSocketStatus } from '@/hooks/use-websocket';
@@ -68,6 +68,7 @@ export function Header({ className }: HeaderProps) {
   const { data: notificationsData } = useNotifications();
   const unreadNotifications = useUnreadCount();
   const { mutate: markAsRead } = useMarkNotificationAsRead();
+  const { mutate: markAllAsRead } = useMarkAllNotificationsAsRead();
   const { data: adminProfile } = useAdminProfile();
   const adminFullName = useAdminFullName();
   const adminInitials = useAdminInitials();
@@ -317,12 +318,25 @@ export function Header({ className }: HeaderProps) {
               </motion.button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="font-semibold">
-                Notifications
+              <DropdownMenuLabel className="font-semibold flex items-center justify-between">
+                <div>
+                  Notifications
+                  {unreadNotifications > 0 && (
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      ({unreadNotifications} unread)
+                    </span>
+                  )}
+                </div>
                 {unreadNotifications > 0 && (
-                  <span className="ml-2 text-xs font-normal text-gray-500">
-                    ({unreadNotifications} unread)
-                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAllAsRead();
+                    }}
+                    className="text-xs text-accent-teal hover:underline font-normal cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -475,12 +489,14 @@ export function Header({ className }: HeaderProps) {
 interface NotificationItemProps {
   notification: {
     id: string;
+    category?: 'DISPUTE' | 'KYC' | 'USER' | 'BOOKING' | 'PAYMENT' | 'REVIEW' | string;
     type: string;
     title: string;
     message: string;
     timestamp: string;
     read: boolean;
     link?: string;
+    priority?: 'high' | 'medium' | 'low';
   };
   onClick: () => void;
 }
@@ -493,35 +509,62 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
     const diffInSeconds = Math.floor((now.getTime() - notificationTime.getTime()) / 1000);
 
     if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
     return notificationTime.toLocaleDateString();
   };
+
+  // Helper for Category Origin Badge styling
+  const getCategoryBadge = (category?: string) => {
+    switch (category) {
+      case 'DISPUTE':
+        return { label: 'DISPUTE', color: 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800' };
+      case 'KYC':
+        return { label: 'KYC', color: 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' };
+      case 'USER':
+        return { label: 'NEW USER', color: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' };
+      case 'BOOKING':
+        return { label: 'BOOKING', color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' };
+      case 'PAYMENT':
+        return { label: 'ESCROW', color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' };
+      case 'REVIEW':
+        return { label: 'REVIEW', color: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800' };
+      default:
+        return { label: 'SYSTEM', color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700' };
+    }
+  };
+
+  const categoryBadge = getCategoryBadge(notification.category);
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors',
-        !notification.read && 'bg-blue-50/50'
+        'px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition-colors border-b border-gray-100 dark:border-gray-800/60 last:border-b-0',
+        !notification.read && 'bg-blue-50/50 dark:bg-blue-950/20'
       )}
     >
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-gray-900 truncate">
+          <div className="flex items-center justify-between gap-2">
+            <span className={cn('text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded border', categoryBadge.color)}>
+              {categoryBadge.label}
+            </span>
+            <span className="text-[11px] text-gray-400">
+              {getRelativeTime(notification.timestamp)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
               {notification.title}
             </p>
             {!notification.read && (
-              <div className="h-2 w-2 rounded-full bg-accent-teal flex-shrink-0" />
+              <div className="h-2 w-2 rounded-full bg-accent-teal flex-shrink-0 animate-pulse" />
             )}
           </div>
-          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
             {notification.message}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            {getRelativeTime(notification.timestamp)}
           </p>
         </div>
       </div>

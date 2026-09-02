@@ -10,19 +10,24 @@ import { adminAPI } from '@/lib/api-client';
 // TYPES
 // ============================================
 
+export type NotificationCategory = 'DISPUTE' | 'KYC' | 'USER' | 'BOOKING' | 'PAYMENT' | 'REVIEW';
+
 export interface Notification {
   id: string;
-  type: 'NEW_BOOKING' | 'PAYMENT_RECEIVED' | 'NEW_REVIEW' | 'DISPUTE_OPENED' | 'VERIFICATION_REQUEST';
+  category?: NotificationCategory;
+  type: 'NEW_BOOKING' | 'PAYMENT_RECEIVED' | 'NEW_REVIEW' | 'DISPUTE_OPENED' | 'VERIFICATION_REQUEST' | 'NEW_USER' | string;
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
   link?: string;
+  priority?: 'high' | 'medium' | 'low';
 }
 
 interface NotificationsResponse {
   notifications: Notification[];
   unreadCount: number;
+  categoryCounts?: Record<string, number>;
 }
 
 // ============================================
@@ -30,7 +35,7 @@ interface NotificationsResponse {
 // ============================================
 
 export const notificationKeys = {
-  all: ['notifications'] as const,
+  all: ['admin', 'notifications'] as const,
   list: (params?: { unreadOnly?: boolean }) => [...notificationKeys.all, 'list', params] as const,
 };
 
@@ -52,18 +57,22 @@ async function markAsRead(notificationId: string): Promise<void> {
   await adminAPI.patch(`/notifications/${notificationId}/read`);
 }
 
+async function markAllAsRead(): Promise<void> {
+  await adminAPI.patch('/notifications/read-all');
+}
+
 // ============================================
 // HOOKS
 // ============================================
 
 /**
- * Fetch all notifications
+ * Fetch all notifications (polls every 15s or updates via WebSocket)
  */
 export function useNotifications(params?: { unreadOnly?: boolean }) {
   return useQuery({
     queryKey: notificationKeys.list(params),
     queryFn: () => fetchNotifications(params),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 15000, // Refetch every 15 seconds
   });
 }
 
@@ -84,7 +93,20 @@ export function useMarkNotificationAsRead() {
   return useMutation({
     mutationFn: markAsRead,
     onSuccess: () => {
-      // Invalidate and refetch notifications
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
+/**
+ * Mark all notifications as read
+ */
+export function useMarkAllNotificationsAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markAllAsRead,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
   });

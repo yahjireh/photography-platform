@@ -4,7 +4,17 @@
  */
 
 import express from 'express';
-import { register, login, oauthLogin, forgotPassword, resetPassword } from '../controllers/auth.controller';
+import {
+  register,
+  login,
+  oauthLogin,
+  forgotPassword,
+  resetPassword,
+  sendEmailOtpHandler,
+  verifyEmailOtpHandler,
+  sendPhoneOtpHandler,
+  verifyPhoneOtpHandler
+} from '../controllers/auth.controller';
 
 const router = express.Router();
 
@@ -37,5 +47,29 @@ router.post('/forgot-password', forgotPassword);
  * Verify reset token and apply new password
  */
 router.post('/reset-password', resetPassword);
+
+// ============================================
+// OTP VERIFICATION ROUTES (EMAIL & PHONE)
+// ============================================
+
+/**
+ * POST /api/auth/otp/send-email
+ */
+router.post('/otp/send-email', sendEmailOtpHandler);
+
+/**
+ * POST /api/auth/otp/verify-email
+ */
+router.post('/otp/verify-email', verifyEmailOtpHandler);
+
+/**
+ * POST /api/auth/otp/send-phone
+ */
+router.post('/otp/send-phone', sendPhoneOtpHandler);
+
+/**
+ * POST /api/auth/otp/verify-phone
+ */
+router.post('/otp/verify-phone', verifyPhoneOtpHandler);
 
 export default router;

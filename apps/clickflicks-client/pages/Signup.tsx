@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import apiClient, { tokenManager } from '../lib/api-client';
 import { PasswordStrengthMeter, analyzePassword } from '../components/PasswordStrengthMeter';
 import { OAuthModal } from '../components/OAuthModal';
+import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 interface SignupProps {
   onBack: () => void;
@@ -15,6 +16,7 @@ interface SignupProps {
 const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const [selectedOAuthProvider, setSelectedOAuthProvider] = useState<'google' | 'apple' | null>(null);
   const [userData, setUserData] = useState({
     firstName: '',
@@ -63,7 +65,7 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         phoneNumber: userData.phoneNumber,
         locationCity: userData.locationCity
       });
-      onSuccess();
+      setShowOtpModal(true);
     } catch (err: any) {
       console.error('Signup API error:', err.message);
       setErrorMessage(err.message || 'Registration failed. Please try again.');
@@ -304,6 +306,21 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         onClose={() => setSelectedOAuthProvider(null)}
         onAuthenticate={handleOAuthAuthenticate}
         userRole="CLIENT"
+      />
+
+      {/* 6-Digit Email & Phone OTP Verification Modal */}
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        email={userData.email}
+        phoneNumber={userData.phoneNumber}
+        onSuccess={() => {
+          setShowOtpModal(false);
+          onSuccess();
+        }}
+        onClose={() => {
+          setShowOtpModal(false);
+          onSuccess();
+        }}
       />
     </motion.div>
   );

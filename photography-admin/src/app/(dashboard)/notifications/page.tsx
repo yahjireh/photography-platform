@@ -15,13 +15,14 @@ import {
   MessageSquare,
   UserCheck,
   Shield,
+  User,
 } from "lucide-react";
 import { DataTable, ColumnDef } from "@/components/shared/data-table";
 import { SearchBar } from "@/components/shared/search-bar";
 import { FilterPanel, FilterGroup } from "@/components/shared/filter-panel";
 import { LoadingSkeleton } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
-import { useNotifications, Notification, useMarkNotificationAsRead } from "@/hooks/use-notifications";
+import { useNotifications, Notification, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/hooks/use-notifications";
 import { formatDate, cn } from "@/lib/utils";
 import { ActionMenu, ActionMenuItem } from "@/components/shared/action-menu";
 import { toast } from "sonner";
@@ -31,26 +32,51 @@ import { toast } from "sonner";
 // ============================================
 
 function NotificationTypeIcon({ type }: { type: Notification['type'] }) {
-  const iconMap = {
+  const iconMap: Record<string, any> = {
     NEW_BOOKING: Calendar,
     PAYMENT_RECEIVED: DollarSign,
     NEW_REVIEW: MessageSquare,
     DISPUTE_OPENED: AlertCircle,
     VERIFICATION_REQUEST: UserCheck,
+    NEW_USER: User,
   };
 
-  const colorMap = {
+  const colorMap: Record<string, string> = {
     NEW_BOOKING: "text-blue-500",
-    PAYMENT_RECEIVED: "text-green-500",
+    PAYMENT_RECEIVED: "text-emerald-500",
     NEW_REVIEW: "text-yellow-500",
     DISPUTE_OPENED: "text-red-500",
     VERIFICATION_REQUEST: "text-purple-500",
+    NEW_USER: "text-cyan-500",
   };
 
   const Icon = iconMap[type] || Bell;
   const color = colorMap[type] || "text-gray-500";
 
   return <Icon className={cn("w-5 h-5", color)} />;
+}
+
+// ============================================
+// CATEGORY ORIGIN BADGE
+// ============================================
+
+function CategoryOriginBadge({ category }: { category?: string }) {
+  switch (category) {
+    case 'DISPUTE':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800">DISPUTE</span>;
+    case 'KYC':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800">KYC</span>;
+    case 'USER':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">NEW USER</span>;
+    case 'BOOKING':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">BOOKING</span>;
+    case 'PAYMENT':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">ESCROW</span>;
+    case 'REVIEW':
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">REVIEW</span>;
+    default:
+      return <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded border bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700">GENERAL</span>;
+  }
 }
 
 // ============================================
@@ -88,23 +114,26 @@ export default function NotificationsPage() {
     unreadOnly: filters.status === "unread" ? true : undefined,
   });
 
-  // Mark as read mutation
+  // Mark as read mutations
   const { mutate: markAsRead, isPending: isMarkingAsRead } = useMarkNotificationAsRead();
+  const { mutate: markAllAsRead } = useMarkAllNotificationsAsRead();
 
   // Get notifications from data
   const allNotifications = data?.notifications || [];
 
-  // Filter by search query
+  // Filter by search query and category
   const filteredNotifications = allNotifications.filter((notification) => {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      if (
-        !notification.title.toLowerCase().includes(query) &&
-        !notification.message.toLowerCase().includes(query)
-      ) {
-        return false;
-      }
+      const matchesTitle = notification.title.toLowerCase().includes(query);
+      const matchesMessage = notification.message.toLowerCase().includes(query);
+      if (!matchesTitle && !matchesMessage) return false;
+    }
+
+    // Category filter
+    if (filters.category && notification.category !== filters.category) {
+      return false;
     }
 
     // Type filter
@@ -113,17 +142,13 @@ export default function NotificationsPage() {
     }
 
     // Status filter
-    if (filters.status === "read" && !notification.read) {
-      return false;
-    }
-    if (filters.status === "unread" && notification.read) {
-      return false;
-    }
+    if (filters.status === "unread" && notification.read) return false;
+    if (filters.status === "read" && !notification.read) return false;
 
     return true;
   });
 
-  // Action menu items for each notification
+  // Action menu items generator
   const getNotificationActionMenuItems = (notification: Notification): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [];
 
@@ -161,16 +186,32 @@ export default function NotificationsPage() {
   // Filter configuration
   const filterGroups: FilterGroup[] = [
     {
+      id: "category",
+      label: "Origin Source",
+      type: "select",
+      value: filters.category || "",
+      options: [
+        { label: "All Sources", value: "" },
+        { label: "Disputes", value: "DISPUTE" },
+        { label: "KYC Verification", value: "KYC" },
+        { label: "New Users", value: "USER" },
+        { label: "Bookings", value: "BOOKING" },
+        { label: "Payments / Escrow", value: "PAYMENT" },
+        { label: "Reviews", value: "REVIEW" },
+      ],
+    },
+    {
       id: "type",
       label: "Notification Type",
       type: "multi-select",
       value: filters.type,
       options: [
+        { label: "New User", value: "NEW_USER" },
+        { label: "Dispute Opened", value: "DISPUTE_OPENED" },
+        { label: "Verification Request", value: "VERIFICATION_REQUEST" },
         { label: "New Booking", value: "NEW_BOOKING" },
         { label: "Payment Received", value: "PAYMENT_RECEIVED" },
         { label: "New Review", value: "NEW_REVIEW" },
-        { label: "Dispute Opened", value: "DISPUTE_OPENED" },
-        { label: "Verification Request", value: "VERIFICATION_REQUEST" },
       ],
     },
     {
@@ -179,6 +220,7 @@ export default function NotificationsPage() {
       type: "select",
       value: filters.status,
       options: [
+        { label: "All Statuses", value: "" },
         { label: "Unread", value: "unread" },
         { label: "Read", value: "read" },
       ],
@@ -193,16 +235,22 @@ export default function NotificationsPage() {
   // Table columns
   const columns: ColumnDef<Notification>[] = [
     {
+      id: "origin",
+      header: "Source",
+      cell: (notification) => <CategoryOriginBadge category={notification.category} />,
+      width: "12%",
+    },
+    {
       id: "type",
       header: "Type",
       cell: (notification) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
             <NotificationTypeIcon type={notification.type} />
           </div>
         </div>
       ),
-      width: "8%",
+      width: "6%",
     },
     {
       id: "content",
@@ -275,11 +323,8 @@ export default function NotificationsPage() {
     }
 
     if (window.confirm(`Mark all ${unreadNotifications.length} unread notifications as read?`)) {
-      // Mark each unread notification as read
-      unreadNotifications.forEach((notification) => {
-        markAsRead(notification.id);
-      });
-      toast.success(`Marked ${unreadNotifications.length} notifications as read`);
+      markAllAsRead();
+      toast.success(`Marked all notifications as read`);
     }
   };
 
