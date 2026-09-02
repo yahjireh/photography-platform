@@ -197,6 +197,24 @@ export function useQueues() {
   });
 }
 
+export function useResetQueues() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post<any>('/admin/system/queues/reset', {});
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'queues'] });
+      toast.success(data?.message || 'Queues reset to start afresh!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
+
 // ============================================
 // PERSISTENT DATABASE BACKUPS
 // ============================================
@@ -291,6 +309,24 @@ export function useToggleAbTest() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'abtests'] });
       toast.success(data?.message || 'A/B test status updated!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
+
+export function useResetAbTest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<any>(`/admin/system/abtests/${id}/reset`, {});
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'abtests'] });
+      toast.success(data?.message || 'A/B test metrics reset!');
     },
     onError: (err) => {
       toast.error(handleApiError(err));

@@ -104,11 +104,13 @@ import {
 
   // Live Queues, Backups & A/B Tests
   getSystemQueues,
+  resetSystemQueues,
   getSystemBackups,
   createSystemBackup,
   deleteSystemBackup,
   getSystemAbTests,
   toggleSystemAbTest,
+  resetSystemAbTest,
 
   // Report Schedules
   getReportSchedules,
@@ -472,6 +474,7 @@ router.patch('/system/ratelimits', updateRateLimits);
  * Live Queues
  */
 router.get('/system/queues', getSystemQueues);
+router.post('/system/queues/reset', resetSystemQueues);
 
 /**
  * Persistent Backups
@@ -486,6 +489,7 @@ router.delete('/system/backups/:id', deleteSystemBackup);
 router.get('/system/abtests', getSystemAbTests);
 router.patch('/system/abtests/:id/toggle', toggleSystemAbTest);
 router.post('/system/abtests/:id/toggle', toggleSystemAbTest);
+router.post('/system/abtests/:id/reset', resetSystemAbTest);
 
 // ============================================
 // MOBILE APPS ROUTES

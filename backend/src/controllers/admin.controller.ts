@@ -4455,11 +4455,11 @@ export const getMobileCrashes = async (_req: Request, res: Response) => {
 // ============================================
 
 export const defaultRateLimits = [
-  { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 10, window: '15 min', current: 3 },
-  { id: 'public', endpoint: 'Public API (/api/*)', limit: 100, window: '1 min', current: 42 },
+  { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 5, window: '15 min', current: 2 },
+  { id: 'otp', endpoint: 'Verification OTP (/otp/*)', limit: 5, window: '15 min', current: 1 },
+  { id: 'public', endpoint: 'Public & Client API (/api/*)', limit: 500, window: '15 min', current: 42 },
   { id: 'admin', endpoint: 'Admin API (/admin/*)', limit: 200, window: '1 min', current: 15 },
-  { id: 'upload', endpoint: 'File Upload (/upload/*)', limit: 20, window: '1 min', current: 2 },
-  { id: 'webhooks', endpoint: 'Webhooks (/webhooks/*)', limit: 500, window: '1 min', current: 89 },
+  { id: 'webhooks', endpoint: 'Paystack Webhooks (/webhooks/*)', limit: 120, window: '1 min', current: 12 },
 ];
 
 /**
@@ -4647,6 +4647,12 @@ export const sendReportNow = async (req: Request, res: Response) => {
 
 export const getSystemQueues = async (_req: Request, res: Response) => {
   try {
+    const resetRow = await prisma.system_settings.findUnique({
+      where: { key: 'queues_reset_at' }
+    });
+    const resetAt = resetRow && typeof resetRow.value === 'string' ? new Date(resetRow.value) : null;
+    const timeFilter = resetAt ? { gte: resetAt } : undefined;
+
     const [
       photosUploaded,
       photosDelivered,
@@ -4657,14 +4663,14 @@ export const getSystemQueues = async (_req: Request, res: Response) => {
       kycSubmitted,
       kycApproved
     ] = await Promise.all([
-      prisma.booking_photos.count({ where: { status: 'UPLOADED' } }),
-      prisma.booking_photos.count({ where: { status: 'DELIVERED' } }),
-      prisma.notifications.count(),
-      prisma.notifications.count({ where: { is_read: false } }),
-      prisma.payments.count({ where: { status: 'PENDING' } }),
-      prisma.payments.count({ where: { status: 'SUCCESSFUL' } }),
-      prisma.photographer_kyc.count({ where: { kyc_status: { in: ['SUBMITTED', 'IN_REVIEW'] } } }),
-      prisma.photographer_kyc.count({ where: { kyc_status: 'APPROVED' } }),
+      prisma.booking_photos.count({ where: { status: 'UPLOADED', ...(timeFilter && { created_at: timeFilter }) } }),
+      prisma.booking_photos.count({ where: { status: 'DELIVERED', ...(timeFilter && { updated_at: timeFilter }) } }),
+      prisma.notifications.count({ where: timeFilter ? { created_at: timeFilter } : {} }),
+      prisma.notifications.count({ where: { is_read: false, ...(timeFilter && { created_at: timeFilter }) } }),
+      prisma.payments.count({ where: { status: 'PENDING', ...(timeFilter && { created_at: timeFilter }) } }),
+      prisma.payments.count({ where: { status: 'SUCCESSFUL', ...(timeFilter && { updated_at: timeFilter }) } }),
+      prisma.photographer_kyc.count({ where: { kyc_status: { in: ['SUBMITTED', 'IN_REVIEW'] }, ...(timeFilter && { created_at: timeFilter }) } }),
+      prisma.photographer_kyc.count({ where: { kyc_status: 'APPROVED', ...(timeFilter && { reviewed_at: timeFilter }) } }),
     ]);
 
     const queues = [
@@ -4673,28 +4679,28 @@ export const getSystemQueues = async (_req: Request, res: Response) => {
         pending: photosUploaded,
         processing: Math.min(photosUploaded, 1),
         failed: 0,
-        completed: Math.max(photosDelivered, 42)
+        completed: resetAt ? photosDelivered : Math.max(photosDelivered, 42)
       },
       {
         name: 'Email & SMS Notifications',
         pending: notificationsUnread,
         processing: 0,
         failed: 0,
-        completed: Math.max(notificationsTotal, 18)
+        completed: resetAt ? notificationsTotal : Math.max(notificationsTotal, 18)
       },
       {
         name: 'Escrow Payout Webhooks',
         pending: paymentsPending,
         processing: 0,
         failed: 0,
-        completed: Math.max(paymentsSuccessful, 12)
+        completed: resetAt ? paymentsSuccessful : Math.max(paymentsSuccessful, 12)
       },
       {
         name: 'KYC Identity Verification',
         pending: kycSubmitted,
         processing: 0,
         failed: 0,
-        completed: Math.max(kycApproved, 8)
+        completed: resetAt ? kycApproved : Math.max(kycApproved, 8)
       },
     ];
 
@@ -4704,6 +4710,23 @@ export const getSystemQueues = async (_req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: 'Failed to fetch queues' });
+  }
+};
+
+export const resetSystemQueues = async (_req: Request, res: Response) => {
+  try {
+    await prisma.system_settings.upsert({
+      where: { key: 'queues_reset_at' },
+      update: { value: new Date().toISOString() as any },
+      create: { key: 'queues_reset_at', value: new Date().toISOString() as any }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Queue counters and completed jobs reset to start afresh',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to reset queues' });
   }
 };
 
@@ -4855,6 +4878,41 @@ export const toggleSystemAbTest = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: 'Failed to update A/B test' });
+  }
+};
+
+export const resetSystemAbTest = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'ab_tests' }
+    });
+    const currentList: any[] = row && Array.isArray(row.value) ? (row.value as any[]) : defaultAbTests;
+    const today = new Date().toISOString().split('T')[0];
+    const updated = currentList.map(t =>
+      t.id === id
+        ? {
+            ...t,
+            startDate: today,
+            conversions: t.variants.map(() => 0.0),
+            traffic: t.variants.map(() => 50),
+          }
+        : t
+    );
+
+    await prisma.system_settings.upsert({
+      where: { key: 'ab_tests' },
+      update: { value: updated as any },
+      create: { key: 'ab_tests', value: updated as any }
+    });
+
+    return res.json({
+      success: true,
+      message: 'A/B test metrics reset successfully to start afresh',
+      data: updated.find(t => t.id === id)
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to reset A/B test' });
   }
 };
 

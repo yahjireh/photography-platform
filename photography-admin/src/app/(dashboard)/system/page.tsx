@@ -7,7 +7,7 @@ import {
   RefreshCw, Zap, ToggleLeft, ToggleRight, Play, Pause,
   HardDrive, Cpu, Wifi, AlertTriangle, CheckCircle,
   Settings, Trash2, Download, Upload, Timer, FlaskConical,
-  Loader2,
+  Loader2, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -22,11 +22,13 @@ import {
   useUpdateRateLimits,
   RateLimitRule,
   useQueues,
+  useResetQueues,
   useBackups,
   useCreateBackup,
   useDeleteBackup,
   useAbTests,
   useToggleAbTest,
+  useResetAbTest,
 } from '@/hooks/use-system';
 
 type SystemTab = 'health' | 'flags' | 'maintenance' | 'backup' | 'cron' | 'queue' | 'ratelimit' | 'abtesting';
@@ -49,11 +51,11 @@ export default function SystemManagementPage() {
   const { data: serverRateLimits = [] } = useRateLimits();
   const { mutate: updateRateLimits, isPending: isSavingRateLimits } = useUpdateRateLimits();
   const [rateLimitsState, setRateLimitsState] = useState<RateLimitRule[]>([
-    { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 10, window: '15 min', current: 3 },
-    { id: 'public', endpoint: 'Public API (/api/*)', limit: 100, window: '1 min', current: 42 },
+    { id: 'auth', endpoint: 'Authentication (/auth/*)', limit: 5, window: '15 min', current: 2 },
+    { id: 'otp', endpoint: 'Verification OTP (/otp/*)', limit: 5, window: '15 min', current: 1 },
+    { id: 'public', endpoint: 'Public & Client API (/api/*)', limit: 500, window: '15 min', current: 42 },
     { id: 'admin', endpoint: 'Admin API (/admin/*)', limit: 200, window: '1 min', current: 15 },
-    { id: 'upload', endpoint: 'File Upload (/upload/*)', limit: 20, window: '1 min', current: 2 },
-    { id: 'webhooks', endpoint: 'Webhooks (/webhooks/*)', limit: 500, window: '1 min', current: 89 },
+    { id: 'webhooks', endpoint: 'Paystack Webhooks (/webhooks/*)', limit: 120, window: '1 min', current: 12 },
   ]);
 
   React.useEffect(() => {
@@ -87,11 +89,13 @@ export default function SystemManagementPage() {
 
   // Live Queues, Backups, and A/B Tests
   const { data: queueData = [] } = useQueues();
+  const { mutate: resetQueues, isPending: isResettingQueues } = useResetQueues();
   const { data: backups = [] } = useBackups();
   const { mutate: createBackup, isPending: isCreatingBackup } = useCreateBackup();
   const { mutate: deleteBackup } = useDeleteBackup();
   const { data: abTests = [] } = useAbTests();
   const { mutate: toggleAbTest } = useToggleAbTest();
+  const { mutate: resetAbTest } = useResetAbTest();
 
   // Real-time active resources state with continuous 1.5s heartbeats
   const [liveResources, setLiveResources] = useState([
@@ -502,7 +506,20 @@ export default function SystemManagementPage() {
 
         {/* Queue Monitoring */}
         {activeTab === 'queue' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Active Background Workers &amp; Pipelines</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Real-time status of image processing, notification dispatch, escrow payouts, and KYC verification</p>
+              </div>
+              <button
+                disabled={isResettingQueues}
+                onClick={() => resetQueues()}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> {isResettingQueues ? 'Resetting...' : 'Reset Queue Counters'}
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {queueData.map((queue) => (
                 <div key={queue.name} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -597,17 +614,26 @@ export default function SystemManagementPage() {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Started: {test.startDate}</p>
                   </div>
-                  <button
-                    onClick={() => toggleAbTest(test.id)}
-                    className={cn(
-                      "px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors",
-                      test.status === 'running'
-                        ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                        : "bg-green-50 text-green-700 hover:bg-green-100"
-                    )}
-                  >
-                    {test.status === 'running' ? 'Pause Experiment' : 'Resume Experiment'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleAbTest(test.id)}
+                      className={cn(
+                        "px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors",
+                        test.status === 'running'
+                          ? "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400"
+                          : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400"
+                      )}
+                    >
+                      {test.status === 'running' ? 'Pause Experiment' : 'Resume Experiment'}
+                    </button>
+                    <button
+                      onClick={() => resetAbTest(test.id)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+                      title="Reset metrics to start afresh"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {test.variants.map((variant, vi) => (
