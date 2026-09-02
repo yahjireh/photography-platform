@@ -28,8 +28,15 @@ export interface AdminProfile {
 interface UpdateProfileData {
   first_name?: string;
   last_name?: string;
+  email?: string;
   phone_number?: string | null;
   profile_image_url?: string | null;
+  location_city?: string | null;
+}
+
+interface ChangePasswordData {
+  currentPassword?: string;
+  newPassword?: string;
 }
 
 // ============================================
@@ -51,7 +58,12 @@ async function fetchAdminProfile(): Promise<AdminProfile> {
 }
 
 async function updateProfile(data: UpdateProfileData): Promise<AdminProfile> {
-  const response = await adminAPI.patch<AdminProfile>('/profile', data);
+  const response = await adminAPI.put<AdminProfile>('/profile', data);
+  return extractData(response);
+}
+
+async function changePassword(data: ChangePasswordData): Promise<any> {
+  const response = await adminAPI.put('/profile/password', data);
   return extractData(response);
 }
 
@@ -82,6 +94,15 @@ export function useUpdateAdminProfile() {
       // Update the cached profile data
       queryClient.setQueryData(adminProfileKeys.detail(), data);
     },
+  });
+}
+
+/**
+ * Change admin password
+ */
+export function useChangeAdminPassword() {
+  return useMutation({
+    mutationFn: changePassword,
   });
 }
 

@@ -9,6 +9,8 @@ import { Request, Response } from 'express';
 import { PrismaClient, VerificationStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import bcrypt from 'bcryptjs';
+import { validateEmail, validatePhoneNumber } from '../services/validation.service';
+import { sendEmail } from '../services/email.service';
 
 const prisma = new PrismaClient();
 
@@ -2172,6 +2174,11 @@ export const updateAdminProfile = async (req: Request, res: Response) => {
     const userId = req.user.user_id;
     const body = req.body || {};
 
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
     const firstName = body.first_name ?? body.firstName;
     const lastName = body.last_name ?? body.lastName;
     const phoneNumber = body.phone_number ?? body.phoneNumber;
@@ -2185,11 +2192,59 @@ export const updateAdminProfile = async (req: Request, res: Response) => {
 
     if (firstName !== undefined) data.first_name = firstName;
     if (lastName !== undefined) data.last_name = lastName;
-    if (phoneNumber !== undefined) data.phone_number = phoneNumber;
     if (profileImageUrl !== undefined) data.profile_image_url = profileImageUrl;
     if (locationCity !== undefined) data.location_city = locationCity;
-    if (email !== undefined && typeof email === 'string' && email.trim()) {
-      data.email = email.trim().toLowerCase();
+
+    // Validate and update email
+    if (email !== undefined && typeof email === 'string' && email.trim() && email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      const cleanEmail = email.trim().toLowerCase();
+      // Strict check: syntax + disposable domain blocklist + DNS MX records
+      const validation = await validateEmail(cleanEmail);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.reason || 'Invalid email address'
+        });
+      }
+
+      // Check uniqueness
+      const existing = await prisma.users.findFirst({
+        where: { email: cleanEmail, id: { not: userId } }
+      });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: 'This email address is already in use by another account'
+        });
+      }
+
+      data.email = cleanEmail;
+
+      // Send verification notification
+      try {
+        await sendEmail({
+          to: cleanEmail,
+          subject: 'ClickFlicks Admin Profile Update',
+          html: `<h2>Admin Profile Updated</h2><p>Hello ${firstName || user.first_name}, your administrator email on ClickFlicks has been updated to <strong>${cleanEmail}</strong>. If you did not make this change, please reset your password immediately.</p>`,
+          text: `Hello ${firstName || user.first_name}, your administrator email on ClickFlicks has been updated to ${cleanEmail}.`
+        });
+      } catch (err: any) {
+        console.warn('Could not dispatch admin email notice:', err.message);
+      }
+    }
+
+    // Validate and update phone number
+    if (phoneNumber !== undefined && typeof phoneNumber === 'string' && phoneNumber.trim()) {
+      const phoneValidation = validatePhoneNumber(phoneNumber);
+      if (!phoneValidation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: phoneValidation.reason || 'Invalid phone number format'
+        });
+      }
+      data.phone_number = phoneValidation.formatted || phoneNumber.trim();
+    } else if (phoneNumber === null || phoneNumber === '') {
+      data.phone_number = null;
     }
 
     const updatedUser = await prisma.users.update({

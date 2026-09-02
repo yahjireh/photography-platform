@@ -305,17 +305,19 @@ export default function UserDetailPage() {
     });
   }
 
-  // Add bookings to timeline
-  bookings.forEach((booking, index) => {
-    timelineItems.push({
-      id: `booking-${booking.id}`,
-      title: `Booking ${booking.status}`,
-      description: `Booking #${booking.id.slice(0, 8)}`,
-      timestamp: user.createdAt, // We don't have booking timestamps in this data
-      icon: ShoppingBag,
-      variant: booking.status === "COMPLETED" ? "success" : "info",
+  // Add bookings to timeline (only for clients/photographers)
+  if (user.userType !== "ADMIN") {
+    bookings.forEach((booking, index) => {
+      timelineItems.push({
+        id: `booking-${booking.id}`,
+        title: `Booking ${booking.status}`,
+        description: `Booking #${booking.id.slice(0, 8)}`,
+        timestamp: user.createdAt,
+        icon: ShoppingBag,
+        variant: booking.status === "COMPLETED" ? "success" : "info",
+      });
     });
-  });
+  }
 
   if (user.updatedAt !== user.createdAt) {
     timelineItems.push({
@@ -363,7 +365,7 @@ export default function UserDetailPage() {
               )}>
                 {user.userType}
               </span>
-              {user.emailVerified && user.phoneVerified ? (
+              {user.userType === "ADMIN" || (user.emailVerified && user.phoneVerified) ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                   <CheckCircle className="w-3 h-3" />
                   Verified
@@ -382,29 +384,40 @@ export default function UserDetailPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenNotificationModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-medium"
-          >
-            <Bell className="w-4 h-4" />
-            Send Notification
-          </button>
-          <ActionMenu
-            items={getActionMenuItems()}
-            buttonClassName="border-2 border-gray-200 dark:border-gray-700"
-          />
-        </div>
+        {/* Action Buttons (Hidden for ADMIN) */}
+        {user.userType !== "ADMIN" && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenNotificationModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-medium"
+            >
+              <Bell className="w-4 h-4" />
+              Send Notification
+            </button>
+            <ActionMenu
+              items={getActionMenuItems()}
+              buttonClassName="border-2 border-gray-200 dark:border-gray-700"
+            />
+          </div>
+        )}
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatBadge icon={ShoppingBag} label="Total Bookings" value={totalBookings} />
-        <StatBadge icon={CheckCircle} label="Completed" value={completedBookings} />
-        <StatBadge icon={DollarSign} label="Total Spent" value={formatCurrency(totalSpent)} />
-        <StatBadge icon={Calendar} label="Member Since" value={formatDate(user.createdAt)} />
-      </div>
+      {user.userType === "ADMIN" ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatBadge icon={ShieldCheck} label="Account Role" value="Platform Admin" />
+          <StatBadge icon={CheckCircle} label="System Access" value="Full Privileges" />
+          <StatBadge icon={Activity} label="Account Status" value="Active & Verified" />
+          <StatBadge icon={Calendar} label="Member Since" value={formatDate(user.createdAt)} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatBadge icon={ShoppingBag} label="Total Bookings" value={totalBookings} />
+          <StatBadge icon={CheckCircle} label="Completed" value={completedBookings} />
+          <StatBadge icon={DollarSign} label="Total Spent" value={formatCurrency(totalSpent)} />
+          <StatBadge icon={Calendar} label="Member Since" value={formatDate(user.createdAt)} />
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -423,11 +436,11 @@ export default function UserDetailPage() {
               />
               <DetailRow
                 label="Email Verified"
-                value={user.emailVerified ? "Yes" : "No"}
+                value={user.userType === "ADMIN" || user.emailVerified ? "Yes" : "No"}
               />
               <DetailRow
                 label="Phone Verified"
-                value={user.phoneVerified ? "Yes" : "No"}
+                value={user.userType === "ADMIN" ? (user.phoneNumber ? "Yes" : "—") : (user.phoneVerified ? "Yes" : "No")}
               />
               <DetailRow label="Joined" value={formatDate(user.createdAt)} />
               <DetailRow label="Last Updated" value={formatDate(user.updatedAt)} />
@@ -443,24 +456,26 @@ export default function UserDetailPage() {
             </DetailGrid>
           </DetailCard>
 
-          {/* Booking History */}
-          <DetailCard
-            title="Booking History"
-            icon={ShoppingBag}
-            description={`${totalBookings} total bookings`}
-          >
-            {bookings.length > 0 ? (
-              <DataTable
-                data={bookings}
-                columns={bookingColumns}
-                showPagination={false}
-                pageSize={5}
-                emptyMessage="No bookings yet"
-              />
-            ) : (
-              <div className="text-center py-8 text-gray-500">No bookings yet</div>
-            )}
-          </DetailCard>
+          {/* Booking History (Only for non-admin users) */}
+          {user.userType !== "ADMIN" && (
+            <DetailCard
+              title="Booking History"
+              icon={ShoppingBag}
+              description={`${totalBookings} total bookings`}
+            >
+              {bookings.length > 0 ? (
+                <DataTable
+                  data={bookings}
+                  columns={bookingColumns}
+                  showPagination={false}
+                  pageSize={5}
+                  emptyMessage="No bookings yet"
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">No bookings yet</div>
+              )}
+            </DetailCard>
+          )}
         </div>
 
         {/* Right Column - Activity Timeline */}
