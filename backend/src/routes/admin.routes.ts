@@ -81,6 +81,7 @@ import {
   // Communication Hub
   getCommunicationMessages,
   sendCommunicationMessage,
+  replyToSupportMessage,
   getCommunicationTemplates,
   updateCommunicationTemplate,
 
@@ -394,6 +395,12 @@ router.get('/communication/messages', getCommunicationMessages);
  * Dispatch broadcast notification / announcement
  */
 router.post('/communication/send', sendCommunicationMessage);
+
+/**
+ * POST /api/admin/communication/reply
+ * Reply directly to a support ticket
+ */
+router.post('/communication/reply', replyToSupportMessage);
 
 /**
  * GET /api/admin/communication/templates

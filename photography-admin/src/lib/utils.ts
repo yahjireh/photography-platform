@@ -571,3 +571,47 @@ export function downloadExcel(
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Resolve user / photographer avatar with hierarchy:
+ * 1. User's uploaded profile_image_url / avatarUrl
+ * 2. Photographer's profile_image_url
+ * 3. KYC selfie / document photo
+ * 4. High quality initials avatar fallback
+ */
+export function getUserAvatar(
+  user?: any,
+  fallbackSeed?: string
+): string {
+  if (!user && !fallbackSeed) {
+    return 'https://ui-avatars.com/api/?name=User&background=0D9488&color=fff&bold=true';
+  }
+
+  // 1. Direct profile image on user object
+  if (user?.profile_image_url) return user.profile_image_url;
+  if (user?.avatarUrl) return user.avatarUrl;
+  if (user?.avatar) return user.avatar;
+
+  // 2. Nested photographer profile image
+  const p = user?.photographer || user?.photographers;
+  if (p?.users?.profile_image_url) return p.users.profile_image_url;
+  if (p?.profile_image_url) return p.profile_image_url;
+
+  // 3. KYC selfie or ID document
+  const kycDocs = p?.photographer_kyc?.documents || p?.kyc_documents || p?.documents || user?.kyc_documents;
+  if (Array.isArray(kycDocs) && kycDocs.length > 0) {
+    const selfie = kycDocs.find((d: any) => 
+      d.document_type === 'SELFIE' || 
+      d.type === 'SELFIE' || 
+      d.document_type === 'ID_FRONT' ||
+      d.file_name?.toLowerCase().includes('selfie')
+    );
+    if (selfie?.file_url) return selfie.file_url;
+    if (kycDocs[0]?.file_url) return kycDocs[0].file_url;
+  }
+  if (p?.photographer_kyc?.portfolio_link) return p.photographer_kyc.portfolio_link;
+
+  // 4. Clean initials avatar fallback
+  const name = user?.fullName || user?.full_name || user?.name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}` : fallbackSeed) || 'User';
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.trim())}&background=0D9488&color=fff&bold=true`;
+}

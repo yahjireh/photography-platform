@@ -39,7 +39,7 @@ import {
 import { Timeline, TimelineItem, groupTimelineByDate } from "@/components/shared/timeline";
 import { DataTable, ColumnDef } from "@/components/shared/data-table";
 import { Booking, Payment } from "@/types/dashboard";
-import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import { formatDate, formatCurrency, cn, getUserAvatar } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ActionMenu, ActionMenuItem } from "@/components/shared/action-menu";
 import { FlagDialog, useFlagDialog } from "@/components/shared/flag-dialog";
@@ -347,9 +347,9 @@ export default function UserDetailPage() {
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <img
-            src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+            src={getUserAvatar(user, user.fullName)}
             alt={user.fullName}
-            className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 ring-4 ring-white dark:ring-gray-900"
+            className="w-20 h-20 rounded-full object-cover bg-gray-200 dark:bg-gray-700 ring-4 ring-white dark:ring-gray-900"
           />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">

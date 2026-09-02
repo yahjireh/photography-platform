@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -16,6 +16,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
+  Camera,
 } from "lucide-react";
 import { DetailCard, DetailRow, DetailGrid } from "@/components/shared/detail-card";
 import {
@@ -51,6 +52,41 @@ export default function ProfilePage() {
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Photo Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const base64Url = uploadEvent.target?.result as string;
+      updateProfile(
+        { profile_image_url: base64Url },
+        {
+          onSuccess: () => {
+            toast.success('Profile photo updated successfully!');
+            refetch();
+            setIsUploadingPhoto(false);
+          },
+          onError: (err: any) => {
+            toast.error(err?.response?.data?.message || 'Failed to update photo');
+            setIsUploadingPhoto(false);
+          },
+        }
+      );
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Open edit mode
   const handleStartEdit = () => {
@@ -180,9 +216,35 @@ export default function ProfilePage() {
       {/* Profile Card */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm">
         <div className="flex items-center gap-6 mb-6">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-teal-100 dark:ring-teal-900/30">
-            {adminProfile.first_name?.[0]?.toUpperCase() || 'A'}
-            {adminProfile.last_name?.[0]?.toUpperCase() || 'U'}
+          <div className="relative group">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            {adminProfile.profile_image_url ? (
+              <img
+                src={adminProfile.profile_image_url}
+                alt={fullName}
+                className="w-20 h-20 rounded-full object-cover ring-4 ring-teal-100 dark:ring-teal-900/30"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-teal-100 dark:ring-teal-900/30">
+                {adminProfile.first_name?.[0]?.toUpperCase() || 'A'}
+                {adminProfile.last_name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              className="absolute bottom-0 right-0 p-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full shadow-lg border-2 border-white dark:border-gray-900 transition-all cursor-pointer group-hover:scale-110"
+              title="Change profile photo"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">

@@ -20,7 +20,7 @@ import {
 import { DataTable, ColumnDef } from "@/components/shared/data-table";
 import { SearchBar } from "@/components/shared/search-bar";
 import { FilterPanel, FilterGroup } from "@/components/shared/filter-panel";
-import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import { formatDate, formatCurrency, cn, getUserAvatar } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 // Import API hooks
@@ -155,9 +155,9 @@ export default function PhotographersPage() {
       cell: (photographer) => (
         <div className="flex items-center gap-3">
           <img
-            src={photographer.users.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${photographer.id}`}
+            src={getUserAvatar(photographer.users, photographer.business_name)}
             alt={photographer.business_name}
-            className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"
+            className="w-10 h-10 rounded-full object-cover bg-gray-200 dark:bg-gray-700"
           />
           <div>
             <div className="font-semibold text-gray-900 dark:text-gray-100">

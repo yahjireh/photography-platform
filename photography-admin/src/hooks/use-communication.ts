@@ -7,13 +7,23 @@ import toast from 'react-hot-toast';
 export interface CommunicationMessage {
   id: string;
   to: string;
+  from?: string;
   email: string;
+  phone?: string;
   userType?: string;
+  senderId?: string;
   subject: string;
   message: string;
   channel: 'email' | 'sms' | 'in-app' | 'push' | 'bulk';
   status: 'sent' | 'delivered' | 'read' | 'pending';
   date: string;
+  isSupportTicket?: boolean;
+  replies?: Array<{
+    id: string;
+    message: string;
+    repliedAt: string;
+    repliedBy: string;
+  }>;
 }
 
 export interface CommunicationTemplate {
@@ -82,6 +92,24 @@ export function useUpdateCommunicationTemplate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'communication', 'templates'] });
       toast.success('Template updated successfully!');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err));
+    },
+  });
+}
+
+export function useReplySupportMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ticketId, replyMessage }: { ticketId: string; replyMessage: string }) => {
+      const res = await api.post<any>('/admin/communication/reply', { ticketId, replyMessage });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'communication', 'messages'] });
+      toast.success(data?.message || 'Reply delivered to user!');
     },
     onError: (err) => {
       toast.error(handleApiError(err));

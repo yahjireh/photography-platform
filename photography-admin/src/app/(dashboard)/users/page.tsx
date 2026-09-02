@@ -18,7 +18,7 @@ import {
 import { DataTable, ColumnDef } from "@/components/shared/data-table";
 import { SearchBar } from "@/components/shared/search-bar";
 import { FilterPanel, FilterGroup } from "@/components/shared/filter-panel";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, getUserAvatar } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 // Import API hooks
@@ -158,9 +158,9 @@ export default function UsersPage() {
       cell: (user) => (
         <div className="flex items-center gap-3">
           <img
-            src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+            src={getUserAvatar(user, user.fullName)}
             alt={user.fullName}
-            className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"
+            className="w-10 h-10 rounded-full object-cover bg-gray-200 dark:bg-gray-700"
           />
           <div>
             <div className="font-semibold text-gray-900 dark:text-gray-100">

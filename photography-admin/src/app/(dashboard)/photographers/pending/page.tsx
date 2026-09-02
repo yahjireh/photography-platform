@@ -16,7 +16,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, getUserAvatar } from "@/lib/utils";
 import { usePendingVerifications, useVerifyPhotographer, Photographer } from "@/hooks/use-photographers";
 import toast from "react-hot-toast";
 
@@ -63,9 +63,9 @@ function VerificationCard({ photographer, onViewDetails }: VerificationCardProps
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <img
-              src={photographer.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${photographer.id}`}
+              src={getUserAvatar(photographer.users, `${photographer.users?.first_name} ${photographer.users?.last_name}`)}
               alt={`${photographer.users?.first_name} ${photographer.users?.last_name}`}
-              className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 ring-4 ring-yellow-100 dark:ring-yellow-900/30"
+              className="w-16 h-16 rounded-full object-cover bg-gray-200 dark:bg-gray-700 ring-4 ring-yellow-100 dark:ring-yellow-900/30"
             />
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">

@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePhotographers } from '../hooks/usePhotographers';
 import apiClient from '../lib/api-client';
 
-type VaultSubPage = 'main' | 'persona' | 'billing' | 'collection' | 'comms' | 'security';
+type VaultSubPage = 'main' | 'persona' | 'billing' | 'collection' | 'comms' | 'security' | 'support';
 type TopUpStep = 'idle' | 'source' | 'waiting' | 'success';
 
 interface ProfileProps {
@@ -48,6 +48,14 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const [phoneNumber, setPhoneNumber] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+
+  // Support Screen States
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportCategory, setSupportCategory] = useState('Booking Support');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [isLoadingSupportTickets, setIsLoadingSupportTickets] = useState(false);
 
   useEffect(() => {
     const mainContainer = document.getElementById('app-main-scroll');
@@ -165,6 +173,45 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
       console.error('Error saving persona:', err);
     } finally {
       setIsSavingPersona(false);
+    }
+  };
+
+  const loadSupportTickets = async () => {
+    try {
+      setIsLoadingSupportTickets(true);
+      const res = await apiClient.get('/support/my-tickets');
+      if (res.data?.data) {
+        setSupportTickets(res.data.data);
+      }
+    } catch (e) {
+      console.error('Failed to load tickets', e);
+    } finally {
+      setIsLoadingSupportTickets(false);
+    }
+  };
+
+  const handleSubmitSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportSubject.trim() || !supportMessage.trim()) {
+      alert('Please enter a subject and message');
+      return;
+    }
+
+    try {
+      setIsSubmittingSupport(true);
+      await apiClient.post('/support/contact', {
+        subject: supportSubject.trim(),
+        category: supportCategory,
+        message: supportMessage.trim()
+      });
+      setSupportSubject('');
+      setSupportMessage('');
+      alert('Your message has been sent to our support team! The admin will reply shortly.');
+      loadSupportTickets();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to submit support inquiry');
+    } finally {
+      setIsSubmittingSupport(false);
     }
   };
 
@@ -351,6 +398,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mb-4 ml-2">System Config</p>
                       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-2">
                           <MenuItem icon={Icons.MessageSquare} label="Comms Center" detail="Live Alerts & Tone" onClick={() => setSubPage('comms')} />
+                          <MenuItem icon={Icons.HelpCircle} label="Contact Support" detail="Chat directly with Platform Admin" onClick={() => { setSubPage('support'); loadSupportTickets(); }} />
                           <MenuItem icon={Icons.Lock} label="Security Core" detail="Access & Sessions" onClick={() => setSubPage('security')} />
                       </div>
                   </div>
@@ -835,6 +883,125 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                     Sign Out & Close Account
                   </button>
                </div>
+            </div>
+          </motion.div>
+        )}
+
+        {subPage === 'support' && (
+          <motion.div key="support" initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -100, opacity: 0 }} className="bg-white min-h-screen pb-32">
+            {renderHeader('Contact Support', 'Direct Admin Communication')}
+            <div className="p-6 space-y-6">
+              {/* Submit Inquiry Card */}
+              <form onSubmit={handleSubmitSupport} className="bg-gray-50 border border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm">
+                <div>
+                  <h3 className="text-base font-serif font-black text-gray-900 italic">Submit New Inquiry</h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Your message will go straight to the platform administrators.</p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Category</label>
+                  <select
+                    value={supportCategory}
+                    onChange={(e) => setSupportCategory(e.target.value)}
+                    className="w-full bg-white border border-gray-200 p-3.5 rounded-2xl text-xs font-bold text-gray-900 outline-none"
+                  >
+                    <option value="Booking Support">Booking Support</option>
+                    <option value="Payment & Escrow">Payment & Escrow</option>
+                    <option value="Photographer Inquiry">Photographer Inquiry</option>
+                    <option value="Account & Security">Account & Security</option>
+                    <option value="General Question">General Question</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Subject</label>
+                  <input
+                    type="text"
+                    required
+                    value={supportSubject}
+                    onChange={(e) => setSupportSubject(e.target.value)}
+                    placeholder="e.g., Question about my recent booking"
+                    className="w-full bg-white border border-gray-200 p-3.5 rounded-2xl text-xs font-bold text-gray-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Message</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    placeholder="Provide details so our admin team can assist you..."
+                    className="w-full bg-white border border-gray-200 p-3.5 rounded-2xl text-xs font-medium text-gray-900 outline-none resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmittingSupport}
+                  className="w-full py-4 bg-gray-950 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-98 transition-transform disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Icons.Send size={14} />
+                  <span>{isSubmittingSupport ? 'Submitting to Admin...' : 'Send to Support'}</span>
+                </button>
+              </form>
+
+              {/* Inquiries & Replies History */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-500">Your Support Tickets</h3>
+                  <button
+                    type="button"
+                    onClick={loadSupportTickets}
+                    className="text-[10px] font-bold uppercase tracking-widest text-brand-DEFAULT hover:underline"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {isLoadingSupportTickets ? (
+                  <div className="text-center py-8 text-xs text-gray-400">Loading tickets...</div>
+                ) : supportTickets.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-6">
+                    <Icons.HelpCircle size={32} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-xs font-bold text-gray-600">No support tickets submitted yet</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Submit your message above and replies will appear here in real-time.</p>
+                  </div>
+                ) : (
+                  supportTickets.map((ticket) => (
+                    <div key={ticket.id} className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-xs">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 uppercase tracking-wider">
+                            {ticket.category}
+                          </span>
+                          <h4 className="text-sm font-bold text-gray-900 mt-1.5">{ticket.title}</h4>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                          ticket.hasReply ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {ticket.hasReply ? 'Replied' : 'Pending Admin'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl leading-relaxed">{ticket.message}</p>
+                      <p className="text-[10px] text-gray-400">Submitted: {new Date(ticket.createdAt).toLocaleString()}</p>
+
+                      {/* Admin Replies */}
+                      {ticket.replies && ticket.replies.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Official Admin Response:</span>
+                          {ticket.replies.map((reply: any, idx: number) => (
+                            <div key={reply.id || idx} className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs">
+                              <div className="flex items-center justify-between text-[10px] text-emerald-900 font-bold mb-1">
+                                <span>{reply.repliedBy || 'Platform Administrator'}</span>
+                                <span className="font-normal text-emerald-700">{new Date(reply.repliedAt).toLocaleString()}</span>
+                              </div>
+                              <p className="text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">{reply.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </motion.div>
         )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icons } from '../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhotographerProfile } from '../hooks/usePhotographerProfile';
+import { apiClient } from '../lib/api-client';
 
 interface PhotographerStudioProps {
   onLogout?: () => void;
@@ -58,11 +59,58 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const [newSecAccountName, setNewSecAccountName] = useState('');
 
   // Modals state
-  const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | null>(null);
+  const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | 'support' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('');
+
+  // Support Ticket States
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportCategory, setSupportCategory] = useState('Payout Support');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [isLoadingSupportTickets, setIsLoadingSupportTickets] = useState(false);
+
+  const loadSupportTickets = async () => {
+    try {
+      setIsLoadingSupportTickets(true);
+      const res = await apiClient.get('/support/my-tickets');
+      if (res.data?.data) {
+        setSupportTickets(res.data.data);
+      }
+    } catch (e) {
+      console.error('Failed to load tickets', e);
+    } finally {
+      setIsLoadingSupportTickets(false);
+    }
+  };
+
+  const handleSubmitSupport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportSubject.trim() || !supportMessage.trim()) {
+      alert('Please enter a subject and message');
+      return;
+    }
+
+    try {
+      setIsSubmittingSupport(true);
+      await apiClient.post('/support/contact', {
+        subject: supportSubject.trim(),
+        category: supportCategory,
+        message: supportMessage.trim()
+      });
+      setSupportSubject('');
+      setSupportMessage('');
+      alert('Your message has been sent to our platform administration! Replies will appear here.');
+      loadSupportTickets();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to submit support inquiry');
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
 
   const portfolioList = profile?.portfolio_items || [];
   const tierName = profile?.subscriptions?.tier || 'FREE';
@@ -587,6 +635,17 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             </div>
             <Icons.ChevronRight size={16} className="text-gray-400" />
           </button>
+
+          <button onClick={() => { setActiveModal('support'); loadSupportTickets(); }} className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors border-t border-gray-100">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-brand-DEFAULT/10 text-brand-DEFAULT rounded-xl"><Icons.HelpCircle size={18} /></div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-gray-900">Contact Support</p>
+                <p className="text-[10px] text-gray-400 font-medium">Chat directly with platform administrators</p>
+              </div>
+            </div>
+            <Icons.ChevronRight size={16} className="text-gray-400" />
+          </button>
         </div>
 
         {/* Log Out */}
@@ -989,6 +1048,129 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                   </div>
                   <button onClick={() => setActiveModal(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
                     Acknowledge
+                  </button>
+                </div>
+              )}
+
+              {/* SUPPORT MODAL */}
+              {activeModal === 'support' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-1">Contact Platform Support</h3>
+                    <p className="text-xs text-gray-400">Direct channel to ClickFlicks administrator for payouts, disputes, or account help.</p>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleSubmitSupport} className="bg-gray-50 rounded-2xl p-5 border border-gray-100 space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Category</label>
+                      <select
+                        value={supportCategory}
+                        onChange={(e) => setSupportCategory(e.target.value)}
+                        className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                      >
+                        <option value="Payout Support">Payout & Momo Support</option>
+                        <option value="Client Booking Dispute">Client Booking Dispute</option>
+                        <option value="KYC & Verification">KYC & Verification Issue</option>
+                        <option value="Technical Issue">Technical / Upload Bug</option>
+                        <option value="General Question">General Question</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Subject</label>
+                      <input
+                        type="text"
+                        required
+                        value={supportSubject}
+                        onChange={(e) => setSupportSubject(e.target.value)}
+                        placeholder="Brief summary of your inquiry"
+                        className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Message</label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={supportMessage}
+                        onChange={(e) => setSupportMessage(e.target.value)}
+                        placeholder="Describe your inquiry with necessary details..."
+                        className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-medium text-gray-900 outline-none resize-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingSupport}
+                      className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest active:scale-98 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <Icons.Send size={14} />
+                      <span>{isSubmittingSupport ? 'Submitting...' : 'Send Message to Admin'}</span>
+                    </button>
+                  </form>
+
+                  {/* Previous Inquiries */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Previous Inquiries & Replies</span>
+                      <button
+                        type="button"
+                        onClick={loadSupportTickets}
+                        className="text-[10px] font-bold uppercase tracking-widest text-brand-DEFAULT"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+
+                    {isLoadingSupportTickets ? (
+                      <div className="text-center py-6 text-xs text-gray-400">Loading support inquiries...</div>
+                    ) : supportTickets.length === 0 ? (
+                      <div className="text-center py-6 bg-gray-50 rounded-xl text-xs text-gray-400">
+                        No previous support messages found.
+                      </div>
+                    ) : (
+                      supportTickets.map((ticket) => (
+                        <div key={ticket.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white text-gray-700 uppercase">
+                              {ticket.category}
+                            </span>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              ticket.hasReply ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {ticket.hasReply ? 'Replied' : 'Pending'}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-gray-900">{ticket.title}</h4>
+                          <p className="text-xs text-gray-600">{ticket.message}</p>
+                          <p className="text-[10px] text-gray-400">{new Date(ticket.createdAt).toLocaleString()}</p>
+
+                          {ticket.replies && ticket.replies.length > 0 && (
+                            <div className="pt-2 border-t border-gray-200/60 space-y-2">
+                              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Admin Reply:</span>
+                              {ticket.replies.map((reply: any, rIdx: number) => (
+                                <div key={reply.id || rIdx} className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs text-gray-800">
+                                  <div className="flex justify-between text-[10px] text-emerald-900 font-bold mb-0.5">
+                                    <span>{reply.repliedBy || 'Administrator'}</span>
+                                    <span className="font-normal text-emerald-700">{new Date(reply.repliedAt).toLocaleString()}</span>
+                                  </div>
+                                  <p className="whitespace-pre-wrap">{reply.message}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setActiveModal(null)}
+                    className="w-full py-4 bg-gray-100 text-gray-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               )}

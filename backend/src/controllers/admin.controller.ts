@@ -3865,17 +3865,27 @@ export const getCommunicationMessages = async (_req: Request, res: Response) => 
       }
     });
 
-    const formattedMessages = notifications.map(n => ({
-      id: n.id,
-      to: `${n.users.first_name} ${n.users.last_name}`.trim() || n.users.email,
-      email: n.users.email,
-      userType: n.users.user_type,
-      subject: n.title,
-      message: n.message,
-      channel: n.type.toLowerCase().includes('email') ? 'email' : (n.type.toLowerCase().includes('sms') ? 'sms' : 'in-app'),
-      status: n.is_read ? 'read' : 'delivered',
-      date: n.created_at
-    }));
+    const formattedMessages = notifications.map(n => {
+      const data: any = n.data || {};
+      const isSupportTicket = data.isSupportTicket === true;
+
+      return {
+        id: n.id,
+        to: isSupportTicket ? 'Admin Support' : (`${n.users.first_name} ${n.users.last_name}`.trim() || n.users.email),
+        from: isSupportTicket ? (data.senderName || `${n.users.first_name} ${n.users.last_name}`.trim()) : 'ClickFlicks Platform',
+        email: isSupportTicket ? (data.senderEmail || n.users.email) : n.users.email,
+        phone: data.senderPhone || null,
+        userType: isSupportTicket ? (data.senderType || n.users.user_type) : n.users.user_type,
+        senderId: data.senderId || null,
+        subject: n.title,
+        message: n.message,
+        channel: data.channels?.[0]?.toLowerCase() || (n.type.toLowerCase().includes('email') ? 'email' : (n.type.toLowerCase().includes('sms') ? 'sms' : 'in-app')),
+        status: n.is_read ? 'read' : 'delivered',
+        date: n.created_at,
+        isSupportTicket,
+        replies: data.replies || []
+      };
+    });
 
     return res.json({
       success: true,
@@ -3886,6 +3896,81 @@ export const getCommunicationMessages = async (_req: Request, res: Response) => 
     return res.status(500).json({
       success: false,
       message: 'Failed to get communication messages',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * POST /api/admin/communication/reply
+ * Admin replies directly to a client or photographer support inquiry
+ */
+export const replyToSupportMessage = async (req: Request, res: Response) => {
+  try {
+    const { ticketId, replyMessage } = req.body;
+    if (!ticketId || !replyMessage?.trim()) {
+      return res.status(400).json({ success: false, message: 'Ticket ID and reply message are required' });
+    }
+
+    const ticket = await prisma.notifications.findUnique({ where: { id: ticketId } });
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Support message not found' });
+    }
+
+    const data: any = ticket.data || {};
+    const recipientUserId = data.senderId;
+
+    if (!recipientUserId) {
+      return res.status(400).json({ success: false, message: 'Original sender not found on this ticket' });
+    }
+
+    const replies = Array.isArray(data.replies) ? data.replies : [];
+    replies.push({
+      id: Date.now().toString(),
+      message: replyMessage.trim(),
+      repliedAt: new Date().toISOString(),
+      repliedBy: 'Platform Administrator'
+    });
+
+    // Update the ticket record with reply history
+    await prisma.notifications.update({
+      where: { id: ticketId },
+      data: {
+        is_read: true,
+        data: {
+          ...data,
+          replies,
+          lastReplyAt: new Date().toISOString()
+        }
+      }
+    });
+
+    // Notify the user in-app
+    await prisma.notifications.create({
+      data: {
+        user_id: recipientUserId,
+        type: 'MESSAGE_RECEIVED',
+        title: `Support Reply: ${ticket.title.replace(/^\[Support:[^\]]+\]\s*/, '')}`,
+        message: replyMessage.trim(),
+        data: {
+          isSupportReply: true,
+          ticketId,
+          originalSubject: ticket.title,
+          repliedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Reply sent successfully to user',
+      data: { replies }
+    });
+  } catch (error: any) {
+    console.error('Error replying to support message:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to deliver reply',
       error: error.message
     });
   }

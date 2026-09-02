@@ -39,7 +39,7 @@ import {
 import { Timeline, TimelineItem } from "@/components/shared/timeline";
 import { DataTable, ColumnDef } from "@/components/shared/data-table";
 import { Photographer, User, Booking } from "@/types/dashboard";
-import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import { formatDate, formatCurrency, cn, getUserAvatar } from "@/lib/utils";
 import { usePhotographer, useUpdatePhotographerTier, useUpdatePhotographer } from "@/hooks/use-photographers";
 import { ActionMenu, ActionMenuItem } from "@/components/shared/action-menu";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -369,9 +369,9 @@ export default function PhotographerDetailPage() {
         <div className="flex items-center gap-4">
           <div className="relative">
             <img
-              src={photographer.users?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${photographer.id}`}
+              src={getUserAvatar(photographer.users, `${photographer.users?.first_name} ${photographer.users?.last_name}`)}
               alt={`${photographer.users?.first_name} ${photographer.users?.last_name}`}
-              className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 ring-4 ring-white dark:ring-gray-900"
+              className="w-24 h-24 rounded-full object-cover bg-gray-200 dark:bg-gray-700 ring-4 ring-white dark:ring-gray-900"
             />
             {photographer.verification_status === "VERIFIED" && (
               <div className="absolute bottom-0 right-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-gray-900">

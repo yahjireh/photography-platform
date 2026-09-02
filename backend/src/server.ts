@@ -23,6 +23,7 @@ import reviewRoutes from './routes/review.routes';
 import messageRoutes from './routes/message.routes';
 import adminRoutes from './routes/admin.routes';
 import packageRoutes from './routes/package.routes';
+import supportRoutes from './routes/support.routes';
 import { generalApiLimiter, webhookLimiter } from './middleware/rate-limiter.middleware';
 
 /**
@@ -358,8 +359,12 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/messages', messageRoutes);
 
 /**
+ * Mount support routes (Client/Photographer contact support)
+ */
+app.use('/api/support', supportRoutes);
+
+/**
  * Mount admin routes (ADMIN only)
- * All admin operations require ADMIN role authentication
  */
 app.use('/api/admin', adminRoutes);
 
