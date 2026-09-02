@@ -11,6 +11,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import bcrypt from 'bcryptjs';
 import { validateEmail, validatePhoneNumber } from '../services/validation.service';
 import { sendEmail } from '../services/email.service';
+import { getLiveTelemetry } from '../services/metrics.service';
 
 const prisma = new PrismaClient();
 
@@ -4203,6 +4204,7 @@ export const getSystemHealth = async (_req: Request, res: Response) => {
 
     const uptimeSeconds = process.uptime();
     const mem = process.memoryUsage();
+    const telemetry = getLiveTelemetry();
 
     const health = {
       status: 'OPERATIONAL',
@@ -4236,7 +4238,10 @@ export const getSystemHealth = async (_req: Request, res: Response) => {
         { name: 'Escrow Gateway (Paystack)', status: 'healthy', uptime: '99.95%', responseTime: '120ms' },
         { name: 'Storage Vault', status: 'healthy', uptime: '99.99%', responseTime: '35ms' },
         { name: 'SMS & Email Dispatch', status: 'healthy', uptime: '99.90%', responseTime: '80ms' }
-      ]
+      ],
+      resources: telemetry.resources,
+      apiMetrics: telemetry.apiMetrics,
+      totals: telemetry.totals
     };
 
     return res.json({

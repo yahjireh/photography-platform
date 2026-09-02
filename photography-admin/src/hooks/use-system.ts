@@ -36,6 +36,21 @@ export interface SystemHealth {
     uptime: string;
     responseTime: string;
   }[];
+  resources?: {
+    label: string;
+    value: number;
+    color: string;
+  }[];
+  apiMetrics?: {
+    code: string;
+    count: number;
+    pct: number;
+    color: string;
+  }[];
+  totals?: {
+    totalRequests: number;
+    avgLatencyMs: number;
+  };
 }
 
 export interface FeatureFlag {
@@ -62,7 +77,7 @@ export function useSystemHealth() {
       const res = await api.get<any>('/admin/system/health');
       return extractData(res);
     },
-    refetchInterval: 10000,
+    refetchInterval: 3000,
   });
 }
 

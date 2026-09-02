@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin.routes';
 import packageRoutes from './routes/package.routes';
 import supportRoutes from './routes/support.routes';
 import { generalApiLimiter, webhookLimiter } from './middleware/rate-limiter.middleware';
+import { recordRequest } from './services/metrics.service';
 
 /**
  * TEACHING MOMENT: Load environment variables
@@ -154,6 +155,18 @@ app.use(express.json());
  * Example: email=john@example.com&password=pass123
  */
 app.use(express.urlencoded({ extended: true }));
+
+/**
+ * Live Metrics & Telemetry Recording Middleware
+ */
+app.use((_req: Request, res: Response, next) => {
+  const startTime = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    recordRequest(res.statusCode, duration);
+  });
+  next();
+});
 
 /**
  * Request Logger Middleware (simple)
