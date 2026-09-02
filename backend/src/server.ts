@@ -23,7 +23,7 @@ import reviewRoutes from './routes/review.routes';
 import messageRoutes from './routes/message.routes';
 import adminRoutes from './routes/admin.routes';
 import packageRoutes from './routes/package.routes';
-import { generalApiLimiter } from './middleware/rate-limiter.middleware';
+import { generalApiLimiter, webhookLimiter } from './middleware/rate-limiter.middleware';
 
 /**
  * TEACHING MOMENT: Load environment variables
@@ -289,9 +289,9 @@ app.get('/health', (_req: Request, res: Response) => {
  */
 
 /** Mount payment routes
- * Paystack Webhook Endpoint (exempt from API rate limiting)
+ * Paystack Webhook Endpoint (protected by webhookLimiter against DDoS/HMAC exhaustion)
  */
-app.post('/api/webhooks/paystack', paystackWebhook);
+app.post('/api/webhooks/paystack', webhookLimiter, paystackWebhook);
 
 /**
  * Apply general API rate limiting to all /api endpoints

@@ -18,7 +18,8 @@ const otpStore = new Map<string, OtpRecord>();
 
 // OTP Expiry: 10 minutes
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
-const MAX_ATTEMPTS = 5;
+// Maximum allowed incorrect attempts before the code is permanently burned
+const MAX_ATTEMPTS = 3;
 
 // Resend email client (if API key available)
 const resendApiKey = process.env.RESEND_API_KEY;
@@ -102,12 +103,23 @@ export async function verifyEmailOtp(email: string, code: string): Promise<{ suc
 
   if (record.attempts >= MAX_ATTEMPTS) {
     otpStore.delete(key);
-    return { success: false, message: 'Too many incorrect attempts. Please request a new code.' };
+    return { success: false, message: 'Maximum verification attempts exceeded. This code has been burned. Please request a new code.' };
   }
 
   if (record.code !== code.trim()) {
     record.attempts += 1;
-    return { success: false, message: `Invalid verification code. ${MAX_ATTEMPTS - record.attempts} attempts remaining.` };
+    if (record.attempts >= MAX_ATTEMPTS) {
+      // BURN THE OTP TOKEN IMMEDIATELY
+      otpStore.delete(key);
+      return {
+        success: false,
+        message: 'Maximum verification attempts exceeded (3/3). This code has been burned and invalidated. Please request a brand new code.'
+      };
+    }
+    return {
+      success: false,
+      message: `Invalid verification code. ${MAX_ATTEMPTS - record.attempts} attempt(s) remaining before code is burned.`
+    };
   }
 
   // Code verified successfully!
@@ -149,9 +161,6 @@ export async function sendPhoneOtp(phone: string): Promise<{ success: boolean; m
   console.log(`⏱️  Expires in: 10 minutes`);
   console.log(`========================================\n`);
 
-  // SMS Gateway integration (e.g., Hubtel / Twilio) can be connected here
-  // Fallback simulator is active by default for instant testing
-
   return {
     success: true,
     message: `Verification code sent to ${cleanPhone}`
@@ -177,12 +186,23 @@ export async function verifyPhoneOtp(phone: string, code: string): Promise<{ suc
 
   if (record.attempts >= MAX_ATTEMPTS) {
     otpStore.delete(key);
-    return { success: false, message: 'Too many incorrect attempts. Please request a new code.' };
+    return { success: false, message: 'Maximum verification attempts exceeded. This code has been burned. Please request a new code.' };
   }
 
   if (record.code !== code.trim()) {
     record.attempts += 1;
-    return { success: false, message: `Invalid verification code. ${MAX_ATTEMPTS - record.attempts} attempts remaining.` };
+    if (record.attempts >= MAX_ATTEMPTS) {
+      // BURN THE OTP TOKEN IMMEDIATELY
+      otpStore.delete(key);
+      return {
+        success: false,
+        message: 'Maximum verification attempts exceeded (3/3). This code has been burned and invalidated. Please request a brand new code.'
+      };
+    }
+    return {
+      success: false,
+      message: `Invalid verification code. ${MAX_ATTEMPTS - record.attempts} attempt(s) remaining before code is burned.`
+    };
   }
 
   // Code verified successfully!
