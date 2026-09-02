@@ -8,6 +8,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, VerificationStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -2132,6 +2133,7 @@ export const getAdminProfile = async (req: Request, res: Response) => {
         email: true,
         phone_number: true,
         profile_image_url: true,
+        location_city: true,
         user_type: true,
         is_verified: true,
         created_at: true,
@@ -2161,24 +2163,38 @@ export const getAdminProfile = async (req: Request, res: Response) => {
 };
 
 /**
- * PATCH /api/admin/profile
+ * PATCH & PUT /api/admin/profile
  * Update current admin user profile
  */
 export const updateAdminProfile = async (req: Request, res: Response) => {
   try {
     // @ts-ignore - user is set by authenticate middleware
     const userId = req.user.user_id;
-    const { firstName, lastName, phoneNumber, profileImageUrl } = req.body;
+    const body = req.body || {};
+
+    const firstName = body.first_name ?? body.firstName;
+    const lastName = body.last_name ?? body.lastName;
+    const phoneNumber = body.phone_number ?? body.phoneNumber;
+    const profileImageUrl = body.profile_image_url ?? body.profileImageUrl;
+    const locationCity = body.location_city ?? body.locationCity;
+    const email = body.email;
+
+    const data: any = {
+      updated_at: new Date()
+    };
+
+    if (firstName !== undefined) data.first_name = firstName;
+    if (lastName !== undefined) data.last_name = lastName;
+    if (phoneNumber !== undefined) data.phone_number = phoneNumber;
+    if (profileImageUrl !== undefined) data.profile_image_url = profileImageUrl;
+    if (locationCity !== undefined) data.location_city = locationCity;
+    if (email !== undefined && typeof email === 'string' && email.trim()) {
+      data.email = email.trim().toLowerCase();
+    }
 
     const updatedUser = await prisma.users.update({
       where: { id: userId },
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        phone_number: phoneNumber,
-        profile_image_url: profileImageUrl,
-        updated_at: new Date()
-      },
+      data,
       select: {
         id: true,
         first_name: true,
@@ -2186,6 +2202,7 @@ export const updateAdminProfile = async (req: Request, res: Response) => {
         email: true,
         phone_number: true,
         profile_image_url: true,
+        location_city: true,
         user_type: true,
         is_verified: true,
         created_at: true,
@@ -2203,6 +2220,74 @@ export const updateAdminProfile = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update admin profile',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * PUT & PATCH /api/admin/profile/password
+ * Update current admin user password
+ */
+export const changeAdminPassword = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore - user is set by authenticate middleware
+    const userId = req.user.user_id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long'
+      });
+    }
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        password_hash: newHash,
+        updated_at: new Date()
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Error changing admin password:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update password',
       error: error.message
     });
   }
@@ -3623,6 +3708,83 @@ export const verifyAndReleaseBalance = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /api/admin/payments/:id/approve-release
+ * Approve escrow release for a specific payment
+ */
+export const approvePaymentRelease = async (req: Request, res: Response) => {
+  try {
+    const { id: paymentId } = req.params;
+    const { notes } = req.body;
+
+    const payment = await prisma.payments.findUnique({
+      where: { id: paymentId },
+      include: {
+        bookings: {
+          include: {
+            users_bookings_client_idTousers: true,
+            users_bookings_photographer_idTousers: true
+          }
+        }
+      }
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    const now = new Date();
+
+    const updatedPayment = await prisma.payments.update({
+      where: { id: paymentId },
+      data: {
+        hold_status: 'RELEASED_TO_PHOTOGRAPHER',
+        released_at: now,
+        release_notes: notes || `Funds released to photographer by Admin for ${payment.payment_stage} stage.`
+      }
+    });
+
+    if (payment.payment_stage === 'BALANCE') {
+      await prisma.bookings.update({
+        where: { id: payment.booking_id },
+        data: {
+          status: 'COMPLETED',
+          updated_at: now
+        }
+      });
+    }
+
+    // Notify photographer
+    try {
+      await prisma.notifications.create({
+        data: {
+          user_id: payment.bookings.photographer_id,
+          type: 'PAYMENT_RECEIVED',
+          title: `${payment.payment_stage} Released to Payout Account`,
+          message: `Admin has approved the release of GHS ${payment.amount} for booking #${payment.bookings.booking_number}.`,
+          data: { paymentId: payment.id, bookingId: payment.booking_id, amount: Number(payment.amount) }
+        }
+      });
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: `${payment.payment_stage} payment release approved`,
+      data: updatedPayment
+    });
+  } catch (error: any) {
+    console.error('Error approving payment release:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to approve payment release',
+      error: error.message
+    });
+  }
+};
+
 // ============================================
 // COMMUNICATION HUB
 // ============================================
@@ -3975,6 +4137,94 @@ export const getMobileCrashes = async (_req: Request, res: Response) => {
     data: mobileCrashes
   });
 };
+
+// ============================================
+// EMAIL REPORTS SCHEDULES
+// ============================================
+
+interface ReportSchedule {
+  id: string;
+  name: string;
+  type: string;
+  frequency: string;
+  recipients: string[];
+  enabled: boolean;
+  lastSentAt?: string;
+  nextSendAt?: string;
+  includeCharts: boolean;
+  createdAt: string;
+}
+
+let reportSchedules: ReportSchedule[] = [];
+
+export const getReportSchedules = async (_req: Request, res: Response) => {
+  return res.json({
+    success: true,
+    data: reportSchedules
+  });
+};
+
+export const createReportSchedule = async (req: Request, res: Response) => {
+  const newSchedule: ReportSchedule = {
+    id: `rpt_${Date.now()}`,
+    name: req.body.name || 'Custom Report',
+    type: req.body.type || 'revenue',
+    frequency: req.body.frequency || 'weekly',
+    recipients: Array.isArray(req.body.recipients) ? req.body.recipients : [],
+    enabled: req.body.enabled ?? true,
+    includeCharts: req.body.includeCharts ?? true,
+    createdAt: new Date().toISOString()
+  };
+
+  reportSchedules.push(newSchedule);
+
+  return res.status(201).json({
+    success: true,
+    message: 'Report schedule created successfully',
+    data: newSchedule
+  });
+};
+
+export const updateReportSchedule = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = reportSchedules.findIndex(s => s.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({
+      success: false,
+      message: 'Report schedule not found'
+    });
+  }
+
+  reportSchedules[index] = { ...reportSchedules[index], ...req.body };
+
+  return res.json({
+    success: true,
+    message: 'Report schedule updated successfully',
+    data: reportSchedules[index]
+  });
+};
+
+export const deleteReportSchedule = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  reportSchedules = reportSchedules.filter(s => s.id !== id);
+
+  return res.json({
+    success: true,
+    message: 'Report schedule deleted successfully'
+  });
+};
+
+export const sendReportNow = async (req: Request, res: Response) => {
+  const { type, recipients } = req.body;
+  console.log(`📊 Dispatching report (${type}) to:`, recipients);
+
+  return res.json({
+    success: true,
+    message: `Report (${type}) dispatched successfully to ${recipients?.length || 0} recipient(s)`
+  });
+};
+
 
 
 

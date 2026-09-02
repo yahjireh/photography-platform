@@ -7,7 +7,7 @@ import { useReviews } from '../hooks/useReviews';
 import { BookingCardSkeleton } from '../components/SkeletonLoader';
 
 type BookingTab = 'upcoming' | 'history';
-type MockPopup = 'invoice' | 'cancel-warning' | null;
+type BookingPopupType = 'invoice' | 'cancel-warning' | null;
 
 interface BookingsProps {
   onTabChange?: (tab: string) => void;
@@ -31,7 +31,7 @@ const Bookings: React.FC<BookingsProps> = ({ onTabChange, onOpenChat }) => {
   const [activeTab, setActiveTab] = useState<BookingTab>('upcoming');
   const [managingBooking, setManagingBooking] = useState<Booking | null>(null);
   const [reviewingBooking, setReviewingBooking] = useState<Booking | null>(null);
-  const [activePopup, setActivePopup] = useState<MockPopup>(null);
+  const [activePopup, setActivePopup] = useState<BookingPopupType>(null);
 
   // Escrow Lifecycle States
   const [payingBooking, setPayingBooking] = useState<Booking | null>(null);

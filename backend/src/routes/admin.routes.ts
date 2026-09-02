@@ -41,6 +41,7 @@ import {
   // Payment Management
   getAllPayments,
   getPaymentById,
+  approvePaymentRelease,
 
   // Dispute Management
   getAllDisputes,
@@ -68,6 +69,7 @@ import {
   // Profile
   getAdminProfile,
   updateAdminProfile,
+  changeAdminPassword,
 
   // Active Users
   getActiveUsers,
@@ -93,7 +95,14 @@ import {
   getMobileAppVersions,
   updateMobileAppVersion,
   getMobileStats,
-  getMobileCrashes
+  getMobileCrashes,
+
+  // Report Schedules
+  getReportSchedules,
+  createReportSchedule,
+  updateReportSchedule,
+  deleteReportSchedule,
+  sendReportNow
 } from '../controllers/admin.controller';
 import * as TwoFactorController from '../controllers/two-factor.controller';
 
@@ -287,6 +296,12 @@ router.get('/payments', getAllPayments);
  * Get payment details by ID
  */
 router.get('/payments/:id', getPaymentById);
+
+/**
+ * POST /api/admin/payments/:id/approve-release
+ * Approve escrow release for a payment
+ */
+router.post('/payments/:id/approve-release', approvePaymentRelease);
 
 // ============================================
 // DISPUTE MANAGEMENT ROUTES
@@ -521,6 +536,14 @@ router.get('/profile', getAdminProfile);
  * Update current admin user profile
  */
 router.patch('/profile', updateAdminProfile);
+router.put('/profile', updateAdminProfile);
+
+/**
+ * PUT & PATCH /api/admin/profile/password
+ * Update current admin user password
+ */
+router.put('/profile/password', changeAdminPassword);
+router.patch('/profile/password', changeAdminPassword);
 
 // ============================================
 // ACTIVE USERS ROUTES
@@ -531,5 +554,14 @@ router.patch('/profile', updateAdminProfile);
  * Get recently active users
  */
 router.get('/active-users', getActiveUsers);
+
+// ============================================
+// EMAIL REPORTS SCHEDULES ROUTES
+// ============================================
+router.get('/reports/schedules', getReportSchedules);
+router.post('/reports/schedules', createReportSchedule);
+router.patch('/reports/schedules/:id', updateReportSchedule);
+router.delete('/reports/schedules/:id', deleteReportSchedule);
+router.post('/reports/send-now', sendReportNow);
 
 export default router;

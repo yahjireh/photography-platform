@@ -39,45 +39,7 @@ export function useEmailReports() {
         const response = await api.get<EmailReportConfig[]>('/admin/reports/schedules');
         return response.data.data || [];
       } catch {
-        // Return mock data if endpoint not available yet
-        return [
-          {
-            id: 'rpt_1',
-            name: 'Daily Revenue Summary',
-            type: 'revenue' as ReportType,
-            frequency: 'daily' as ReportFrequency,
-            recipients: ['admin@photobook.gh'],
-            enabled: true,
-            lastSentAt: new Date(Date.now() - 86400000).toISOString(),
-            nextSendAt: new Date(Date.now() + 43200000).toISOString(),
-            includeCharts: true,
-            createdAt: '2026-01-15T00:00:00Z',
-          },
-          {
-            id: 'rpt_2',
-            name: 'Weekly Booking Report',
-            type: 'bookings' as ReportType,
-            frequency: 'weekly' as ReportFrequency,
-            recipients: ['admin@photobook.gh', 'ops@photobook.gh'],
-            enabled: true,
-            lastSentAt: new Date(Date.now() - 604800000).toISOString(),
-            nextSendAt: new Date(Date.now() + 259200000).toISOString(),
-            includeCharts: true,
-            createdAt: '2026-01-15T00:00:00Z',
-          },
-          {
-            id: 'rpt_3',
-            name: 'Monthly Full Summary',
-            type: 'full_summary' as ReportType,
-            frequency: 'monthly' as ReportFrequency,
-            recipients: ['admin@photobook.gh', 'ceo@photobook.gh'],
-            enabled: false,
-            lastSentAt: new Date(Date.now() - 2592000000).toISOString(),
-            nextSendAt: new Date(Date.now() + 1296000000).toISOString(),
-            includeCharts: true,
-            createdAt: '2026-01-01T00:00:00Z',
-          },
-        ];
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000,

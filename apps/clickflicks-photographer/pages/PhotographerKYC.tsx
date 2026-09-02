@@ -87,8 +87,18 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const simulateUpload = (field: 'ghanaCardFront' | 'ghanaCardBack') => {
-    handleInputChange(field, 'uploaded_mock_file.jpg');
+  const frontInputRef = React.useRef<HTMLInputElement>(null);
+  const backInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (field: 'ghanaCardFront' | 'ghanaCardBack', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleInputChange(field, reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const stepTitles = [
@@ -208,21 +218,35 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
+                  <input 
+                    type="file" 
+                    ref={frontInputRef} 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileChange('ghanaCardFront', e)} 
+                  />
+                  <input 
+                    type="file" 
+                    ref={backInputRef} 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileChange('ghanaCardBack', e)} 
+                  />
                   <div 
-                    onClick={() => simulateUpload('ghanaCardFront')}
+                    onClick={() => frontInputRef.current?.click()}
                     className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors ${formData.ghanaCardFront ? 'bg-brand-DEFAULT/5 border-brand-DEFAULT' : 'border-gray-200 bg-white'}`}
                   >
                     <Icons.Upload size={24} className={`mx-auto mb-2 ${formData.ghanaCardFront ? 'text-brand-DEFAULT' : 'text-gray-400'}`} />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600 block">Card Front</span>
-                    {formData.ghanaCardFront && <span className="text-[8px] text-brand-DEFAULT font-bold uppercase">Uploaded</span>}
+                    {formData.ghanaCardFront && <span className="text-[8px] text-brand-DEFAULT font-bold uppercase">Image Selected</span>}
                   </div>
                   <div 
-                    onClick={() => simulateUpload('ghanaCardBack')}
+                    onClick={() => backInputRef.current?.click()}
                     className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors ${formData.ghanaCardBack ? 'bg-brand-DEFAULT/5 border-brand-DEFAULT' : 'border-gray-200 bg-white'}`}
                   >
                     <Icons.Upload size={24} className={`mx-auto mb-2 ${formData.ghanaCardBack ? 'text-brand-DEFAULT' : 'text-gray-400'}`} />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600 block">Card Back</span>
-                    {formData.ghanaCardBack && <span className="text-[8px] text-brand-DEFAULT font-bold uppercase">Uploaded</span>}
+                    {formData.ghanaCardBack && <span className="text-[8px] text-brand-DEFAULT font-bold uppercase">Image Selected</span>}
                   </div>
                 </div>
               </div>

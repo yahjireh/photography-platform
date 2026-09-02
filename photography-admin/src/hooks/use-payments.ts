@@ -180,19 +180,8 @@ export function useApprovePaymentRelease() {
   return useMutation<Payment, Error, { paymentId: string; stage: 'DEPOSIT' | 'BALANCE' }>(
     {
       mutationFn: async ({ paymentId, stage }) => {
-        // TODO: Replace with actual API endpoint when backend is ready
-        // const response = await api.post<Payment>(`/admin/payments/${paymentId}/approve-release`);
-        // return extractData(response);
-
-        // Placeholder: Show what would happen
-        console.log(`Approving ${stage} payment release for payment ${paymentId}`);
-
-        // Mock successful response
-        return {
-          id: paymentId,
-          releaseApproved: true,
-          releasedAt: new Date().toISOString(),
-        } as Payment;
+        const response = await api.post<Payment>(`/admin/payments/${paymentId}/approve-release`, { stage });
+        return extractData(response);
       },
       onSuccess: (data, variables) => {
         // Invalidate queries
