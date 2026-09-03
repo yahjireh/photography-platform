@@ -247,10 +247,34 @@ export default function MobileAppManagementPage() {
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { label: 'Total Installs', value: (mobileStats?.totalInstalls || 36170).toLocaleString(), change: '+8.2%', icon: Download, color: 'blue' },
-            { label: 'Active Users (7d)', value: (mobileStats?.activeUsers7d || 14845).toLocaleString(), change: '+3.1%', icon: Users, color: 'green' },
-            { label: 'Crash-Free Rate', value: `${mobileStats?.crashFreeRate || 99.8}%`, change: '+0.3%', icon: CheckCircle, color: 'purple' },
-            { label: 'Avg Rating', value: `${mobileStats?.avgStoreRating || 4.85}`, change: '+0.1', icon: Star, color: 'orange' },
+            {
+              label: 'Total Registered Mobile Users',
+              value: mobileStats?.totalInstalls !== undefined ? Number(mobileStats.totalInstalls).toLocaleString() : '0',
+              change: mobileStats?.change || 'Live',
+              icon: Download,
+              color: 'blue'
+            },
+            {
+              label: 'Active Users (7d)',
+              value: mobileStats?.activeUsers7d !== undefined ? Number(mobileStats.activeUsers7d).toLocaleString() : '0',
+              change: '7-Day Window',
+              icon: Users,
+              color: 'green'
+            },
+            {
+              label: 'Crash-Free Rate',
+              value: mobileStats?.crashFreeRate !== undefined ? `${mobileStats.crashFreeRate}%` : '100%',
+              change: (mobileStats?.crashFreeRate ?? 100) >= 99 ? 'Healthy' : 'Investigating',
+              icon: CheckCircle,
+              color: 'purple'
+            },
+            {
+              label: 'Avg Store Rating',
+              value: mobileStats && mobileStats.avgStoreRating > 0 ? `${mobileStats.avgStoreRating} ★` : 'No reviews',
+              change: mobileStats?.totalReviews ? `${mobileStats.totalReviews} review(s)` : 'Awaiting reviews',
+              icon: Star,
+              color: 'orange'
+            },
           ].map((stat) => {
             const Icon = stat.icon;
             return (

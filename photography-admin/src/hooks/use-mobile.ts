@@ -94,7 +94,9 @@ export interface MobileStats {
   activeUsers7d: number;
   crashFreeRate: number;
   avgStoreRating: number;
+  totalReviews?: number;
   totalBookingsMobile?: number;
+  change?: string;
 }
 
 export function useMobileStats() {
@@ -102,9 +104,9 @@ export function useMobileStats() {
     queryKey: ['admin', 'mobile', 'stats'],
     queryFn: async () => {
       const res = await api.get<any>('/admin/mobile/stats');
-      return extractData(res) || { totalInstalls: 36170, activeUsers7d: 14845, crashFreeRate: 99.8, avgStoreRating: 4.85 };
+      return extractData(res) || { totalInstalls: 0, activeUsers7d: 0, crashFreeRate: 100, avgStoreRating: 0, totalReviews: 0, change: 'Live' };
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 }
 
