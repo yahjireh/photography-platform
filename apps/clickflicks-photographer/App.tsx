@@ -14,6 +14,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ApertureTransition from './components/ApertureTransition';
 import { initPushNotifications } from './services/PushNotificationService';
+import { MobileConfigService } from './services/MobileConfigService';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
@@ -43,6 +44,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     initPushNotifications();
+    MobileConfigService.init();
 
     const hasOnboarded = localStorage.getItem('clickflicks_photographer_onboarded') === 'true';
     const savedKyc = localStorage.getItem('clickflicks_photographer_kyc') as KYCStatus | null;

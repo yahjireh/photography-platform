@@ -24,6 +24,7 @@ import messageRoutes from './routes/message.routes';
 import adminRoutes from './routes/admin.routes';
 import packageRoutes from './routes/package.routes';
 import supportRoutes from './routes/support.routes';
+import mobileRoutes from './routes/mobile.routes';
 import { generalApiLimiter, webhookLimiter } from './middleware/rate-limiter.middleware';
 import { recordRequest } from './services/metrics.service';
 
@@ -375,6 +376,11 @@ app.use('/api/messages', messageRoutes);
  * Mount support routes (Client/Photographer contact support)
  */
 app.use('/api/support', supportRoutes);
+
+/**
+ * Mount mobile public routes (App config, version checks & crash telemetry)
+ */
+app.use('/api/mobile', mobileRoutes);
 
 /**
  * Mount admin routes (ADMIN only)

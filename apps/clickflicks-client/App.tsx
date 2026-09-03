@@ -20,6 +20,7 @@ import { usePhotographers } from './hooks/usePhotographers';
 import { AperturePulseLoader } from './components/SkeletonLoader';
 import apiClient from './lib/api-client';
 import { cacheGet, cacheSet } from './lib/cache';
+import { MobileConfigService } from './services/MobileConfigService';
 
 type AppState = 'ONBOARDING' | 'AUTH' | 'MAIN';
 type AuthState = 'LOGIN' | 'SIGNUP';
@@ -58,6 +59,10 @@ const AppContent: React.FC = () => {
     const mainElem = document.getElementById('app-main-scroll');
     if (mainElem) mainElem.scrollTop = 0;
   };
+
+  useEffect(() => {
+    MobileConfigService.init();
+  }, []);
 
   useEffect(() => {
     scrollToTop();

@@ -92,12 +92,6 @@ import {
   getCronJobs,
   toggleMaintenanceMode,
 
-  // Mobile Apps
-  getMobileAppVersions,
-  updateMobileAppVersion,
-  getMobileStats,
-  getMobileCrashes,
-
   // Rate Limits
   getRateLimits,
   updateRateLimits,
@@ -119,6 +113,7 @@ import {
   deleteReportSchedule,
   sendReportNow
 } from '../controllers/admin.controller';
+import * as MobileController from '../controllers/mobile.controller';
 import * as TwoFactorController from '../controllers/two-factor.controller';
 
 const router = express.Router();
@@ -495,29 +490,39 @@ router.post('/system/abtests/:id/reset', resetSystemAbTest);
 // MOBILE APPS ROUTES
 // ============================================
 
-/**
- * GET /api/admin/mobile/versions
- * Get app versions
- */
-router.get('/mobile/versions', getMobileAppVersions);
+/** App Versions */
+router.get('/mobile/versions', MobileController.getMobileAppVersions);
+router.post('/mobile/versions', MobileController.createMobileAppVersion);
+router.patch('/mobile/versions/:platform', MobileController.updateMobileAppVersion);
+router.post('/mobile/versions/:platform/soft-update', MobileController.broadcastSoftUpdate);
 
-/**
- * PATCH /api/admin/mobile/versions/:platform
- * Update app version config
- */
-router.patch('/mobile/versions/:platform', updateMobileAppVersion);
+/** Usage & Crash Telemetry Stats */
+router.get('/mobile/stats', MobileController.getMobileStats);
 
-/**
- * GET /api/admin/mobile/stats
- * Get mobile usage stats
- */
-router.get('/mobile/stats', getMobileStats);
+/** Push Notification Campaigns */
+router.get('/mobile/campaigns', MobileController.getMobilePushCampaigns);
+router.post('/mobile/campaigns', MobileController.createMobilePushCampaign);
 
-/**
- * GET /api/admin/mobile/crashes
- * Get crash reports
- */
-router.get('/mobile/crashes', getMobileCrashes);
+/** In-App Messages */
+router.get('/mobile/messages', MobileController.getMobileInAppMessages);
+router.post('/mobile/messages', MobileController.createMobileInAppMessage);
+router.patch('/mobile/messages/:id/toggle', MobileController.toggleMobileInAppMessage);
+router.delete('/mobile/messages/:id', MobileController.deleteMobileInAppMessage);
+
+/** Crash Reports */
+router.get('/mobile/crashes', MobileController.getMobileCrashes);
+router.patch('/mobile/crashes/:id', MobileController.updateMobileCrashStatus);
+router.post('/mobile/crashes/clear', MobileController.clearResolvedCrashes);
+
+/** Mobile Feature Flags */
+router.get('/mobile/flags', MobileController.getMobileFeatureFlags);
+router.patch('/mobile/flags/:id', MobileController.updateMobileFeatureFlag);
+
+/** Mobile A/B Testing */
+router.get('/mobile/abtests', MobileController.getMobileAbTests);
+router.post('/mobile/abtests', MobileController.createMobileAbTest);
+router.post('/mobile/abtests/:id/toggle', MobileController.toggleMobileAbTest);
+router.post('/mobile/abtests/:id/reset', MobileController.resetMobileAbTest);
 
 // ============================================
 // NOTIFICATION ROUTES

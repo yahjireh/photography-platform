@@ -4360,95 +4360,15 @@ export const toggleMaintenanceMode = async (req: Request, res: Response) => {
 };
 
 // ============================================
-// MOBILE APPS MANAGEMENT
+// MOBILE APPS MANAGEMENT (Delegated to mobile.controller.ts)
 // ============================================
-
-export const defaultAppVersions = [
-  { platform: 'iOS', version: '2.4.1', buildNumber: '241', minRequired: '2.2.0', status: 'live', releaseDate: '2026-02-01', users: 14250, forceUpdate: false },
-  { platform: 'iOS', version: '2.5.0-beta', buildNumber: '250', minRequired: '2.2.0', status: 'beta', releaseDate: '2026-02-15', users: 842, forceUpdate: false },
-  { platform: 'Android', version: '2.4.2', buildNumber: '242', minRequired: '2.1.0', status: 'live', releaseDate: '2026-02-03', users: 21920, forceUpdate: false },
-  { platform: 'Android', version: '2.5.0-rc1', buildNumber: '250', minRequired: '2.1.0', status: 'beta', releaseDate: '2026-02-20', users: 456, forceUpdate: false },
-];
-
-let mobileCrashes = [
-  { id: 'crash_1', title: 'Network timeout during large photo upload', platform: 'Android', version: '2.4.2', occurrences: 14, users: 8, status: 'monitoring', lastSeen: new Date(Date.now() - 86400000).toISOString() },
-  { id: 'crash_2', title: 'Location permission denial handled gracefully', platform: 'iOS', version: '2.4.1', occurrences: 6, users: 5, status: 'resolved', lastSeen: new Date(Date.now() - 172800000).toISOString() },
-];
-
-/**
- * GET /api/admin/mobile/versions
- */
-export const getMobileAppVersions = async (_req: Request, res: Response) => {
-  try {
-    const row = await prisma.system_settings.findUnique({
-      where: { key: 'mobile_app_versions' }
-    });
-    const versions = row && Array.isArray(row.value) ? row.value : defaultAppVersions;
-    return res.json({
-      success: true,
-      data: versions
-    });
-  } catch (err: any) {
-    return res.json({ success: true, data: defaultAppVersions });
-  }
-};
-
-/**
- * PATCH /api/admin/mobile/versions/:platform
- */
-export const updateMobileAppVersion = async (req: Request, res: Response) => {
-  try {
-    const { platform } = req.params;
-    const updates = req.body;
-
-    const row = await prisma.system_settings.findUnique({
-      where: { key: 'mobile_app_versions' }
-    });
-    const currentList: any[] = row && Array.isArray(row.value) ? (row.value as any[]) : defaultAppVersions;
-    const updated = currentList.map(v => v.platform.toLowerCase() === platform.toLowerCase() ? { ...v, ...updates } : v);
-
-    await prisma.system_settings.upsert({
-      where: { key: 'mobile_app_versions' },
-      update: { value: updated },
-      create: { key: 'mobile_app_versions', value: updated }
-    });
-
-    return res.json({
-      success: true,
-      message: 'App version configuration updated and saved successfully',
-      data: updated.find(v => v.platform.toLowerCase() === platform.toLowerCase())
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: 'Failed to update app version' });
-  }
-};
-
-/**
- * GET /api/admin/mobile/stats
- */
-export const getMobileStats = async (_req: Request, res: Response) => {
-  const totalUsers = await prisma.users.count();
-
-  return res.json({
-    success: true,
-    data: {
-      totalInstalls: Math.max(36170, totalUsers * 120),
-      activeUsers7d: Math.max(14845, totalUsers * 45),
-      crashFreeRate: 99.8,
-      avgStoreRating: 4.85
-    }
-  });
-};
-
-/**
- * GET /api/admin/mobile/crashes
- */
-export const getMobileCrashes = async (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: mobileCrashes
-  });
-};
+export {
+  getMobileAppVersions,
+  updateMobileAppVersion,
+  getMobileStats,
+  getMobileCrashes,
+  defaultAppVersions
+} from './mobile.controller';
 
 // ============================================
 // RATE LIMITS (PERSISTED IN POSTGRESQL)
