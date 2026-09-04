@@ -209,20 +209,60 @@ export async function paymentCallback(req: Request, res: Response) {
     // Verify payment
     const verification = await PaystackService.verifyPayment(reference);
     
-    const frontendUrl = process.env.CLIENT_APP_URL || 'http://localhost:3000';
-    
-    if (verification.status === 'success') {
-      // Redirect to success page
-      return res.redirect(`${frontendUrl}/payment/success?reference=${reference}`);
-    } else {
-      // Redirect to failure page
-      return res.redirect(`${frontendUrl}/payment/failed?reference=${reference}`);
+    const frontendUrl = process.env.CLIENT_APP_URL || '';
+    const isSuccess = verification.status === 'success';
+    const deepLinkUrl = isSuccess
+      ? `clickflicks://payment/success?reference=${reference}`
+      : `clickflicks://payment/failed?reference=${reference}`;
+
+    // If CLIENT_APP_URL is explicitly set to a live public domain (not localhost), redirect there
+    if (frontendUrl && !frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+      return res.redirect(
+        isSuccess
+          ? `${frontendUrl}/payment/success?reference=${reference}`
+          : `${frontendUrl}/payment/failed?reference=${reference}`
+      );
     }
-    
+
+    // Default for Mobile Testing: Return responsive HTML with auto-redirect to ClickFlicks APK
+    return res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${isSuccess ? 'Payment Confirmed' : 'Payment Failed'} - ClickFlicks</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 36px 28px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.5); }
+    .badge-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 34px; font-weight: bold; background: ${isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isSuccess ? '#10b981' : '#ef4444'}; border: 2px solid ${isSuccess ? '#10b981' : '#ef4444'}; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; color: #ffffff; }
+    p { font-size: 14px; color: #94a3b8; line-height: 1.5; margin-bottom: 28px; }
+    .btn { display: block; width: 100%; padding: 14px 20px; background: linear-gradient(135deg, #9333ea, #7928ca); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 14px rgba(147, 51, 234, 0.4); }
+    .ref-code { margin-top: 20px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #64748b; word-break: break-all; }
+  </style>
+  <script>
+    // Auto-redirect into the ClickFlicks APK on the phone
+    setTimeout(function() {
+      window.location.href = "${deepLinkUrl}";
+    }, 600);
+  </script>
+</head>
+<body>
+  <div class="card">
+    <div class="badge-icon">${isSuccess ? '✓' : '✕'}</div>
+    <h1>${isSuccess ? 'Payment Confirmed!' : 'Payment Incomplete'}</h1>
+    <p>${isSuccess ? 'Your escrow transaction was verified. Returning you to the ClickFlicks app...' : 'The transaction could not be completed. Please return to the app and try again.'}</p>
+    <a href="${deepLinkUrl}" class="btn">Return to ClickFlicks App</a>
+    <div class="ref-code">Ref: ${reference}</div>
+  </div>
+</body>
+</html>
+    `.trim());
   } catch (error: any) {
     console.error('❌ Payment callback error:', error);
-    const frontendUrl = process.env.CLIENT_APP_URL || 'http://localhost:3000';
-    return res.redirect(`${frontendUrl}/payment/error`);
+    return res.status(500).send('Payment verification failed');
   }
 }
 

@@ -85,7 +85,7 @@ export async function initializeDepositPayment(
       photographerId: booking.photographer_id,
       clientId: booking.client_id
     },
-    callback_url: `${process.env.CLIENT_APP_URL}/bookings/${booking.id}/payment-success`
+    callback_url: process.env.PAYSTACK_CALLBACK_URL || (process.env.CLIENT_APP_URL && !process.env.CLIENT_APP_URL.includes('localhost') ? `${process.env.CLIENT_APP_URL}/bookings/${booking.id}/payment-success` : 'https://clickflicks-api.onrender.com/api/payments/callback')
   });
   
   /**
@@ -173,7 +173,7 @@ export async function initializeBalancePayment(
       photographerId: booking.photographer_id,
       clientId: booking.client_id
     },
-    callback_url: `${process.env.CLIENT_APP_URL}/bookings/${booking.id}/payment-success`
+    callback_url: process.env.PAYSTACK_CALLBACK_URL || (process.env.CLIENT_APP_URL && !process.env.CLIENT_APP_URL.includes('localhost') ? `${process.env.CLIENT_APP_URL}/bookings/${booking.id}/payment-success` : 'https://clickflicks-api.onrender.com/api/payments/callback')
   });
 
   await prisma.payments.create({
