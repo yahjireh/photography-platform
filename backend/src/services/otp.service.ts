@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import prisma from '../config/database';
 import { Resend } from 'resend';
+import { ArkeselSmsService } from './sms.service';
 
 interface OtpRecord {
   code: string;
@@ -160,6 +161,13 @@ export async function sendPhoneOtp(phone: string): Promise<{ success: boolean; m
   console.log(`🔑 CODE: ${code}`);
   console.log(`⏱️  Expires in: 10 minutes`);
   console.log(`========================================\n`);
+
+  // Dispatch live SMS via Arkesel
+  try {
+    await ArkeselSmsService.sendOtpSms(cleanPhone, code);
+  } catch (smsErr: any) {
+    console.warn('⚠️ Arkesel SMS dispatch error:', smsErr.message);
+  }
 
   return {
     success: true,

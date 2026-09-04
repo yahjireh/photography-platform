@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import { validateEmail, validatePhoneNumber } from '../services/validation.service';
 import { sendEmail } from '../services/email.service';
 import { getLiveTelemetry } from '../services/metrics.service';
+import { ArkeselSmsService } from '../services/sms.service';
 
 const prisma = new PrismaClient();
 
@@ -4069,26 +4070,32 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
       });
     }
 
-    let targetUsers: { id: string; email: string; first_name: string; last_name: string }[] = [];
+    let targetUsers: { id: string; email: string; phone_number: string | null; first_name: string; last_name: string }[] = [];
 
     if (userId) {
-      const u = await prisma.users.findUnique({ where: { id: userId } });
+      const u = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, phone_number: true, first_name: true, last_name: true }
+      });
       if (u) targetUsers = [u];
     } else if (target === 'photographers') {
       targetUsers = await prisma.users.findMany({
-        where: { user_type: 'PHOTOGRAPHER', is_active: true }
+        where: { user_type: 'PHOTOGRAPHER', is_active: true },
+        select: { id: true, email: true, phone_number: true, first_name: true, last_name: true }
       });
     } else if (target === 'clients') {
       targetUsers = await prisma.users.findMany({
-        where: { user_type: 'CLIENT', is_active: true }
+        where: { user_type: 'CLIENT', is_active: true },
+        select: { id: true, email: true, phone_number: true, first_name: true, last_name: true }
       });
     } else {
       targetUsers = await prisma.users.findMany({
-        where: { is_active: true }
+        where: { is_active: true },
+        select: { id: true, email: true, phone_number: true, first_name: true, last_name: true }
       });
     }
 
-    // Insert notifications in a single batch
+    // 1. Insert in-app notifications in a single batch
     if (targetUsers.length > 0) {
       await prisma.notifications.createMany({
         data: targetUsers.map(u => ({
@@ -4101,10 +4108,28 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
       });
     }
 
+    // 2. If SMS channel selected, dispatch via Arkesel SMS Gateway
+    const isSmsSelected = channels.some((c: string) => c.toLowerCase() === 'sms');
+    let smsDispatchCount = 0;
+    if (isSmsSelected) {
+      const phoneNumbers = targetUsers
+        .map(u => u.phone_number)
+        .filter((p): p is string => Boolean(p && p.trim()));
+
+      if (phoneNumbers.length > 0) {
+        try {
+          const smsResult = await ArkeselSmsService.sendSms(phoneNumbers, message, subject.substring(0, 11));
+          smsDispatchCount = smsResult.recipientsCount;
+        } catch (smsError: any) {
+          console.error('Error dispatching bulk SMS via Arkesel:', smsError);
+        }
+      }
+    }
+
     return res.json({
       success: true,
-      message: `Dispatched announcement to ${targetUsers.length} users successfully`,
-      data: { count: targetUsers.length }
+      message: `Dispatched announcement to ${targetUsers.length} user(s) successfully${isSmsSelected ? ` (SMS sent to ${smsDispatchCount} recipient(s))` : ''}`,
+      data: { count: targetUsers.length, smsSent: smsDispatchCount }
     });
   } catch (error: any) {
     console.error('Error sending communication:', error);
@@ -4113,6 +4138,55 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
       message: 'Failed to dispatch communication',
       error: error.message
     });
+  }
+};
+
+/**
+ * GET /api/admin/sms/balance
+ * Queries live Arkesel SMS balance
+ */
+export const getAdminSmsBalance = async (_req: Request, res: Response) => {
+  try {
+    const result = await ArkeselSmsService.checkBalance();
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api/admin/sms/test
+ * Sends a test SMS message via Arkesel
+ */
+export const sendAdminTestSms = async (req: Request, res: Response) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+    const testMsg = message || 'ClickFlicks SMS Gateway Test: Your Arkesel SMS connection is active and working properly!';
+    const result = await ArkeselSmsService.sendSms(phone, testMsg);
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api/admin/sms/config
+ * Updates Arkesel API Key and Sender ID in database
+ */
+export const updateAdminSmsConfig = async (req: Request, res: Response) => {
+  try {
+    const { apiKey, senderId } = req.body;
+    await prisma.system_settings.upsert({
+      where: { key: 'arkesel_sms_config' },
+      update: { value: { apiKey: apiKey || '', senderId: senderId || 'ClickFlicks' } },
+      create: { key: 'arkesel_sms_config', value: { apiKey: apiKey || '', senderId: senderId || 'ClickFlicks' } }
+    });
+    return res.json({ success: true, message: 'Arkesel SMS configuration saved successfully' });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

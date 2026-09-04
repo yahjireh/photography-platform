@@ -84,6 +84,9 @@ import {
   replyToSupportMessage,
   getCommunicationTemplates,
   updateCommunicationTemplate,
+  getAdminSmsBalance,
+  sendAdminTestSms,
+  updateAdminSmsConfig,
 
   // System
   getSystemHealth,
@@ -422,6 +425,13 @@ router.get('/communication/templates', getCommunicationTemplates);
  * Update template
  */
 router.patch('/communication/templates/:id', updateCommunicationTemplate);
+
+/**
+ * Arkesel SMS Management Endpoints
+ */
+router.get('/sms/balance', getAdminSmsBalance);
+router.post('/sms/test', sendAdminTestSms);
+router.post('/sms/config', updateAdminSmsConfig);
 
 // ============================================
 // SYSTEM MANAGEMENT ROUTES

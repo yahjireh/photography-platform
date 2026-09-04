@@ -9,6 +9,7 @@ import * as NotificationService from './notification.service';
 import * as EmailService from './email.service';
 import * as EmailTemplates from './email.templates';
 import { EMAIL_CONFIG } from '../config/email';
+import { ArkeselSmsService } from './sms.service';
 
 /**
  * TEACHING MOMENT: Centralized Notification Logic
@@ -583,9 +584,13 @@ export async function onDeliverablesPinReleased(data: {
       text: `Your remaining balance for booking #${data.bookingNumber} with ${data.photographerName} has been confirmed. Your Access PIN is: ${data.accessPin}. Gallery URL: ${data.deliveryUrl}`
     });
 
-    // 4. SMS text notification (Logged & Dispatched)
+    // 4. SMS text notification (Live Arkesel Gateway Dispatch)
     if (data.clientPhone) {
-      console.log(`📱 [SMS Text Dispatched to ${data.clientPhone}]: ClickFlicks Alert: Your deliverables Access PIN for booking #${data.bookingNumber} is ${data.accessPin}. Gallery: ${data.deliveryUrl}`);
+      try {
+        await ArkeselSmsService.sendBookingPinSms(data.clientPhone, data.bookingNumber, data.accessPin);
+      } catch (smsErr: any) {
+        console.warn('Arkesel PIN SMS dispatch error:', smsErr.message);
+      }
     }
   } catch (err) {
     console.error('Failed to trigger deliverables PIN released notification:', err);
