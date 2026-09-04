@@ -17,12 +17,18 @@ export const STORAGE_CONFIG = {
   
   // Cloudflare R2 settings (S3-compatible)
   r2: {
-    endpoint: process.env.R2_ENDPOINT,
+    endpoint: process.env.R2_ENDPOINT 
+      ? process.env.R2_ENDPOINT.replace(/\/+$/, '').replace(/\/[^/]+$/, (match) => {
+          // If the URL ends with the bucket name (e.g. /clickflicks), remove it
+          const bucket = process.env.R2_BUCKET || 'clickflicks';
+          return match.slice(1) === bucket ? '' : match;
+        })
+      : undefined,
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-    bucket: process.env.R2_BUCKET || 'photography-platform',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || (process.env as any).R2_SECRET_ACCESS,
+    bucket: process.env.R2_BUCKET || 'clickflicks',
     region: process.env.R2_REGION || 'auto',
-    publicUrl: process.env.R2_PUBLIC_URL // e.g., https://your-bucket.r2.dev
+    publicUrl: process.env.R2_PUBLIC_URL ? process.env.R2_PUBLIC_URL.replace(/\/+$/, '') : undefined // e.g., https://your-bucket.r2.dev
   },
   
   // Image processing settings
