@@ -10,16 +10,16 @@ export const EMAIL_CONFIG = {
   // Resend API configuration
   resend: {
     apiKey: process.env.RESEND_API_KEY || '',
-    fromEmail: process.env.FROM_EMAIL || 'Photography Platform <noreply@yourdomain.com>',
-    fromName: process.env.FROM_NAME || 'Photography Platform'
+    fromEmail: process.env.FROM_EMAIL || 'ClickFlicks <noreply@clickflicks.com>',
+    fromName: process.env.FROM_NAME || 'ClickFlicks'
   },
   
   // Email templates configuration
   templates: {
     baseUrl: process.env.APP_URL || 'http://localhost:8081',
-    supportEmail: process.env.SUPPORT_EMAIL || 'support@yourdomain.com',
-    companyName: 'Photography Platform',
-    logoUrl: process.env.LOGO_URL || 'https://yourdomain.com/logo.png'
+    supportEmail: process.env.SUPPORT_EMAIL || 'support@clickflicks.com',
+    companyName: process.env.COMPANY_NAME || 'ClickFlicks',
+    logoUrl: process.env.LOGO_URL || 'https://clickflicks.com/logo.png'
   }
 };
 
