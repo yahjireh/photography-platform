@@ -13,6 +13,7 @@ interface ProfileProps {
   onToggleFavorite?: (id: string) => void;
   onViewPhotographer?: (id: string) => void;
   onLogout?: () => void;
+  onStartTour?: () => void;
 }
 
 interface StoredPaymentMethod {
@@ -23,8 +24,8 @@ interface StoredPaymentMethod {
   label: string;
 }
 
-const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onViewPhotographer, onLogout }) => {
-  const { user, logout } = useAuth();
+const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onViewPhotographer, onLogout, onStartTour }) => {
+  const { user, logout, fetchProfile } = useAuth();
   const { photographers } = usePhotographers();
   const [subPage, setSubPage] = useState<VaultSubPage>('main');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +70,10 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   }, [subPage]);
 
   useEffect(() => {
+    fetchProfile?.().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (user?.id) {
       setFirstName(user.first_name || '');
       setLastName(user.last_name || '');
@@ -94,7 +99,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
       setBalance(0.0);
       setPaymentMethods([]);
     }
-  }, [user?.id]);
+  }, [user]);
 
   // Security States
   const [isUpdatingAuth, setIsUpdatingAuth] = useState(false);
@@ -397,6 +402,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                   <div className="p-4">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mb-4 ml-2">System Config</p>
                       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-2">
+                          <MenuItem icon={Icons.Compass || Icons.Sparkles} label="App Tour & Guide" detail="Interactive walkthrough of features" onClick={() => onStartTour?.()} />
                           <MenuItem icon={Icons.MessageSquare} label="Comms Center" detail="Live Alerts & Tone" onClick={() => setSubPage('comms')} />
                           <MenuItem icon={Icons.HelpCircle} label="Contact Support" detail="Chat directly with Platform Admin" onClick={() => { setSubPage('support'); loadSupportTickets(); }} />
                           <MenuItem icon={Icons.Lock} label="Security Core" detail="Access & Sessions" onClick={() => setSubPage('security')} />

@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import BottomNav from './components/BottomNav';
 import ApertureTransition from './components/ApertureTransition';
+import AppTourModal from './components/AppTourModal';
 import { Photographer, Booking } from './types';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useMessages } from './hooks/useMessages';
@@ -79,11 +80,37 @@ const AppContent: React.FC = () => {
     }
   }, [user?.id]);
 
+  const [showAppTour, setShowAppTour] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated) {
       setAppState('MAIN');
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      const tourKey = `clickflicks_tour_seen_${user.id}`;
+      const seen = localStorage.getItem(tourKey);
+      if (!seen) {
+        const timer = setTimeout(() => {
+          setShowAppTour(true);
+        }, 900);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isAuthenticated, user?.id]);
+
+  const handleCloseTour = () => {
+    setShowAppTour(false);
+    if (user?.id) {
+      localStorage.setItem(`clickflicks_tour_seen_${user.id}`, 'true');
+    }
+  };
+
+  const handleStartTour = () => {
+    setShowAppTour(true);
+  };
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev => {
@@ -398,6 +425,7 @@ const AppContent: React.FC = () => {
                         onToggleFavorite={toggleFavorite}
                         onViewPhotographer={handlePhotographerClick}
                         onLogout={handleLogout}
+                        onStartTour={handleStartTour}
                     />
                     )}
                     <BottomNav activeTab={currentView} onTabChange={handleTabChange} unreadMessagesCount={totalUnreadCount} />
@@ -406,6 +434,12 @@ const AppContent: React.FC = () => {
             </>
         )}
       </div>
+
+      <AppTourModal 
+        isOpen={showAppTour} 
+        onClose={handleCloseTour} 
+        onTabChange={handleTabChange} 
+      />
     </Layout>
   );
 };

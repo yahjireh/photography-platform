@@ -319,7 +319,6 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         }}
         onClose={() => {
           setShowOtpModal(false);
-          onSuccess();
         }}
       />
     </motion.div>

@@ -99,6 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(authToken);
         tokenManager.setToken(authToken);
         tokenManager.setUser(authUser);
+        // Ensure all latest fields (phone, avatar, verified) are refreshed
+        fetchProfile().catch(() => {});
       } else {
         throw new Error(res.data?.message || 'Invalid email or password');
       }
@@ -140,6 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(authToken);
         tokenManager.setToken(authToken);
         tokenManager.setUser(authUser);
+        // Ensure all latest fields (phone, avatar, verified) are refreshed
+        fetchProfile().catch(() => {});
       } else {
         throw new Error(res.data?.message || 'Registration failed');
       }

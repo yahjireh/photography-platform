@@ -202,13 +202,14 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
               {/* Title & Description */}
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Verify Your {activeTab === 'email' ? 'Email' : 'Phone'}
+                Verify Your {activeTab === 'email' ? 'Email Address' : 'Phone Number'}
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
-                We sent a 6-digit confirmation code to{' '}
-                <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  {activeTab === 'email' ? email : phoneNumber}
-                </span>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
+                {activeTab === 'email' ? (
+                  <>Enter the 6-digit code sent to <span className="font-semibold text-gray-800 dark:text-gray-200">{email}</span> or tap the 1-click verification link in your email.</>
+                ) : (
+                  <>Enter the 6-digit SMS code sent to <span className="font-semibold text-gray-800 dark:text-gray-200">{phoneNumber}</span>.</>
+                )}
               </p>
 
               {/* Tabs (if phone number was provided) */}
