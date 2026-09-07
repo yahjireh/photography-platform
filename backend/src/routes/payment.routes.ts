@@ -73,6 +73,41 @@ router.post(
 );
 
 // ==============================================
+// WALLET MANAGEMENT ROUTES
+// ==============================================
+
+/**
+ * Top-up user wallet (Test simulation or Live Paystack)
+ * POST /api/payments/wallet/topup
+ */
+router.post(
+  '/wallet/topup',
+  authenticate,
+  PaymentController.topupWallet
+);
+
+/**
+ * Get user wallet balance from PostgreSQL
+ * GET /api/payments/wallet/balance
+ */
+router.get(
+  '/wallet/balance',
+  authenticate,
+  PaymentController.getWalletBalance
+);
+
+/**
+ * Get user wallet transaction history
+ * GET /api/payments/wallet/transactions
+ */
+router.get(
+  '/wallet/transactions',
+  authenticate,
+  PaymentController.getWalletTransactions
+);
+
+
+// ==============================================
 // ESCROW RELEASE ROUTES (ADMIN ONLY!)
 // ==============================================
 

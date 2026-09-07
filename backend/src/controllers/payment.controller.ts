@@ -157,7 +157,11 @@ export async function paystackWebhook(req: Request, res: Response) {
       case 'charge.success':
         // Payment successful!
         console.log('💰 Payment successful:', event.data.reference);
-        await PaymentService.processPaymentWebhook(event.data.reference);
+        if (event.data.reference && event.data.reference.startsWith('TOPUP_')) {
+          await handleWalletTopupWebhook(event.data);
+        } else {
+          await PaymentService.processPaymentWebhook(event.data.reference);
+        }
         break;
         
       case 'charge.failed':
@@ -208,6 +212,11 @@ export async function paymentCallback(req: Request, res: Response) {
     
     // Verify payment
     const verification = await PaystackService.verifyPayment(reference);
+    
+    // If wallet top-up, credit database balance if verified
+    if (reference.startsWith('TOPUP_') && verification.status === 'success') {
+      await handleWalletTopupWebhook(verification);
+    }
     
     const frontendUrl = process.env.CLIENT_APP_URL || '';
     const isSuccess = verification.status === 'success';
@@ -612,6 +621,263 @@ export async function createSubaccount(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Handle successful Paystack charge for wallet top-up
+ */
+export async function handleWalletTopupWebhook(paystackData: any): Promise<void> {
+  const reference = paystackData.reference;
+  const amountCedis = paystackData.amount ? paystackData.amount / 100 : 0;
+  
+  console.log(`🏦 [WEBHOOK] Processing wallet top-up success for ref: ${reference} (₵${amountCedis})`);
+  
+  const tx = await prisma.wallet_transactions.findUnique({
+    where: { reference }
+  });
+
+  if (!tx) {
+    console.warn(`⚠️ [WEBHOOK] Wallet transaction not found for reference: ${reference}`);
+    return;
+  }
+
+  if (tx.status === 'SUCCESS') {
+    console.log(`ℹ️ [WEBHOOK] Wallet transaction already marked SUCCESS: ${reference}`);
+    return;
+  }
+
+  const creditAmount = amountCedis > 0 ? amountCedis : Number(tx.amount);
+
+  await prisma.$transaction([
+    prisma.wallet_transactions.update({
+      where: { reference },
+      data: {
+        status: 'SUCCESS',
+        metadata: {
+          ...(typeof tx.metadata === 'object' && tx.metadata !== null ? tx.metadata : {}),
+          paid_at: paystackData.paid_at || paystackData.paidAt || new Date().toISOString(),
+          channel: paystackData.channel || 'momo'
+        }
+      }
+    }),
+    prisma.users.update({
+      where: { id: tx.user_id },
+      data: {
+        wallet_balance: {
+          increment: creditAmount
+        }
+      }
+    })
+  ]);
+
+  console.log(`✅ [WEBHOOK] User ${tx.user_id} wallet balance incremented by ₵${creditAmount}`);
+}
+
+/**
+ * Top up user wallet
+ * POST /api/payments/wallet/topup
+ * 
+ * Supports test simulation mode and live Paystack mode.
+ */
+export async function topupWallet(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { amount, paymentMethod, provider, phone } = req.body;
+    const numericAmount = parseFloat(amount);
+
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      res.status(400).json({ success: false, error: 'Valid positive amount is required' });
+      return;
+    }
+
+    // Determine simulation mode: default to true unless explicitly disabled in .env
+    const isSimulation = process.env.SIMULATE_WALLET_TOPUP !== 'false';
+    const reference = `TOPUP_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+    if (isSimulation) {
+      console.log(`🏦 [TEST SIMULATION] Processing wallet top-up for user ${userId}: ₵${numericAmount} via ${paymentMethod || 'MOMO'}`);
+
+      // 1. Record transaction in public.wallet_transactions
+      const transaction = await prisma.wallet_transactions.create({
+        data: {
+          user_id: userId,
+          amount: numericAmount,
+          type: 'TOPUP',
+          payment_method: (paymentMethod || 'MOMO').toUpperCase(),
+          reference,
+          status: 'SUCCESS',
+          metadata: {
+            simulated: true,
+            provider: provider || 'Mobile Money',
+            phone: phone || null,
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+
+      // 2. Increment wallet balance in public.users
+      const updatedUser = await prisma.users.update({
+        where: { id: userId },
+        data: {
+          wallet_balance: {
+            increment: numericAmount
+          }
+        },
+        select: {
+          id: true,
+          wallet_balance: true
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Wallet top-up processed successfully (simulated)',
+        wallet_balance: Number(updatedUser.wallet_balance),
+        reference,
+        transactionId: transaction.id,
+        simulated: true
+      });
+      return;
+    }
+
+    // LIVE MODE: Real Paystack API Integration
+    console.log(`💳 [LIVE MODE] Initializing Paystack wallet top-up for user ${userId}: ₵${numericAmount}`);
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { email: true }
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const paymentResult = await PaystackService.initializePayment({
+      email: user.email,
+      amount: numericAmount,
+      reference,
+      metadata: {
+        type: 'WALLET_TOPUP',
+        user_id: userId,
+        payment_method: paymentMethod || 'momo',
+        provider,
+        phone
+      }
+    });
+
+    await prisma.wallet_transactions.create({
+      data: {
+        user_id: userId,
+        amount: numericAmount,
+        type: 'TOPUP',
+        payment_method: (paymentMethod || 'MOMO').toUpperCase(),
+        reference,
+        status: 'PENDING',
+        metadata: {
+          simulated: false,
+          provider: provider || null,
+          phone: phone || null,
+          accessCode: paymentResult.accessCode
+        }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment initialized',
+      authorizationUrl: paymentResult.authorizationUrl,
+      accessCode: paymentResult.accessCode,
+      reference,
+      simulated: false
+    });
+  } catch (error: any) {
+    console.error('❌ Wallet top-up error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to process wallet top-up'
+    });
+  }
+}
+
+/**
+ * Get current user's wallet balance
+ * GET /api/payments/wallet/balance
+ */
+export async function getWalletBalance(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { wallet_balance: true }
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      wallet_balance: Number(user.wallet_balance || 0)
+    });
+  } catch (error: any) {
+    console.error('❌ Get wallet balance error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch wallet balance'
+    });
+  }
+}
+
+/**
+ * Get user's wallet transaction history
+ * GET /api/payments/wallet/transactions
+ */
+export async function getWalletTransactions(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const transactions = await prisma.wallet_transactions.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      take: 20
+    });
+
+    res.status(200).json({
+      success: true,
+      transactions: transactions.map(t => ({
+        id: t.id,
+        amount: Number(t.amount),
+        type: t.type,
+        payment_method: t.payment_method,
+        reference: t.reference,
+        status: t.status,
+        metadata: t.metadata,
+        created_at: t.created_at
+      }))
+    });
+  } catch (error: any) {
+    console.error('❌ Get wallet transactions error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch wallet transactions'
+    });
+  }
+}
+
 
 /**
  * TEACHING MOMENT: Audit Trail

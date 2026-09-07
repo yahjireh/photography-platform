@@ -56,6 +56,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
         user_type: true,
         is_verified: true,
         is_active: true,
+        wallet_balance: true,
         created_at: true,
         // Include photographer profile if user is a photographer
         photographers: {

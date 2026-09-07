@@ -12,6 +12,7 @@ export interface User {
   phone_number?: string;
   location_city?: string;
   location_country?: string;
+  wallet_balance?: number | string;
 }
 
 interface AuthContextType {

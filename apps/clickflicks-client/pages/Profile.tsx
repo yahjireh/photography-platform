@@ -35,10 +35,13 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpInitialTab, setOtpInitialTab] = useState<'email' | 'phone'>('email');
   
-  // Billing States (Live from localStorage scoped to user)
+  // Billing States (Live from PostgreSQL DB)
   const [balance, setBalance] = useState<number>(0.0);
   const [topUpStep, setTopUpStep] = useState<TopUpStep>('idle');
   const [topUpAmount, setTopUpAmount] = useState<string>('100');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<StoredPaymentMethod | null>(null);
+  const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<StoredPaymentMethod[]>([]);
   const [cardNumber, setCardNumber] = useState('');
@@ -77,9 +80,27 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     document.body.scrollTop = 0;
   }, [subPage]);
 
+  const fetchWalletBalance = async () => {
+    try {
+      const res = await apiClient.get('/payments/wallet/balance');
+      if (res.data?.success && res.data.wallet_balance !== undefined) {
+        setBalance(Number(res.data.wallet_balance));
+      }
+    } catch (err) {
+      console.error('Failed to fetch wallet balance from DB', err);
+    }
+  };
+
   useEffect(() => {
     fetchProfile?.().catch(() => {});
+    fetchWalletBalance().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (subPage === 'billing') {
+      fetchWalletBalance().catch(() => {});
+    }
+  }, [subPage]);
 
   useEffect(() => {
     if (user?.id) {
@@ -89,10 +110,9 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
       setLocationCity(user.location_city || 'Accra');
       setProfileImageUrl(user.profile_image_url || null);
 
-      try {
-        const storedBal = localStorage.getItem(`clickflicks_wallet_balance_${user.id}`);
-        setBalance(storedBal ? parseFloat(storedBal) : 0.0);
-      } catch (_) { setBalance(0.0); }
+      if (user.wallet_balance !== undefined && user.wallet_balance !== null) {
+        setBalance(parseFloat(user.wallet_balance.toString()) || 0.0);
+      }
 
       try {
         const storedPM = localStorage.getItem(`clickflicks_payment_methods_${user.id}`);
@@ -150,21 +170,45 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     }
   };
 
-  const handleSourceSelect = (_sourceId: number) => {
+  const handleSourceSelect = (sourceId: number) => {
+    const chosen = paymentMethods.find(pm => pm.id === sourceId) || null;
+    setSelectedPaymentMethod(chosen);
+    setTopUpError(null);
     setTopUpStep('waiting');
   };
 
-  const handlePaymentApproved = () => {
-    setTopUpStep('success');
-    const amountToAdd = Math.max(1, parseFloat(topUpAmount) || 100);
-    const newBal = balance + amountToAdd;
-    setBalance(newBal);
-    if (user?.id) {
-      try { localStorage.setItem(`clickflicks_wallet_balance_${user.id}`, newBal.toString()); } catch (_) {}
+  const handlePaymentApproved = async () => {
+    setIsProcessingTopUp(true);
+    setTopUpError(null);
+    try {
+      const amountToAdd = Math.max(1, parseFloat(topUpAmount) || 100);
+      const res = await apiClient.post('/payments/wallet/topup', {
+        amount: amountToAdd,
+        paymentMethod: selectedPaymentMethod?.type || 'momo',
+        provider: selectedPaymentMethod?.label || 'Mobile Money',
+        phone: selectedPaymentMethod?.last4 || ''
+      });
+
+      if (res.data?.success) {
+        const newBal = Number(res.data.wallet_balance);
+        setBalance(newBal);
+        await fetchProfile?.();
+        setTopUpStep('success');
+        setTimeout(() => {
+          setTopUpStep('idle');
+        }, 2200);
+      } else {
+        throw new Error(res.data?.error || 'Top-up failed');
+      }
+    } catch (err: any) {
+      console.error('Wallet top-up failed:', err);
+      const msg = err.response?.data?.error || err.message || 'Payment simulation failed. Please try again.';
+      setTopUpError(msg);
+      alert(msg);
+      setTopUpStep('source');
+    } finally {
+      setIsProcessingTopUp(false);
     }
-    setTimeout(() => {
-      setTopUpStep('idle');
-    }, 2200);
   };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -647,8 +691,13 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
             {renderHeader('Financial Keys', 'Wallet & Payments')}
             <div className="p-6">
               <div className="bg-gray-900 p-8 rounded-[40px] text-gray-200 shadow-2xl shadow-black/10 mb-8 relative overflow-hidden">
-                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-brand-light opacity-10 rounded-full blur-3xl pointer-events-none" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-50 mb-2 relative z-10">Available Credit</p>
+                <div className="flex items-center justify-between relative z-10 mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-50">Available Credit</p>
+                  <span className="text-[9px] font-bold uppercase tracking-wider bg-white/10 px-2.5 py-0.5 rounded-full border border-white/20 text-white/80 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Database Synced
+                  </span>
+                </div>
                 <p className="text-4xl font-serif font-black italic relative z-10">₵{balance.toFixed(2)}</p>
                 <div className="mt-10 flex justify-between items-end relative z-10">
                    <div className="flex -space-x-3">
@@ -809,15 +858,28 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                                         <Icons.Smartphone size={32} className="text-brand-DEFAULT" />
                                     </div>
                                     <h3 className="text-xl font-serif font-black italic text-gray-900 mb-2">Authorize Payment</h3>
-                                    <p className="text-xs text-gray-500 font-medium mb-2 px-4">
-                                        A transaction prompt for <span className="font-bold text-gray-900">₵{parseFloat(topUpAmount || '0').toFixed(2)}</span> has been dispatched.
+                                    <p className="text-xs text-gray-500 font-medium mb-1 px-4">
+                                        Test simulation prompt for <span className="font-bold text-gray-900">₵{parseFloat(topUpAmount || '0').toFixed(2)}</span> dispatched to <span className="font-semibold text-gray-800">{selectedPaymentMethod?.label || 'account'}</span>.
                                     </p>
-                                    <p className="text-[11px] text-gray-400 mb-8 px-4">Please approve the prompt on your mobile phone to complete.</p>
+                                    <p className="text-[11px] text-gray-400 mb-6 px-4">Approve payment to persist updated balance directly to PostgreSQL database.</p>
+                                    {topUpError && (
+                                        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold">
+                                            {topUpError}
+                                        </div>
+                                    )}
                                     <button 
+                                        disabled={isProcessingTopUp}
                                         onClick={handlePaymentApproved}
-                                        className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
+                                        className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                                     >
-                                        I Have Approved Payment
+                                        {isProcessingTopUp ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                <span>Saving to Database...</span>
+                                            </>
+                                        ) : (
+                                            <span>I Have Approved Payment</span>
+                                        )}
                                     </button>
                                 </div>
                             )}

@@ -302,6 +302,7 @@ model users {
   is_verified                                Boolean         @default(false)
   is_active                                  Boolean         @default(true)
   email_verified_at                          DateTime?
+  wallet_balance                             Decimal         @default(0.00) @db.Decimal(10, 2)
   created_at                                 DateTime        @default(now())
   updated_at                                 DateTime        @updatedAt
   bookings_bookings_client_idTousers         bookings[]      @relation("bookings_client_idTousers")
@@ -315,6 +316,20 @@ model users {
   photographers                              photographers?
   reviews_reviews_reviewee_idTousers         reviews[]       @relation("reviews_reviewee_idTousers")
   reviews_reviews_reviewer_idTousers         reviews[]       @relation("reviews_reviewer_idTousers")
+}
+
+model wallet_transactions {
+  id             String   @id @default(uuid())
+  user_id        String
+  amount         Decimal  @db.Decimal(10, 2)
+  type           String   @default("TOPUP")
+  payment_method String?  @default("MOMO")
+  reference      String   @unique
+  status         String   @default("SUCCESS")
+  metadata       Json?
+  created_at     DateTime @default(now())
+
+  @@index([user_id])
 }
 
 model photographer_kyc {
