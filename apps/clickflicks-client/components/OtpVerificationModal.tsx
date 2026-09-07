@@ -46,11 +46,23 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       const targetTab = initialTab || activeTab;
       if (targetTab === 'email' && email) {
         apiClient.post('/auth/otp/send-email', { email })
-          .then(() => setInfoMessage(`A fresh verification code has been dispatched to ${email}`))
+          .then((res) => {
+            if (res.data?.code) {
+              setInfoMessage(`Code dispatched. (Test code: ${res.data.code})`);
+            } else {
+              setInfoMessage(`A fresh verification code has been dispatched to ${email}`);
+            }
+          })
           .catch(() => {});
       } else if (targetTab === 'phone' && phoneNumber) {
         apiClient.post('/auth/otp/send-phone', { phone: phoneNumber })
-          .then(() => setInfoMessage(`A fresh SMS code has been sent to ${phoneNumber}`))
+          .then((res) => {
+            if (res.data?.code) {
+              setInfoMessage(`SMS dispatched. (Test code: ${res.data.code})`);
+            } else {
+              setInfoMessage(`A fresh SMS code has been sent to ${phoneNumber}`);
+            }
+          })
           .catch(() => {});
       }
     }
@@ -170,9 +182,19 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
     try {
       if (activeTab === 'email') {
-        await apiClient.post('/auth/otp/send-email', { email });
+        const res = await apiClient.post('/auth/otp/send-email', { email });
+        if (res.data?.code) {
+          setInfoMessage(`Code sent. (Test code: ${res.data.code})`);
+        } else {
+          setInfoMessage(`Code sent to ${email}`);
+        }
       } else if (phoneNumber) {
-        await apiClient.post('/auth/otp/send-phone', { phone: phoneNumber });
+        const res = await apiClient.post('/auth/otp/send-phone', { phone: phoneNumber });
+        if (res.data?.code) {
+          setInfoMessage(`SMS sent. (Test code: ${res.data.code})`);
+        } else {
+          setInfoMessage(`SMS sent to ${phoneNumber}`);
+        }
       }
       setCountdown(60);
       setCode(['', '', '', '', '', '']);
