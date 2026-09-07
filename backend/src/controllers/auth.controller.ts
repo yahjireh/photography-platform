@@ -72,10 +72,17 @@ export async function register(req: Request, res: Response): Promise<void> {
     OtpService.sendEmailOtp(userData.email, userData.first_name).catch(err =>
       console.error('Failed to dispatch initial email OTP:', err)
     );
+
+    // If phone number provided, automatically trigger initial SMS OTP
+    if (userData.phone_number) {
+      OtpService.sendPhoneOtp(userData.phone_number).catch(err =>
+        console.error('Failed to dispatch initial phone OTP:', err)
+      );
+    }
     
     res.status(201).json({
       success: true,
-      message: 'User registered successfully. A verification code has been sent to your email.',
+      message: 'User registered successfully. Verification codes have been sent to your email and phone.',
       data: result
     });
   } catch (error: any) {
@@ -170,7 +177,7 @@ export async function sendEmailOtpHandler(req: Request, res: Response): Promise<
 }
 
 /**
- * Verify Email OTP
+ * Verify Email OTP (JSON API)
  * POST /api/auth/otp/verify-email
  */
 export async function verifyEmailOtpHandler(req: Request, res: Response): Promise<void> {
@@ -184,6 +191,62 @@ export async function verifyEmailOtpHandler(req: Request, res: Response): Promis
     res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * 1-Click Verify Email via Web Link
+ * GET /api/auth/verify-email-link?email=...&code=...
+ */
+export async function verifyEmailLinkHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, code } = req.query;
+    if (!email || !code || typeof email !== 'string' || typeof code !== 'string') {
+      res.status(400).send('Invalid verification request: Missing email or code.');
+      return;
+    }
+
+    const result = await OtpService.verifyEmailOtp(email, code);
+    const isSuccess = result.success;
+    const deepLinkUrl = isSuccess 
+      ? `clickflicks://verified?email=${encodeURIComponent(email)}` 
+      : `clickflicks://verification-failed`;
+
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${isSuccess ? 'Email Verified' : 'Verification Failed'} - ClickFlicks</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 40px 32px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+    .badge-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 36px; font-weight: bold; background: ${isSuccess ? 'rgba(13, 148, 136, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isSuccess ? '#0d9488' : '#ef4444'}; border: 2px solid ${isSuccess ? '#0d9488' : '#ef4444'}; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 12px; color: #ffffff; }
+    p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 28px; }
+    .btn { display: block; width: 100%; padding: 14px 24px; background: linear-gradient(135deg, #0d9488, #0f766e); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4); }
+  </style>
+  <script>
+    setTimeout(function() {
+      window.location.href = "${deepLinkUrl}";
+    }, 800);
+  </script>
+</head>
+<body>
+  <div class="card">
+    <div class="badge-icon">${isSuccess ? '✓' : '✕'}</div>
+    <h1>${isSuccess ? 'Email Verified!' : 'Verification Incomplete'}</h1>
+    <p>${isSuccess ? 'Your ClickFlicks email identity has been confirmed. Returning you to the mobile app...' : result.message}</p>
+    <a href="${deepLinkUrl}" class="btn">Return to ClickFlicks App</a>
+  </div>
+</body>
+</html>
+    `.trim());
+  } catch (error: any) {
+    console.error('Verify email link error:', error);
+    res.status(500).send('Email verification failed. Please try again.');
   }
 }
 

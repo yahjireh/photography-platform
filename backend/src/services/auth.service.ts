@@ -88,6 +88,9 @@ export async function registerUser(
       email: newUser.email,
       first_name: newUser.first_name,
       last_name: newUser.last_name,
+      phone_number: newUser.phone_number,
+      location_city: newUser.location_city,
+      location_country: newUser.location_country,
       user_type: newUser.user_type,
       profile_image_url: newUser.profile_image_url,
       is_verified: newUser.is_verified
@@ -138,6 +141,9 @@ export async function loginUser(
       email: user.email,
       first_name: user.first_name,
       last_name: user.last_name,
+      phone_number: user.phone_number,
+      location_city: user.location_city,
+      location_country: user.location_country,
       user_type: user.user_type,
       profile_image_url: user.profile_image_url,
       is_verified: user.is_verified
@@ -266,6 +272,9 @@ export async function oauthLoginUser(data: {
       email: user.email,
       first_name: user.first_name,
       last_name: user.last_name,
+      phone_number: user.phone_number,
+      location_city: user.location_city,
+      location_country: user.location_country,
       user_type: user.user_type,
       profile_image_url: user.profile_image_url,
       is_verified: user.is_verified

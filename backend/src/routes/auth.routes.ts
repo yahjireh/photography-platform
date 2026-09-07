@@ -12,6 +12,7 @@ import {
   resetPassword,
   sendEmailOtpHandler,
   verifyEmailOtpHandler,
+  verifyEmailLinkHandler,
   sendPhoneOtpHandler,
   verifyPhoneOtpHandler
 } from '../controllers/auth.controller';
@@ -67,6 +68,11 @@ router.post('/otp/send-email', accountLockoutGuard, otpSendLimiter, sendEmailOtp
  * POST /api/auth/otp/verify-email (rate limited + account locked)
  */
 router.post('/otp/verify-email', accountLockoutGuard, otpVerifyLimiter, verifyEmailOtpHandler);
+
+/**
+ * GET /api/auth/verify-email-link (1-click email verification from inbox)
+ */
+router.get('/verify-email-link', verifyEmailLinkHandler);
 
 /**
  * POST /api/auth/otp/send-phone (rate limited + account locked)

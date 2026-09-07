@@ -71,6 +71,9 @@ export interface AuthResponse {
     email: string;
     first_name: string;
     last_name: string;
+    phone_number?: string | null;
+    location_city?: string | null;
+    location_country?: string | null;
     user_type: string;
     profile_image_url: string | null;
     is_verified: boolean;
