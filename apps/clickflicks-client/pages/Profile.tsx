@@ -7,7 +7,7 @@ import apiClient from '../lib/api-client';
 import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 type VaultSubPage = 'main' | 'persona' | 'billing' | 'collection' | 'comms' | 'security' | 'support';
-type TopUpStep = 'idle' | 'source' | 'waiting' | 'success';
+type TopUpStep = 'idle' | 'amount' | 'source' | 'waiting' | 'success';
 
 interface ProfileProps {
   favorites?: string[];
@@ -38,6 +38,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   // Billing States (Live from localStorage scoped to user)
   const [balance, setBalance] = useState<number>(0.0);
   const [topUpStep, setTopUpStep] = useState<TopUpStep>('idle');
+  const [topUpAmount, setTopUpAmount] = useState<string>('100');
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<StoredPaymentMethod[]>([]);
   const [cardNumber, setCardNumber] = useState('');
@@ -133,6 +134,15 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const favoritePhotographers = photographers.filter(p => favorites.includes(p.id));
 
   const handleTopUpClick = () => {
+    setTopUpStep('amount');
+  };
+
+  const handleAmountContinue = () => {
+    const parsed = parseFloat(topUpAmount);
+    if (!parsed || parsed <= 0) {
+      alert('Please enter a valid top-up amount');
+      return;
+    }
     if (paymentMethods.length === 0) {
       setShowAddPayment(true);
     } else {
@@ -146,14 +156,15 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
 
   const handlePaymentApproved = () => {
     setTopUpStep('success');
-    const newBal = balance + 500;
+    const amountToAdd = Math.max(1, parseFloat(topUpAmount) || 100);
+    const newBal = balance + amountToAdd;
     setBalance(newBal);
     if (user?.id) {
       try { localStorage.setItem(`clickflicks_wallet_balance_${user.id}`, newBal.toString()); } catch (_) {}
     }
     setTimeout(() => {
       setTopUpStep('idle');
-    }, 2000);
+    }, 2200);
   };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -703,22 +714,86 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
                             className="relative w-full max-w-[400px] bg-white rounded-[40px] p-8 shadow-2xl"
                         >
+                            {topUpStep === 'amount' && (
+                                <>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-2xl font-serif font-black italic text-gray-900 leading-none">Top Up Wallet</h3>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">Select or type funding amount</p>
+                                        </div>
+                                        <button onClick={() => setTopUpStep('idle')} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl">
+                                            <Icons.X size={18} />
+                                        </button>
+                                    </div>
+
+                                    {/* Amount Input Box */}
+                                    <div className="my-6 p-5 bg-gray-50 rounded-3xl border border-gray-100 flex items-center justify-center space-x-2">
+                                        <span className="text-3xl font-serif font-black italic text-brand-DEFAULT">₵</span>
+                                        <input 
+                                            type="number" 
+                                            min="1"
+                                            step="any"
+                                            value={topUpAmount}
+                                            onChange={(e) => setTopUpAmount(e.target.value)}
+                                            placeholder="0.00"
+                                            className="text-4xl font-serif font-black italic text-gray-900 bg-transparent outline-none w-44 text-left"
+                                        />
+                                    </div>
+
+                                    {/* Quick Amount Chips */}
+                                    <div className="grid grid-cols-4 gap-2 mb-6">
+                                        {['50', '100', '200', '500'].map((preset) => (
+                                            <button
+                                                key={preset}
+                                                type="button"
+                                                onClick={() => setTopUpAmount(preset)}
+                                                className={`py-2.5 rounded-2xl text-xs font-black transition-all ${
+                                                    topUpAmount === preset
+                                                        ? 'bg-brand-DEFAULT text-white shadow-md shadow-brand-DEFAULT/20'
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                ₵{preset}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button 
+                                        onClick={handleAmountContinue}
+                                        className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center space-x-2"
+                                    >
+                                        <span>Continue with ₵{parseFloat(topUpAmount || '0').toFixed(2)}</span>
+                                        <Icons.ChevronRight size={16} />
+                                    </button>
+                                </>
+                            )}
+
                             {topUpStep === 'source' && (
                                 <>
-                                    <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-2">Fund Wallet</h3>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-6">Select a funding source</p>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <button onClick={() => setTopUpStep('amount')} className="text-xs font-bold text-gray-500 hover:text-gray-800 flex items-center space-x-1">
+                                            <Icons.ChevronLeft size={16} />
+                                            <span>Change Amount</span>
+                                        </button>
+                                        <span className="text-xs font-black text-brand-DEFAULT">₵{parseFloat(topUpAmount || '0').toFixed(2)}</span>
+                                    </div>
+                                    <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-1">Select Payment</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-6">Choose MoMo or Card</p>
                                     <div className="space-y-3">
                                         {paymentMethods.map(pm => (
                                             <button 
                                                 key={pm.id} 
                                                 onClick={() => handleSourceSelect(pm.id)}
-                                                className="w-full flex items-center space-x-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors"
+                                                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors"
                                             >
-                                                <div className="w-10 h-6 bg-white border border-gray-200 rounded flex items-center justify-center font-bold text-[8px] text-gray-900 uppercase">{pm.type}</div>
-                                                <span className="text-sm font-bold text-gray-900">{pm.label}</span>
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="w-10 h-6 bg-white border border-gray-200 rounded flex items-center justify-center font-bold text-[8px] text-gray-900 uppercase">{pm.type}</div>
+                                                    <span className="text-sm font-bold text-gray-900">{pm.label}</span>
+                                                </div>
+                                                <Icons.ChevronRight size={16} className="text-gray-400" />
                                             </button>
                                         ))}
-                                        <button onClick={() => { setTopUpStep('idle'); setShowAddPayment(true); }} className="w-full p-4 border border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-brand-DEFAULT hover:border-brand-DEFAULT">
+                                        <button onClick={() => { setShowAddPayment(true); }} className="w-full p-4 border border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-brand-DEFAULT hover:border-brand-DEFAULT">
                                             + Add New Source
                                         </button>
                                     </div>
@@ -733,13 +808,16 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                                         <div className="absolute inset-0 border-4 border-brand-DEFAULT rounded-full border-t-transparent animate-spin"></div>
                                         <Icons.Smartphone size={32} className="text-brand-DEFAULT" />
                                     </div>
-                                    <h3 className="text-xl font-serif font-black italic text-gray-900 mb-2">Authorize Authorization</h3>
-                                    <p className="text-xs text-gray-500 font-medium mb-8 px-4">Please approve the transaction prompt on your mobile phone to proceed.</p>
+                                    <h3 className="text-xl font-serif font-black italic text-gray-900 mb-2">Authorize Payment</h3>
+                                    <p className="text-xs text-gray-500 font-medium mb-2 px-4">
+                                        A transaction prompt for <span className="font-bold text-gray-900">₵{parseFloat(topUpAmount || '0').toFixed(2)}</span> has been dispatched.
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 mb-8 px-4">Please approve the prompt on your mobile phone to complete.</p>
                                     <button 
                                         onClick={handlePaymentApproved}
                                         className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
                                     >
-                                        I Have Authorized Payment
+                                        I Have Approved Payment
                                     </button>
                                 </div>
                             )}
@@ -753,7 +831,9 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                                         <Icons.Check size={40} strokeWidth={3} />
                                     </motion.div>
                                     <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-2">Funds Secured</h3>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Balance Credited: +₵500.00</p>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">
+                                        Balance Credited: +₵{parseFloat(topUpAmount || '0').toFixed(2)}
+                                    </p>
                                 </div>
                             )}
                         </motion.div>
