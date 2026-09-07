@@ -157,6 +157,7 @@ export const authLimiter = rateLimit({
   max: 5, // Recommended: 5 req / 15 mins
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   keyGenerator: (req) => {
     const ip = getClientIp(req);
     const identifier = getAccountIdentifier(req);
@@ -176,6 +177,7 @@ export const otpSendLimiter = rateLimit({
   max: 3, // Recommended: 3 req / 15 mins
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   keyGenerator: (req) => {
     const ip = getClientIp(req);
     const identifier = getAccountIdentifier(req);
@@ -195,6 +197,7 @@ export const otpVerifyLimiter = rateLimit({
   max: 5, // Recommended: 5 req / 15 mins
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   keyGenerator: (req) => {
     const ip = getClientIp(req);
     const identifier = getAccountIdentifier(req);
@@ -213,6 +216,7 @@ export const generalApiLimiter = rateLimit({
   max: 500, // Kept as recommended
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   keyGenerator: (req) => getClientIp(req),
   skip: (req) => {
     return req.path.startsWith('/api/webhooks') || req.path === '/health';
@@ -231,6 +235,7 @@ export const webhookLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   keyGenerator: (req) => getClientIp(req),
   handler: createLimitHandler('webhook calls')
 });

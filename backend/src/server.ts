@@ -260,7 +260,8 @@ app.get('/', (_req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Photography Platform API is running!',
-    version: '1.0.0',
+    version: '1.0.2',
+    deployTime: '2026-09-07-v2',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -417,8 +418,8 @@ app.use((err: Error, _req: Request, res: Response, _next: any) => {
   
   res.status(500).json({
     success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Internal server error',
+    error: err.message || 'Unknown error'
   });
 });
 
