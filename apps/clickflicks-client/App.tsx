@@ -19,7 +19,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useMessages } from './hooks/useMessages';
 import { usePhotographers } from './hooks/usePhotographers';
 import { AperturePulseLoader } from './components/SkeletonLoader';
-import apiClient from './lib/api-client';
+import apiClient, { tokenManager } from './lib/api-client';
 import { cacheGet, cacheSet } from './lib/cache';
 import { MobileConfigService } from './services/MobileConfigService';
 

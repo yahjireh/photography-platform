@@ -53,11 +53,15 @@ import {
   Image,
   FileCheck,
   Building,
-  CheckCircle
+  CheckCircle,
+  ShieldAlert,
+  Compass
 } from 'lucide-react';
 
 export const Icons = {
   Home,
+  ShieldAlert,
+  Compass,
   Search,
   Calendar,
   User,

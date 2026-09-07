@@ -19,7 +19,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
+  login: (credentials: { email: string; password: string } | any, explicitToken?: string) => Promise<void>;
   signup: (userData: {
     email: string;
     password: string;
@@ -80,9 +80,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (credentials: { email: string; password: string }) => {
+  const login = async (credentials: any, explicitToken?: string) => {
     setIsLoading(true);
     try {
+      if (explicitToken && credentials?.id) {
+        setUser(credentials);
+        setToken(explicitToken);
+        tokenManager.setToken(explicitToken);
+        tokenManager.setUser(credentials);
+        fetchProfile().catch(() => {});
+        return;
+      }
+
       const res = await apiClient.post('/auth/login', {
         email: credentials.email.trim(),
         password: credentials.password,
