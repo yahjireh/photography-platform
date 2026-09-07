@@ -4,7 +4,9 @@
  */
 
 import { Request, Response } from 'express';
+import path from 'path';
 import prisma from '../config/database';
+import * as StorageService from '../services/storage.service';
 
 /**
  * Get current user's profile
@@ -148,16 +150,12 @@ export async function updateCurrentUser(req: Request, res: Response): Promise<vo
       phoneNumber,
       locationCity,
       locationCountry,
-      profileImageUrl  // In real app, this would be uploaded to Cloudflare R2
+      profileImageUrl,
+      profile_image_url
     } = req.body;
     
     /**
      * STEP 2: Build update object with only provided fields
-     * 
-     * TEACHING MOMENT: Optional fields
-     * 
-     * We only include fields that were actually sent
-     * If firstName not in request body, we don't update it
      */
     const updateData: any = {};
     
@@ -166,7 +164,23 @@ export async function updateCurrentUser(req: Request, res: Response): Promise<vo
     if (phoneNumber !== undefined) updateData.phone_number = phoneNumber;
     if (locationCity !== undefined) updateData.location_city = locationCity;
     if (locationCountry !== undefined) updateData.location_country = locationCountry;
-    if (profileImageUrl !== undefined) updateData.profile_image_url = profileImageUrl;
+    
+    let imageToSave = profileImageUrl !== undefined ? profileImageUrl : profile_image_url;
+    if (imageToSave && typeof imageToSave === 'string' && imageToSave.startsWith('data:image/')) {
+      try {
+        const matches = imageToSave.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+        if (matches) {
+          const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          const filename = `avatar-${userId}-${Date.now()}.${ext}`;
+          imageToSave = await StorageService.uploadFile(buffer, filename, 'avatars');
+          console.log(`☁️ Base64 avatar saved to storage for user ${userId}: ${imageToSave}`);
+        }
+      } catch (uploadErr) {
+        console.error('Failed to upload base64 avatar to storage:', uploadErr);
+      }
+    }
+    if (imageToSave !== undefined) updateData.profile_image_url = imageToSave;
     
     /**
      * STEP 3: Update user in database
@@ -203,6 +217,59 @@ export async function updateCurrentUser(req: Request, res: Response): Promise<vo
     res.status(500).json({
       success: false,
       message: 'Failed to update profile'
+    });
+  }
+}
+
+/**
+ * Upload profile avatar image (multipart form-data)
+ * POST /api/users/avatar
+ */
+export async function uploadAvatar(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.user_id;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ success: false, message: 'No image file provided' });
+      return;
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const filename = `avatar-${userId}-${Date.now()}${ext}`;
+    const publicUrl = await StorageService.uploadFile(file.buffer, filename, 'avatars');
+
+    const updatedUser = await prisma.users.update({
+      where: { id: userId },
+      data: { profile_image_url: publicUrl },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        phone_number: true,
+        profile_image_url: true,
+        location_city: true,
+        location_country: true,
+        user_type: true,
+        is_verified: true,
+        updated_at: true
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Avatar uploaded and updated successfully',
+      data: {
+        avatarUrl: publicUrl,
+        user: updatedUser
+      }
+    });
+  } catch (error: any) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to upload avatar'
     });
   }
 }

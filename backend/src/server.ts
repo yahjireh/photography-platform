@@ -147,7 +147,7 @@ app.use(cors({
  * 
  * It automatically converts JSON string → JavaScript object
  */
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 /**
  * URL-encoded Body Parser Middleware
@@ -155,7 +155,7 @@ app.use(express.json());
  * For parsing form data (application/x-www-form-urlencoded)
  * Example: email=john@example.com&password=pass123
  */
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 /**
  * Live Metrics & Telemetry Recording Middleware

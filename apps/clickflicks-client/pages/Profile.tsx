@@ -49,11 +49,13 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   // Persona States (Live from User)
   const [isSavingPersona, setIsSavingPersona] = useState(false);
   const [personaSaved, setPersonaSaved] = useState(false);
+  const [personaError, setPersonaError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   // Support Screen States
   const [supportSubject, setSupportSubject] = useState('');
@@ -158,6 +160,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedImageFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -169,18 +172,42 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
 
   const handleSavePersona = async () => {
     setIsSavingPersona(true);
+    setPersonaError(null);
     try {
+      let finalAvatarUrl = profileImageUrl;
+
+      // 1. If a new image file was chosen, upload directly via multipart /users/avatar (to Cloudflare R2)
+      if (selectedImageFile) {
+        const formData = new FormData();
+        formData.append('avatar', selectedImageFile);
+        const uploadRes = await apiClient.post('/users/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (uploadRes.data?.data?.avatarUrl) {
+          finalAvatarUrl = uploadRes.data.data.avatarUrl;
+          setProfileImageUrl(finalAvatarUrl);
+        }
+      }
+
+      // 2. Save profile fields to /users/me
       await apiClient.patch('/users/me', {
         firstName,
         lastName,
         phoneNumber,
         locationCity,
-        profileImageUrl: profileImageUrl || undefined
+        profileImageUrl: finalAvatarUrl || undefined
       });
+
+      // 3. Immediately refresh global auth state so new image & names reflect app-wide
+      await fetchProfile?.();
+
       setPersonaSaved(true);
-      setTimeout(() => setPersonaSaved(false), 2000);
-    } catch (err) {
+      setSelectedImageFile(null);
+      setTimeout(() => setPersonaSaved(false), 2500);
+    } catch (err: any) {
       console.error('Error saving persona:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to save identity';
+      setPersonaError(msg);
     } finally {
       setIsSavingPersona(false);
     }
@@ -586,6 +613,12 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                     className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-brand-DEFAULT/10" 
                   />
                 </div>
+                {personaError && (
+                  <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center space-x-2">
+                    <Icons.AlertCircle size={16} className="shrink-0" />
+                    <span>{personaError}</span>
+                  </div>
+                )}
                 <button 
                   onClick={handleSavePersona}
                   disabled={isSavingPersona}

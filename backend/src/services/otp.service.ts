@@ -38,7 +38,7 @@ function generate6DigitCode(): string {
 /**
  * Send an email verification OTP
  */
-export async function sendEmailOtp(email: string, firstName?: string): Promise<{ success: boolean; message: string }> {
+export async function sendEmailOtp(email: string, firstName?: string): Promise<{ success: boolean; message: string; code?: string }> {
   const cleanEmail = email.trim().toLowerCase();
   const code = generate6DigitCode();
   const key = `email:${cleanEmail}`;
@@ -168,7 +168,7 @@ export async function verifyEmailOtp(email: string, code: string): Promise<{ suc
 /**
  * Send a phone verification OTP
  */
-export async function sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string }> {
+export async function sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string; code?: string }> {
   const validation = validatePhoneNumber(phone);
   const cleanPhone = validation.formatted || phone.trim();
   const rawPhone = phone.trim();

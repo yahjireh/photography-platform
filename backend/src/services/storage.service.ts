@@ -57,15 +57,21 @@ ensureLocalDirectories();
 export async function uploadFile(
   file: Buffer,
   filename: string,
-  folder: 'photos' | 'thumbnails' = 'photos'
+  folder: 'photos' | 'thumbnails' | 'avatars' = 'photos'
 ): Promise<string> {
   
   if (STORAGE_CONFIG.mode === 'local') {
     // LOCAL STORAGE
     const folderPath = folder === 'photos' 
       ? STORAGE_CONFIG.local.photosDir 
-      : STORAGE_CONFIG.local.thumbnailsDir;
+      : folder === 'thumbnails'
+      ? STORAGE_CONFIG.local.thumbnailsDir
+      : path.join(STORAGE_CONFIG.local.uploadsDir, 'avatars');
     
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
+
     const filePath = path.join(folderPath, filename);
     
     // Write file to disk
@@ -82,11 +88,17 @@ export async function uploadFile(
     // CLOUDFLARE R2 STORAGE
     const key = `${folder}/${filename}`;
     
+    let contentType = 'image/jpeg';
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) contentType = 'image/png';
+    else if (lower.endsWith('.webp')) contentType = 'image/webp';
+    else if (lower.endsWith('.gif')) contentType = 'image/gif';
+
     const command = new PutObjectCommand({
       Bucket: STORAGE_CONFIG.r2.bucket,
       Key: key,
       Body: file,
-      ContentType: folder === 'photos' ? 'image/jpeg' : 'image/jpeg'
+      ContentType: contentType
     });
     
     await s3Client!.send(command);

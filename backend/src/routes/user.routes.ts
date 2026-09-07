@@ -4,12 +4,19 @@
  */
 
 import express from 'express';
+import multer from 'multer';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import {
   getCurrentUser,
   updateCurrentUser,
+  uploadAvatar,
   getPhotographerStats
 } from '../controllers/user.controller';
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB
+});
 
 /**
  * TEACHING MOMENT: Protected Routes Setup
@@ -25,21 +32,16 @@ const router = express.Router();
  * Get current user's profile
  * 
  * PROTECTED: Must be logged in
- * 
- * TEACHING MOMENT: How middleware is applied
- * 
- * router.get(PATH, MIDDLEWARE, CONTROLLER)
- * 
- * Flow:
- * 1. Request comes in
- * 2. authenticate middleware runs
- *    - Checks token
- *    - Sets req.user if valid
- *    - Calls next() or returns 401
- * 3. If next() was called, controller runs
- * 4. Controller uses req.user to get data
  */
 router.get('/me', authenticate, getCurrentUser);
+
+/**
+ * POST /api/users/avatar
+ * Upload avatar directly (multipart/form-data)
+ * 
+ * PROTECTED: Must be logged in
+ */
+router.post('/avatar', authenticate, avatarUpload.single('avatar'), uploadAvatar);
 
 /**
  * PATCH /api/users/me
