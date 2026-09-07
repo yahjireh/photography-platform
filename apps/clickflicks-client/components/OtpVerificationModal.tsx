@@ -7,6 +7,8 @@ interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
   phoneNumber?: string;
+  initialTab?: 'email' | 'phone';
+  autoSendOnOpen?: boolean;
   onSuccess: () => void;
   onClose?: () => void;
 }
@@ -15,18 +17,44 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   isOpen,
   email,
   phoneNumber,
+  initialTab = 'email',
+  autoSendOnOpen = false,
   onSuccess,
   onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'email' | 'phone'>('email');
+  const [activeTab, setActiveTab] = useState<'email' | 'phone'>(initialTab);
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [isResending, setIsResending] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Sync initial tab when changed
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Auto-send fresh OTP on open if requested
+  useEffect(() => {
+    if (isOpen && autoSendOnOpen) {
+      const targetTab = initialTab || activeTab;
+      if (targetTab === 'email' && email) {
+        apiClient.post('/auth/otp/send-email', { email })
+          .then(() => setInfoMessage(`A fresh verification code has been dispatched to ${email}`))
+          .catch(() => {});
+      } else if (targetTab === 'phone' && phoneNumber) {
+        apiClient.post('/auth/otp/send-phone', { phone: phoneNumber })
+          .then(() => setInfoMessage(`A fresh SMS code has been sent to ${phoneNumber}`))
+          .catch(() => {});
+      }
+    }
+  }, [isOpen, autoSendOnOpen]);
 
   // Resend countdown timer
   useEffect(() => {
@@ -262,6 +290,13 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   />
                 ))}
               </div>
+
+              {/* Info Message */}
+              {infoMessage && !errorMessage && (
+                <div className="mt-3 p-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-teal-600 dark:text-teal-400 text-xs font-medium">
+                  {infoMessage}
+                </div>
+              )}
 
               {/* Error Message */}
               {errorMessage && (

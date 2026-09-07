@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { usePhotographers } from '../hooks/usePhotographers';
 import apiClient from '../lib/api-client';
+import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 type VaultSubPage = 'main' | 'persona' | 'billing' | 'collection' | 'comms' | 'security' | 'support';
 type TopUpStep = 'idle' | 'source' | 'waiting' | 'success';
@@ -29,6 +30,10 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const { photographers } = usePhotographers();
   const [subPage, setSubPage] = useState<VaultSubPage>('main');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Verification Modal States
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpInitialTab, setOtpInitialTab] = useState<'email' | 'phone'>('email');
   
   // Billing States (Live from localStorage scoped to user)
   const [balance, setBalance] = useState<number>(0.0);
@@ -361,6 +366,23 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                   <p className="text-brand-light font-bold text-[10px] uppercase tracking-[0.4em] mt-2 opacity-70">
                     {user?.email || 'Client Tier'}
                   </p>
+                  {user?.is_verified ? (
+                    <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-widest mt-2.5">
+                      <Icons.Check size={12} strokeWidth={3} />
+                      <span>Verified Client</span>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        setOtpInitialTab('email');
+                        setShowOtpModal(true);
+                      }}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase tracking-widest mt-2.5 active:scale-95 transition-all"
+                    >
+                      <Icons.AlertCircle size={12} strokeWidth={2.5} />
+                      <span>Unverified • Tap to Verify</span>
+                    </button>
+                  )}
                 </motion.div>
               </div>
             </div>
@@ -386,6 +408,32 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Wallet Credit</p>
                 </motion.div>
               </div>
+
+              {!user?.is_verified && (
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.45 }}
+                  onClick={() => {
+                    setOtpInitialTab('email');
+                    setShowOtpModal(true);
+                  }}
+                  className="mb-6 cursor-pointer bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border border-amber-500/40 rounded-[28px] p-4 flex items-center justify-between shadow-xl shadow-amber-500/5 active:scale-[0.98] transition-all group"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                      <Icons.ShieldAlert size={20} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">Account Not Verified</p>
+                      <p className="text-[11px] text-gray-300 mt-0.5">Verify via Email link or SMS code</p>
+                    </div>
+                  </div>
+                  <span className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 text-[10px] font-black uppercase tracking-wider rounded-xl shadow-md transition-colors">
+                    Verify Now
+                  </span>
+                </motion.div>
+              )}
 
               <motion.div 
                 initial={{ y: 30, opacity: 0 }}
@@ -479,7 +527,25 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600 ml-1">Email Domain</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600 ml-1">Email Domain</label>
+                    {user?.is_verified ? (
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center">
+                        <Icons.Check size={12} className="mr-1" /> Verified
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpInitialTab('email');
+                          setShowOtpModal(true);
+                        }}
+                        className="text-[10px] font-black text-amber-600 uppercase tracking-wider hover:underline"
+                      >
+                        Verify Email
+                      </button>
+                    )}
+                  </div>
                   <input 
                     type="email" 
                     readOnly
@@ -488,7 +554,21 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600 ml-1">Phone Number</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600 ml-1">Phone Number</label>
+                    {phoneNumber && !user?.is_verified && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpInitialTab('phone');
+                          setShowOtpModal(true);
+                        }}
+                        className="text-[10px] font-black text-teal-600 uppercase tracking-wider hover:underline"
+                      >
+                        Verify via SMS
+                      </button>
+                    )}
+                  </div>
                   <input 
                     type="tel" 
                     value={phoneNumber}
@@ -1077,11 +1157,25 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                    </div>
                  ))}
                </div>
-               <button onClick={() => setActivePopup(null)} className="w-full mt-8 py-4 bg-gray-900 text-gray-200 rounded-2xl font-black text-xs uppercase tracking-widest">Close</button>
+                <button onClick={() => setActivePopup(null)} className="w-full mt-8 py-4 bg-gray-900 text-gray-200 rounded-2xl font-black text-xs uppercase tracking-widest">Close</button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Account Verification Modal */}
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        email={user?.email || ''}
+        phoneNumber={phoneNumber || user?.phone_number || undefined}
+        initialTab={otpInitialTab}
+        autoSendOnOpen={true}
+        onSuccess={async () => {
+          setShowOtpModal(false);
+          await fetchProfile?.();
+        }}
+        onClose={() => setShowOtpModal(false)}
+      />
     </div>
   );
 };
