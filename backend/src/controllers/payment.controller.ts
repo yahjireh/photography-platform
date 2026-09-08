@@ -878,6 +878,164 @@ export async function getWalletTransactions(req: Request, res: Response): Promis
   }
 }
 
+/**
+ * Get user's saved payment methods
+ * GET /api/payments/methods
+ */
+export async function getPaymentMethods(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const methods = await prisma.user_payment_methods.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.status(200).json({
+      success: true,
+      methods: methods.map(m => ({
+        id: m.id,
+        type: m.type,
+        provider: m.provider,
+        accountName: m.account_name,
+        accountNumber: m.account_number,
+        last4: m.last4,
+        expiryDate: m.expiry_date,
+        isDefault: m.is_default,
+        createdAt: m.created_at
+      }))
+    });
+  } catch (error: any) {
+    console.error('❌ Get payment methods error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch payment methods'
+    });
+  }
+}
+
+/**
+ * Add a new saved payment method for user
+ * POST /api/payments/methods
+ */
+export async function addPaymentMethod(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { type, provider, accountNumber, accountName, expiryDate } = req.body;
+
+    if (!type || !provider || !accountNumber) {
+      res.status(400).json({
+        success: false,
+        error: 'Payment type, provider, and account number are required'
+      });
+      return;
+    }
+
+    const cleanedNumber = String(accountNumber).trim();
+    const lastDigits = cleanedNumber.replace(/\D/g, '').slice(-4) || '0000';
+
+    let maskedNumber = cleanedNumber;
+    if (type === 'card') {
+      maskedNumber = `•••• •••• •••• ${lastDigits}`;
+    } else {
+      const cleanPhone = cleanedNumber.replace(/\s+/g, '');
+      maskedNumber = cleanPhone.length > 6
+        ? `${cleanPhone.slice(0, 3)} ••• ${lastDigits}`
+        : `•••• ${lastDigits}`;
+    }
+
+    const savedMethod = await prisma.user_payment_methods.create({
+      data: {
+        user_id: userId,
+        type: type.toLowerCase(),
+        provider: provider.trim(),
+        account_name: accountName?.trim() || null,
+        account_number: maskedNumber,
+        last4: lastDigits,
+        expiry_date: expiryDate?.trim() || null
+      }
+    });
+
+    console.log(`💳 Saved payment method for user ${userId}: ${provider} (${type})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Payment method registered successfully',
+      method: {
+        id: savedMethod.id,
+        type: savedMethod.type,
+        provider: savedMethod.provider,
+        accountName: savedMethod.account_name,
+        accountNumber: savedMethod.account_number,
+        last4: savedMethod.last4,
+        expiryDate: savedMethod.expiry_date,
+        isDefault: savedMethod.is_default,
+        createdAt: savedMethod.created_at
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Add payment method error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to save payment method'
+    });
+  }
+}
+
+/**
+ * Delete a user's saved payment method
+ * DELETE /api/payments/methods/:id
+ */
+export async function deletePaymentMethod(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.user_id;
+    const { id } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const deleteResult = await prisma.user_payment_methods.deleteMany({
+      where: {
+        id,
+        user_id: userId
+      }
+    });
+
+    if (deleteResult.count === 0) {
+      res.status(404).json({
+        success: false,
+        error: 'Payment method not found or not authorized'
+      });
+      return;
+    }
+
+    console.log(`🗑️ Deleted payment method ${id} for user ${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment method removed successfully'
+    });
+  } catch (error: any) {
+    console.error('❌ Delete payment method error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete payment method'
+    });
+  }
+}
+
+
 
 /**
  * TEACHING MOMENT: Audit Trail

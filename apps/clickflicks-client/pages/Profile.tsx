@@ -18,11 +18,13 @@ interface ProfileProps {
 }
 
 interface StoredPaymentMethod {
-  id: number;
+  id: string | number;
   type: string;
   last4: string;
   exp: string;
   label: string;
+  provider?: string;
+  accountNumber?: string;
 }
 
 const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onViewPhotographer, onLogout, onStartTour }) => {
@@ -91,14 +93,37 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     }
   };
 
+  const fetchPaymentMethods = async () => {
+    try {
+      const res = await apiClient.get('/payments/methods');
+      if (res.data?.success && Array.isArray(res.data.methods)) {
+        setPaymentMethods(res.data.methods.map((m: any) => ({
+          id: m.id,
+          type: m.type,
+          last4: m.last4,
+          exp: m.expiryDate || '',
+          label: m.type === 'momo'
+            ? `${m.provider.split(' ')[0]} MoMo •••• ${m.last4}`
+            : `${m.provider} •••• ${m.last4}`,
+          provider: m.provider,
+          accountNumber: m.accountNumber
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load payment methods from DB', err);
+    }
+  };
+
   useEffect(() => {
     fetchProfile?.().catch(() => {});
     fetchWalletBalance().catch(() => {});
+    fetchPaymentMethods().catch(() => {});
   }, []);
 
   useEffect(() => {
     if (subPage === 'billing') {
       fetchWalletBalance().catch(() => {});
+      fetchPaymentMethods().catch(() => {});
     }
   }, [subPage]);
 
@@ -113,11 +138,6 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
       if (user.wallet_balance !== undefined && user.wallet_balance !== null) {
         setBalance(parseFloat(user.wallet_balance.toString()) || 0.0);
       }
-
-      try {
-        const storedPM = localStorage.getItem(`clickflicks_payment_methods_${user.id}`);
-        setPaymentMethods(storedPM ? JSON.parse(storedPM) : []);
-      } catch (_) { setPaymentMethods([]); }
     } else {
       setFirstName('');
       setLastName('');
@@ -170,7 +190,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     }
   };
 
-  const handleSourceSelect = (sourceId: number) => {
+  const handleSourceSelect = (sourceId: string | number) => {
     const chosen = paymentMethods.find(pm => pm.id === sourceId) || null;
     setSelectedPaymentMethod(chosen);
     setTopUpError(null);
@@ -337,47 +357,66 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
     try { localStorage.setItem('clickflicks_system_tone', tone); } catch (_) {}
   };
 
-  const handleRemovePaymentMethod = (id: number) => {
-    setPaymentMethods(prev => {
-      const updated = prev.filter(pm => pm.id !== id);
-      const uId = user?.id || 'guest';
-      try { localStorage.setItem(`clickflicks_payment_methods_${uId}`, JSON.stringify(updated)); } catch (_) {}
-      return updated;
-    });
+  const handleRemovePaymentMethod = async (id: string | number) => {
+    try {
+      await apiClient.delete(`/payments/methods/${id}`);
+    } catch (err) {
+      console.error('Failed to delete payment method from DB', err);
+    } finally {
+      setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
+    }
   };
 
-  const handleAddPayment = () => {
-    let newMethod: StoredPaymentMethod;
-    if (paymentType === 'momo') {
-      const lastDigits = mobileMoneyNumber ? mobileMoneyNumber.slice(-4) : '0000';
-      newMethod = {
-        id: Date.now(),
-        type: 'momo',
-        last4: lastDigits,
-        exp: '',
-        label: `${mobileMoneyProvider.split(' ')[0]} MoMo •••• ${lastDigits}`
-      };
-    } else {
-      const lastDigits = cardNumber ? cardNumber.slice(-4) : '8888';
-      newMethod = {
-        id: Date.now(),
-        type: 'visa',
-        last4: lastDigits,
-        exp: cardExpiry || '12/28',
-        label: `Card •••• ${lastDigits}`
-      };
-    }
+  const handleAddPayment = async () => {
+    try {
+      let payload: any;
+      if (paymentType === 'momo') {
+        if (!mobileMoneyNumber.trim()) {
+          alert('Please enter your mobile phone number');
+          return;
+        }
+        payload = {
+          type: 'momo',
+          provider: mobileMoneyProvider,
+          accountNumber: mobileMoneyNumber.trim()
+        };
+      } else {
+        if (!cardNumber.trim()) {
+          alert('Please enter your card number');
+          return;
+        }
+        payload = {
+          type: 'card',
+          provider: 'Visa',
+          accountNumber: cardNumber.trim(),
+          expiryDate: cardExpiry.trim() || '12/28'
+        };
+      }
 
-    setPaymentMethods(prev => {
-      const updated = [...prev, newMethod];
-      const uId = user?.id || 'guest';
-      try { localStorage.setItem(`clickflicks_payment_methods_${uId}`, JSON.stringify(updated)); } catch (_) {}
-      return updated;
-    });
-    setCardNumber('');
-    setCardExpiry('');
-    setMobileMoneyNumber('');
-    setShowAddPayment(false);
+      const res = await apiClient.post('/payments/methods', payload);
+      if (res.data?.success && res.data.method) {
+        const m = res.data.method;
+        const newMethod: StoredPaymentMethod = {
+          id: m.id,
+          type: m.type,
+          last4: m.last4,
+          exp: m.expiryDate || '',
+          label: m.type === 'momo'
+            ? `${m.provider.split(' ')[0]} MoMo •••• ${m.last4}`
+            : `${m.provider} •••• ${m.last4}`,
+          provider: m.provider,
+          accountNumber: m.accountNumber
+        };
+        setPaymentMethods(prev => [newMethod, ...prev]);
+        setCardNumber('');
+        setCardExpiry('');
+        setMobileMoneyNumber('');
+        setShowAddPayment(false);
+      }
+    } catch (err: any) {
+      console.error('Failed to save payment method to DB', err);
+      alert(err.response?.data?.error || 'Failed to save payment method');
+    }
   };
 
   const handleRevokeSession = (id: number) => {

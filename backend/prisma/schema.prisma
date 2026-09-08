@@ -314,8 +314,26 @@ model users {
   messages_messages_sender_idTousers         messages[]      @relation("messages_sender_idTousers")
   notifications                              notifications[]
   photographers                              photographers?
-  reviews_reviews_reviewee_idTousers         reviews[]       @relation("reviews_reviewee_idTousers")
-  reviews_reviews_reviewer_idTousers         reviews[]       @relation("reviews_reviewer_idTousers")
+  reviews_reviews_reviewee_idTousers         reviews[]              @relation("reviews_reviewee_idTousers")
+  reviews_reviews_reviewer_idTousers         reviews[]              @relation("reviews_reviewer_idTousers")
+  user_payment_methods                       user_payment_methods[]
+}
+
+model user_payment_methods {
+  id             String   @id @default(uuid())
+  user_id        String
+  type           String   // 'momo' | 'card'
+  provider       String   // 'MTN Mobile Money' | 'Telecel Cash' | 'Visa' etc.
+  account_name   String?
+  account_number String
+  last4          String
+  expiry_date    String?
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  users          users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
 }
 
 model wallet_transactions {

@@ -106,6 +106,41 @@ router.get(
   PaymentController.getWalletTransactions
 );
 
+// ==============================================
+// SAVED PAYMENT METHODS ROUTES
+// ==============================================
+
+/**
+ * Get user's saved payment methods from PostgreSQL
+ * GET /api/payments/methods
+ */
+router.get(
+  '/methods',
+  authenticate,
+  PaymentController.getPaymentMethods
+);
+
+/**
+ * Save a new payment method (Card or MoMo) to PostgreSQL
+ * POST /api/payments/methods
+ */
+router.post(
+  '/methods',
+  authenticate,
+  PaymentController.addPaymentMethod
+);
+
+/**
+ * Delete a saved payment method
+ * DELETE /api/payments/methods/:id
+ */
+router.delete(
+  '/methods/:id',
+  authenticate,
+  PaymentController.deletePaymentMethod
+);
+
+
 
 // ==============================================
 // ESCROW RELEASE ROUTES (ADMIN ONLY!)
