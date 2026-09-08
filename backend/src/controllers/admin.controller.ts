@@ -371,8 +371,10 @@ export const getAllUsers = async (req: Request, res: Response) => {
       ];
     }
 
-    if (userType && userType !== 'ALL') {
+    if (userType && userType !== 'ALL' && (userType === 'CLIENT' || userType === 'PHOTOGRAPHER')) {
       where.user_type = userType;
+    } else {
+      where.user_type = { in: ['CLIENT', 'PHOTOGRAPHER'] };
     }
 
     if (emailVerified !== undefined) {
@@ -452,8 +454,8 @@ export const getUserById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.users.findUnique({
-      where: { id },
+    const user = await prisma.users.findFirst({
+      where: { id, user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] } },
       include: {
         photographers: {
           include: {
@@ -517,6 +519,18 @@ export const updateUser = async (req: Request, res: Response) => {
     const { id } = req.params;
     const updates = req.body;
 
+    const existing = await prisma.users.findUnique({
+      where: { id },
+      select: { user_type: true }
+    });
+
+    if (!existing || existing.user_type === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Administrator accounts cannot be modified via customer management'
+      });
+    }
+
     const user = await prisma.users.update({
       where: { id },
       data: updates
@@ -545,6 +559,18 @@ export const toggleUserSuspension = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { suspended } = req.body;
+
+    const targetUser = await prisma.users.findUnique({
+      where: { id },
+      select: { user_type: true }
+    });
+
+    if (!targetUser || targetUser.user_type === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot suspend administrator accounts from customer management'
+      });
+    }
 
     const user = await prisma.users.update({
       where: { id },
@@ -1499,7 +1525,7 @@ export const getAnalyticsOverview = async (req: Request, res: Response) => {
       prisma.photographers.count({
         where: { verification_status: 'VERIFIED', created_at: { gte: startDate } }
       }),
-      prisma.users.count({ where: { created_at: { gte: startDate } } }),
+      prisma.users.count({ where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] }, created_at: { gte: startDate } } }),
 
       // Previous period for comparison
       prisma.payments.aggregate({
@@ -1519,7 +1545,7 @@ export const getAnalyticsOverview = async (req: Request, res: Response) => {
         }
       }),
       prisma.users.count({
-        where: { created_at: { gte: previousStartDate, lt: startDate } }
+        where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] }, created_at: { gte: previousStartDate, lt: startDate } }
       }),
 
       // Completion rate
@@ -2800,6 +2826,7 @@ export const getActiveUsers = async (_req: Request, res: Response) => {
             }
           }
         ],
+        user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] },
         is_active: true
       },
       select: {
@@ -2835,6 +2862,7 @@ export const getActiveUsers = async (_req: Request, res: Response) => {
             }
           }
         ],
+        user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] },
         is_active: true
       }
     });
@@ -4090,7 +4118,7 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
       });
     } else {
       targetUsers = await prisma.users.findMany({
-        where: { is_active: true },
+        where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] }, is_active: true },
         select: { id: true, email: true, phone_number: true, first_name: true, last_name: true }
       });
     }

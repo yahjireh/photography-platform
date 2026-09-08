@@ -82,7 +82,7 @@ export default function UsersPage() {
     email: '',
     fullName: '',
     phoneNumber: '',
-    userType: 'CLIENT' as 'CLIENT' | 'PHOTOGRAPHER' | 'ADMIN',
+    userType: 'CLIENT' as 'CLIENT' | 'PHOTOGRAPHER',
     city: '',
     country: '',
   });
@@ -585,7 +585,6 @@ export default function UsersPage() {
                   >
                     <option value="CLIENT">Client</option>
                     <option value="PHOTOGRAPHER">Photographer</option>
-                    <option value="ADMIN">Admin</option>
                   </select>
                 </div>
 

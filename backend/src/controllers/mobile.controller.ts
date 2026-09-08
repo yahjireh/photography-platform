@@ -62,7 +62,9 @@ export const defaultAppVersions: MobileAppVersion[] = [
 
 export const getMobileAppVersions = async (_req: Request, res: Response) => {
   try {
-    const totalUsers = await prisma.users.count();
+    const totalUsers = await prisma.users.count({
+      where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] } }
+    });
     const row = await prisma.system_settings.findUnique({
       where: { key: 'mobile_app_versions' }
     });
@@ -203,9 +205,9 @@ export const getMobileStats = async (_req: Request, res: Response) => {
       crashesRow,
       totalBookings
     ] = await Promise.all([
-      prisma.users.count(),
-      prisma.users.count({ where: { updated_at: { gte: sevenDaysAgo } } }),
-      prisma.users.count({ where: { updated_at: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
+      prisma.users.count({ where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] } } }),
+      prisma.users.count({ where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] }, updated_at: { gte: sevenDaysAgo } } }),
+      prisma.users.count({ where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] }, updated_at: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
       prisma.reviews.aggregate({ _avg: { rating: true } }),
       prisma.reviews.count(),
       prisma.system_settings.findUnique({ where: { key: 'mobile_crashes' } }),
@@ -294,13 +296,16 @@ export const createMobilePushCampaign = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Title and body are required' });
     }
 
-    let usersQuery = {};
+    let usersQuery: any = { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] } };
     if (audience === 'Photographers') {
       usersQuery = { user_type: 'PHOTOGRAPHER' };
     } else if (audience === 'Clients') {
       usersQuery = { user_type: 'CLIENT' };
     } else if (audience === 'Active Users (Last 7 days)') {
-      usersQuery = { updated_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } };
+      usersQuery = {
+        user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] },
+        updated_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+      };
     }
 
     const matchedUsers = await prisma.users.findMany({
