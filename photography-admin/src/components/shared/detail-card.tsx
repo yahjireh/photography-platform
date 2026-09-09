@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { KenteRibbon } from "./kente-ribbon";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -18,6 +19,7 @@ export interface DetailCardProps {
   className?: string;
   headerClassName?: string;
   bodyClassName?: string;
+  withKente?: boolean;
 }
 
 export interface DetailRowProps {
@@ -47,16 +49,18 @@ export function DetailCard({
   className,
   headerClassName,
   bodyClassName,
+  withKente = true,
 }: DetailCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden",
+        "bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden relative",
         className
       )}
     >
+      {withKente && <KenteRibbon />}
       {/* Card Header */}
       {(title || actions) && (
         <div

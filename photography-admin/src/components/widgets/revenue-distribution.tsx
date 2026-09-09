@@ -24,6 +24,7 @@ import {
 import { PieChart as PieChartIcon } from 'lucide-react';
 import { cn, formatCurrency, formatPercentage } from '@/lib/utils';
 import { CHART_COLOR_PALETTE, OCCASION_TYPE_LABELS } from '@/lib/constants';
+import { KenteRibbon } from '@/components/shared/kente-ribbon';
 
 // ============================================
 // TYPES
@@ -228,10 +229,11 @@ export function RevenueDistributionWidget({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden',
+        'bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative',
         className
       )}
     >
+      <KenteRibbon />
       {/* Header */}
       <div className="p-5 border-b border-gray-100">
         <h3 className="text-lg font-bold text-gray-900">{title}</h3>

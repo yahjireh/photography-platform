@@ -25,6 +25,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn, formatCurrency, formatNumber, formatCompactNumber } from '@/lib/utils';
+import { KenteRibbon } from '@/components/shared/kente-ribbon';
 
 // ============================================
 // TYPES
@@ -257,6 +258,8 @@ export function StatsCard({
         className
       )}
     >
+      <KenteRibbon />
+
       {/* Background Decoration */}
       <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gray-50 opacity-50 group-hover:scale-110 transition-transform duration-500" />
 

@@ -1,17 +1,25 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { KenteRibbon } from "@/components/shared/kente-ribbon"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+interface CardProps extends React.ComponentProps<"div"> {
+  withKente?: boolean;
+}
+
+function Card({ className, withKente = true, children, ...props }: CardProps) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm relative overflow-hidden",
         className
       )}
       {...props}
-    />
+    >
+      {withKente && <KenteRibbon />}
+      {children}
+    </div>
   )
 }
 

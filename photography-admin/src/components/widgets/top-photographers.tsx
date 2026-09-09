@@ -33,6 +33,7 @@ import {
   getInitials,
 } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
+import { KenteRibbon } from '@/components/shared/kente-ribbon';
 
 // ============================================
 // TYPES
@@ -307,10 +308,11 @@ export function TopPhotographersWidget({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden',
+        'bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative',
         className
       )}
     >
+      <KenteRibbon />
       {/* Header */}
       <div className="flex items-center justify-between p-5 border-b border-gray-100">
         <div className="flex items-center gap-3">

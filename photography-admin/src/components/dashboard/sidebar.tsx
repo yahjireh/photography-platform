@@ -144,7 +144,7 @@ export function Sidebar() {
         transition={{ type: 'spring', damping: 20, stiffness: 100 }}
         className={cn(
           'fixed left-0 top-0 h-screen w-[280px]',
-          'bg-sidebar flex flex-col z-50 rounded-r-[32px] shadow-xl',
+          'bg-sidebar flex flex-col z-50 rounded-r-[32px] shadow-xl overflow-hidden',
           'transition-transform duration-300',
           // Mobile: hidden by default
           '-translate-x-full',
@@ -154,6 +154,42 @@ export function Sidebar() {
           'lg:!translate-x-0' // ! forces it to override
         )}
       >
+        {/* Authentic Indigenous Ghanaian Kente Pattern Background with Translucent Overlay */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-r-[32px] z-0">
+          {/* Authentic Kente Weave Pattern Layer */}
+          <svg className="w-full h-full opacity-35" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+            <defs>
+              <pattern id="kente-sidebar-weave" width="64" height="64" patternUnits="userSpaceOnUse">
+                {/* Dark charcoal base */}
+                <rect width="64" height="64" fill="#0c1817" />
+                
+                {/* Traditional geometric chevron blocks */}
+                <path d="M0,0 L32,32 L0,64 L12,64 L38,38 L12,0 Z" fill="#D4AF37" opacity="0.9" />
+                <path d="M32,0 L64,32 L32,64 L44,64 L70,38 L44,0 Z" fill="#047857" opacity="0.85" />
+                
+                {/* Ghanaian Gold and Crimson bands */}
+                <rect x="0" y="28" width="64" height="4" fill="#EAB308" opacity="0.85" />
+                <rect x="0" y="32" width="64" height="4" fill="#DC2626" opacity="0.8" />
+                
+                {/* Authentic comb hatch lines */}
+                <line x1="0" y1="8" x2="64" y2="8" stroke="#D4AF37" strokeWidth="1" strokeDasharray="3,3" opacity="0.55" />
+                <line x1="0" y1="16" x2="64" y2="16" stroke="#10B981" strokeWidth="1" strokeDasharray="3,3" opacity="0.55" />
+                <line x1="0" y1="48" x2="64" y2="48" stroke="#D4AF37" strokeWidth="1" strokeDasharray="3,3" opacity="0.55" />
+                <line x1="0" y1="56" x2="64" y2="56" stroke="#047857" strokeWidth="1" strokeDasharray="3,3" opacity="0.55" />
+
+                {/* Central Royal Diamond Motif */}
+                <polygon points="32,22 40,32 32,42 24,32" fill="#F59E0B" opacity="0.95" />
+                <polygon points="32,26 36,32 32,38 28,32" fill="#065F46" />
+                <circle cx="32" cy="32" r="2" fill="#D4AF37" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#kente-sidebar-weave)" />
+          </svg>
+
+          {/* Translucent Dark Overlay - ensures text on sidebar is 100% visible, sharp & readable */}
+          <div className="absolute inset-0 bg-sidebar/90 backdrop-blur-[1px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-sidebar/95 via-sidebar/85 to-sidebar/95" />
+        </div>
         {/**
          * CLOSE BUTTON (Mobile Only)
          * Shows X button in top-right on mobile
@@ -167,14 +203,14 @@ export function Sidebar() {
 
         {/* Subtle Indigenous Ghanaian Kente woven ribbon accent at the top of sidebar */}
         <div 
-          className="h-[3px] w-full opacity-90 rounded-tr-[32px]" 
+          className="h-[3px] w-full opacity-95 rounded-tr-[32px] relative z-10" 
           style={{ 
             background: 'repeating-linear-gradient(90deg, #D4AF37 0px, #D4AF37 14px, #059669 14px, #059669 28px, #DC2626 28px, #DC2626 42px, #0B0F17 42px, #0B0F17 56px, #F59E0B 56px, #F59E0B 70px)' 
           }} 
         />
 
         {/* Header - Admin Profile (Column Layout) */}
-        <div className="p-6 border-b border-sidebar-hover">
+        <div className="p-6 border-b border-sidebar-hover/80 relative z-10">
           <div className="flex flex-col items-center text-center">
             <Avatar className="h-16 w-16 ring-4 ring-accent-gold/30 mb-3">
               <AvatarImage src={adminProfile?.profile_image_url || undefined} alt={adminFullName} />
@@ -200,7 +236,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation - Centered */}
-        <ScrollArea className="flex-1 px-4 py-8">
+        <ScrollArea className="flex-1 px-4 py-8 relative z-10">
           <nav className="space-y-2">
             {navigation.map((item, index) => {
               const Icon = icons[item.icon as keyof typeof icons];
@@ -289,7 +325,7 @@ export function Sidebar() {
         </ScrollArea>
 
         {/* Active Users Section */}
-        <div className="p-4 border-t border-sidebar-hover">
+        <div className="p-4 border-t border-sidebar-hover/80 relative z-10">
           <p className="text-xs font-semibold text-accent-gold mb-3 uppercase tracking-wider">
             Active Users
           </p>
