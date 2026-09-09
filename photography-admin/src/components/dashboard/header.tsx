@@ -176,21 +176,18 @@ export function Header({ className }: HeaderProps) {
       className={cn(
         'sticky top-0 z-50 bg-white border-b border-gray-200',
         'transition-all duration-300',
-        /**
-         * FIXED MARGIN - No more conditional logic!
-         * 
-         * OLD WAY:
-         * 'lg:ml-[80px]'
-         * !isSidebarCollapsed && 'lg:ml-[280px]'
-         * 
-         * NEW WAY:
-         * Always 280px on desktop, full width on mobile
-         */
         'lg:ml-[280px]', // Fixed 280px margin on desktop to start after sidebar
         theme === 'dark' && 'bg-gray-900 border-gray-700',
         className
       )}
     >
+      {/* Subtle Indigenous Ghanaian Kente woven ribbon accent along the top of Admin Header */}
+      <div 
+        className="h-[3px] w-full opacity-90"
+        style={{
+          background: 'repeating-linear-gradient(90deg, #D4AF37 0px, #D4AF37 14px, #059669 14px, #059669 28px, #DC2626 28px, #DC2626 42px, #0B0F17 42px, #0B0F17 56px, #F59E0B 56px, #F59E0B 70px)'
+        }}
+      />
       <div className="flex items-center justify-between h-16 px-4 lg:px-6 gap-4">
         {/* LEFT SECTION: Mobile Menu + Greeting + Clock + Breadcrumbs */}
         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -235,9 +232,15 @@ export function Header({ className }: HeaderProps) {
               <span className="text-sm font-semibold text-gray-900">
                 {greeting}
               </span>
-              <span className="text-xs text-gray-500 font-mono tabular-nums">
-                {currentTime}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 font-mono tabular-nums">
+                  {currentTime}
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 flex items-center gap-1">
+                  <span>Accra HQ</span>
+                  <span>🇬🇭</span>
+                </span>
+              </div>
             </div>
           </motion.div>
 

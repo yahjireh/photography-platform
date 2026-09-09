@@ -8,21 +8,33 @@ interface OnboardingProps {
 
 const PHOTOGRAPHER_SLIDES = [
   {
-    image: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=1000&auto=format&fit=crop",
-    text: "Monetize Your Vision With Zero Commission",
-    highlight: "Zero Commission"
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1200&auto=format&fit=crop",
+    text: "Monetize Your Vision Across Ghana & Beyond",
+    highlight: "Ghana & Beyond"
   },
   {
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1000&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1200&auto=format&fit=crop",
     text: "Instant Escrow Payouts Directly to MoMo",
     highlight: "Escrow Payouts"
   },
   {
-    image: "https://images.unsplash.com/photo-1552168324-d612d77725e3?q=80&w=1000&auto=format&fit=crop",
-    text: "Connect With High Value Event Clients",
-    highlight: "High Value"
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop",
+    text: "Showcase African Artisan Photography",
+    highlight: "Artisan Photography"
   }
 ];
+
+const KenteAccentRibbon: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`w-full h-1.5 flex overflow-hidden rounded-full shadow-sm ${className}`}>
+    <div className="flex-1 bg-gradient-to-r from-amber-600 to-amber-500" />
+    <div className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500" />
+    <div className="flex-1 bg-gradient-to-r from-red-600 to-amber-600" />
+    <div className="flex-1 bg-gradient-to-r from-amber-500 to-emerald-600" />
+    <div className="flex-1 bg-gradient-to-r from-emerald-700 to-red-600" />
+    <div className="flex-1 bg-gradient-to-r from-amber-600 to-amber-400" />
+    <div className="flex-1 bg-gradient-to-r from-emerald-600 to-amber-500" />
+  </div>
+);
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [index, setIndex] = useState(0);
@@ -51,11 +63,24 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             className="absolute inset-0 w-full h-full object-cover"
           />
         </AnimatePresence>
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
       </div>
 
       <div className="relative z-10 px-8 pb-14 w-full">
-        <div className="mb-14 min-h-[160px] flex items-end">
+        {/* Subtle Indigenous Ghana Creator Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-2"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>Ghana's Premier Creator Network</span>
+          </div>
+        </motion.div>
+
+        <div className="mb-10 min-h-[150px] flex items-end">
             <AnimatePresence mode="wait">
                 <AnimatedTitle 
                     key={index}
@@ -64,6 +89,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 />
             </AnimatePresence>
         </div>
+
+        {/* Subtle Kente Geometric Accent Ribbon */}
+        <KenteAccentRibbon className="mb-6 opacity-85" />
 
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -74,10 +102,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             onClick={onComplete}
             className="group w-full relative overflow-hidden rounded-[24px] p-[1px] shadow-2xl"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-brand-light/20 to-brand-DEFAULT/20 backdrop-blur-2xl transition-all group-hover:scale-110" />
-            <div className="relative flex items-center justify-center space-x-3 py-5 px-8 text-gray-100 border border-white/10 rounded-[23px]">
-                <span className="font-bold text-sm uppercase tracking-[0.2em]">Open Creator Studio</span>
-                <Icons.ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/30 to-amber-600/30 backdrop-blur-2xl transition-all group-hover:scale-110" />
+            <div className="relative flex items-center justify-center space-x-3 py-5 px-8 text-gray-100 border border-white/10 rounded-[23px] bg-black/40 group-hover:bg-black/20 transition-all">
+                <span className="font-bold text-sm uppercase tracking-[0.2em] text-white">Open Creator Studio</span>
+                <Icons.ArrowRight size={18} className="text-amber-400 group-hover:translate-x-2 transition-transform" />
             </div>
           </button>
         </motion.div>
@@ -86,9 +114,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5 }}
-          className="text-center text-gray-500 text-[9px] mt-8 font-black uppercase tracking-[0.4em]"
+          className="text-center text-gray-400 text-[9px] mt-6 font-black uppercase tracking-[0.4em]"
         >
-          ClickFlicks Creator Studio © 2026
+          ClickFlicks Creator Studio • Accra, Ghana © 2026
         </motion.p>
       </div>
     </div>

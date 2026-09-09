@@ -73,11 +73,13 @@ const AppContent: React.FC = () => {
       const messages = customEvent.detail || [];
       if (messages.length > 0) {
         const unread = messages.find(m => {
-          const dismissed = sessionStorage.getItem(`clickflicks_msg_dismissed_${m.id}`);
+          const dismissed = localStorage.getItem(`clickflicks_msg_dismissed_${m.id}`);
           return !dismissed;
         });
         if (unread) {
           setActiveInAppMessage(unread);
+          // Telemetry: record view on mobile
+          apiClient.post(`/mobile/in-app-messages/${unread.id}/view`).catch(() => {});
         }
       }
     };
@@ -85,7 +87,7 @@ const AppContent: React.FC = () => {
     const handleSoftUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VersionCheckInfo>;
       const update = customEvent.detail;
-      const dismissed = sessionStorage.getItem(`clickflicks_update_dismissed_${update.latestVersion}`);
+      const dismissed = localStorage.getItem(`clickflicks_update_dismissed_${update.latestVersion}`);
       if (!dismissed) {
         setUpdateNotice(update);
       }
@@ -108,7 +110,9 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleInAppAction = (msg: InAppMessageItem) => {
-    sessionStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
+    // Telemetry: record CTA click on mobile
+    apiClient.post(`/mobile/in-app-messages/${msg.id}/click`).catch(() => {});
     setActiveInAppMessage(null);
     if (msg.deepLink) {
       if (msg.deepLink.includes('explore')) {
@@ -126,7 +130,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleDismissMessage = (msg: InAppMessageItem) => {
-    sessionStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
     setActiveInAppMessage(null);
   };
 

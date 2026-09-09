@@ -20,6 +20,7 @@ import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './servi
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
+import { apiClient } from './lib/api-client';
 
 type FlowState = 'onboarding' | 'auth' | 'kyc' | 'app';
 type AuthMode = 'login' | 'signup';
@@ -54,9 +55,11 @@ const AppContent: React.FC = () => {
       const customEvent = e as CustomEvent<InAppMessageItem[]>;
       const messages = customEvent.detail || [];
       if (messages.length > 0) {
-        const unread = messages.find(m => !sessionStorage.getItem(`clickflicks_pro_msg_dismissed_${m.id}`));
+        const unread = messages.find(m => !localStorage.getItem(`clickflicks_pro_msg_dismissed_${m.id}`));
         if (unread) {
           setActiveInAppMessage(unread);
+          // Telemetry: record view on mobile
+          apiClient.post(`/mobile/in-app-messages/${unread.id}/view`).catch(() => {});
         }
       }
     };
@@ -64,7 +67,7 @@ const AppContent: React.FC = () => {
     const handleSoftUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VersionCheckInfo>;
       const update = customEvent.detail;
-      if (!sessionStorage.getItem(`clickflicks_pro_update_dismissed_${update.latestVersion}`)) {
+      if (!localStorage.getItem(`clickflicks_pro_update_dismissed_${update.latestVersion}`)) {
         setUpdateNotice(update);
       }
     };
@@ -99,7 +102,9 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, isAuthLoading]);
 
   const handleInAppAction = (msg: InAppMessageItem) => {
-    sessionStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
+    // Telemetry: record CTA click on mobile
+    apiClient.post(`/mobile/in-app-messages/${msg.id}/click`).catch(() => {});
     setActiveInAppMessage(null);
     if (msg.deepLink) {
       if (msg.deepLink.includes('requests')) handleTabChange('requests');
@@ -111,7 +116,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleDismissMessage = (msg: InAppMessageItem) => {
-    sessionStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
     setActiveInAppMessage(null);
   };
 

@@ -1927,8 +1927,32 @@ export const updateAdminSettings = updateSettings;
 
 // ============================================
 // NOTIFICATION ROUTES
-// In-memory persistent tracking of read notification IDs for admin
-const adminReadNotificationIds = new Set<string>();
+// PostgreSQL persistent tracking of read notification IDs for admin
+const getPersistedAdminReadIds = async (): Promise<Set<string>> => {
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'admin_read_notification_ids' }
+    });
+    if (row && Array.isArray(row.value)) {
+      return new Set(row.value as string[]);
+    }
+  } catch (err) {
+    console.error('Failed to load read notification IDs from db', err);
+  }
+  return new Set<string>();
+};
+
+const savePersistedAdminReadIds = async (ids: Set<string>): Promise<void> => {
+  try {
+    await prisma.system_settings.upsert({
+      where: { key: 'admin_read_notification_ids' },
+      update: { value: Array.from(ids) as any },
+      create: { key: 'admin_read_notification_ids', value: Array.from(ids) as any }
+    });
+  } catch (err) {
+    console.error('Failed to persist read notification IDs to db', err);
+  }
+};
 
 /**
  * GET /api/admin/notifications
@@ -1937,6 +1961,7 @@ const adminReadNotificationIds = new Set<string>();
 export const getNotifications = async (req: Request, res: Response) => {
   try {
     const { unreadOnly = false } = req.query;
+    const adminReadNotificationIds = await getPersistedAdminReadIds();
 
     // 1. Pending/Open Disputes (High Priority)
     const openDisputes = await prisma.disputes.findMany({
@@ -2178,7 +2203,9 @@ export const markNotificationAsRead = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (id) {
-      adminReadNotificationIds.add(id);
+      const readSet = await getPersistedAdminReadIds();
+      readSet.add(id);
+      await savePersistedAdminReadIds(readSet);
     }
 
     return res.json({
@@ -2202,8 +2229,26 @@ export const markNotificationAsRead = async (req: Request, res: Response) => {
  */
 export const markAllNotificationsAsRead = async (_req: Request, res: Response) => {
   try {
-    // Invalidate/read all active notification items
-    // When getNotifications runs, items present will be checked against this set
+    const readSet = await getPersistedAdminReadIds();
+
+    const [openDisputes, pendingKyc, recentUsers, recentBookings, recentPayments, recentReviews] = await Promise.all([
+      prisma.disputes.findMany({ where: { status: { in: ['OPEN', 'IN_REVIEW'] } }, select: { id: true } }),
+      prisma.photographer_kyc.findMany({ where: { kyc_status: 'SUBMITTED' }, select: { id: true } }),
+      prisma.users.findMany({ where: { user_type: { in: ['CLIENT', 'PHOTOGRAPHER'] } }, select: { id: true } }),
+      prisma.bookings.findMany({ select: { id: true } }),
+      prisma.payments.findMany({ where: { status: 'SUCCESSFUL' }, select: { id: true } }),
+      prisma.reviews.findMany({ where: { is_visible: true }, select: { id: true } })
+    ]);
+
+    openDisputes.forEach(d => readSet.add(`dispute-${d.id}`));
+    pendingKyc.forEach(k => readSet.add(`kyc-${k.id}`));
+    recentUsers.forEach(u => readSet.add(`user-${u.id}`));
+    recentBookings.forEach(b => readSet.add(`booking-${b.id}`));
+    recentPayments.forEach(p => readSet.add(`payment-${p.id}`));
+    recentReviews.forEach(r => readSet.add(`review-${r.id}`));
+
+    await savePersistedAdminReadIds(readSet);
+
     return res.json({
       success: true,
       message: 'All notifications marked as read'

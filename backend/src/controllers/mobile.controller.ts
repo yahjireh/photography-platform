@@ -493,6 +493,48 @@ export const deleteMobileInAppMessage = async (req: Request, res: Response) => {
   }
 };
 
+export const recordMobileInAppMessageView = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'mobile_in_app_messages' }
+    });
+    const currentList: MobileInAppMessage[] = row && Array.isArray(row.value) ? (row.value as any) : defaultInAppMessages;
+    const updated = currentList.map(m => m.id === id ? { ...m, views: (m.views || 0) + 1 } : m);
+
+    await prisma.system_settings.upsert({
+      where: { key: 'mobile_in_app_messages' },
+      update: { value: updated as any },
+      create: { key: 'mobile_in_app_messages', value: updated as any }
+    });
+
+    return res.json({ success: true, message: 'View recorded' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to record view' });
+  }
+};
+
+export const recordMobileInAppMessageClick = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'mobile_in_app_messages' }
+    });
+    const currentList: MobileInAppMessage[] = row && Array.isArray(row.value) ? (row.value as any) : defaultInAppMessages;
+    const updated = currentList.map(m => m.id === id ? { ...m, clicks: (m.clicks || 0) + 1 } : m);
+
+    await prisma.system_settings.upsert({
+      where: { key: 'mobile_in_app_messages' },
+      update: { value: updated as any },
+      create: { key: 'mobile_in_app_messages', value: updated as any }
+    });
+
+    return res.json({ success: true, message: 'Click recorded' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: 'Failed to record click' });
+  }
+};
+
 // ============================================
 // 5. CRASH REPORTS (PERSISTENT & REPORTABLE)
 // ============================================

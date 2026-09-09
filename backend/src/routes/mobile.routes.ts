@@ -5,7 +5,12 @@
  */
 
 import { Router } from 'express';
-import { getMobilePublicConfig, reportMobileCrash } from '../controllers/mobile.controller';
+import {
+  getMobilePublicConfig,
+  reportMobileCrash,
+  recordMobileInAppMessageView,
+  recordMobileInAppMessageClick
+} from '../controllers/mobile.controller';
 
 const router = Router();
 
@@ -20,5 +25,17 @@ router.get('/config', getMobilePublicConfig);
  * Error telemetry reporting from mobile apps
  */
 router.post('/crashes', reportMobileCrash);
+
+/**
+ * POST /api/mobile/in-app-messages/:id/view
+ * Record when a mobile user views an in-app message
+ */
+router.post('/in-app-messages/:id/view', recordMobileInAppMessageView);
+
+/**
+ * POST /api/mobile/in-app-messages/:id/click
+ * Record when a mobile user clicks CTA on an in-app message
+ */
+router.post('/in-app-messages/:id/click', recordMobileInAppMessageClick);
 
 export default router;

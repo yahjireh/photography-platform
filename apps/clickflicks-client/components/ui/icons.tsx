@@ -55,11 +55,15 @@ import {
   Building,
   CheckCircle,
   ShieldAlert,
-  Compass
+  Compass,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 export const Icons = {
   Home,
+  Volume2,
+  VolumeX,
   ShieldAlert,
   Compass,
   Search,

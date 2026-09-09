@@ -27,6 +27,76 @@ interface StoredPaymentMethod {
   accountNumber?: string;
 }
 
+/**
+ * High-fidelity Web Audio tone generator for mobile notifications and user alerts
+ */
+export const playSystemAudioTone = (tone: 'cinematic' | 'standard') => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    const t = ctx.currentTime;
+
+    if (tone === 'cinematic') {
+      // Warm, deep cinematic luxury chord (D3 = 146.8Hz, A3 = 220Hz, F#4 = 370Hz)
+      const freqs = [146.83, 220.0, 369.99];
+      freqs.forEach((f, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(880, t);
+        filter.frequency.exponentialRampToValueAtTime(280, t + 1.2);
+
+        osc.type = idx === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(f, t);
+
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.28 / (idx + 1), t + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.35);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 1.4);
+      });
+    } else {
+      // Standard: Crisp, modern 2-note glass chime (E5 = 659.25Hz -> B5 = 987.77Hz)
+      const notes = [
+        { freq: 659.25, time: 0, dur: 0.22 },
+        { freq: 987.77, time: 0.08, dur: 0.45 },
+      ];
+
+      notes.forEach(n => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, t + n.time);
+
+        gain.gain.setValueAtTime(0.0001, t + n.time);
+        gain.gain.linearRampToValueAtTime(0.26, t + n.time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + n.time + n.dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t + n.time);
+        osc.stop(t + n.time + n.dur + 0.05);
+      });
+    }
+  } catch (err) {
+    console.warn('System audio tone playback error:', err);
+  }
+};
+
 const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onViewPhotographer, onLogout, onStartTour }) => {
   const { user, logout, fetchProfile } = useAuth();
   const { photographers } = usePhotographers();
@@ -163,13 +233,20 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const [preferences, setPreferences] = useState(() => {
     try {
       const uId = user?.id || 'guest';
-      const stored = localStorage.getItem(`clickflicks_comms_preferences_${uId}`);
+      const stored = localStorage.getItem(`clickflicks_comms_preferences_${uId}`) || localStorage.getItem('clickflicks_comms_preferences');
       return stored ? JSON.parse(stored) : { push: true, asset: true, email: true, sms: false };
     } catch (_) {
       return { push: true, asset: true, email: true, sms: false };
     }
   });
-  const [systemTone, setSystemTone] = useState<'cinematic' | 'standard'>('cinematic');
+  const [systemTone, setSystemTone] = useState<'cinematic' | 'standard'>(() => {
+    try {
+      return (localStorage.getItem('clickflicks_system_tone') as 'cinematic' | 'standard') || 'cinematic';
+    } catch (_) {
+      return 'cinematic';
+    }
+  });
+  const [playingTone, setPlayingTone] = useState<'cinematic' | 'standard' | null>(null);
 
   const favoritePhotographers = photographers.filter(p => favorites.includes(p.id));
 
@@ -347,14 +424,29 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   const togglePreference = (key: keyof typeof preferences) => {
     setPreferences(prev => {
       const updated = { ...prev, [key]: !prev[key] };
-      try { localStorage.setItem('clickflicks_comms_preferences', JSON.stringify(updated)); } catch (_) {}
+      try {
+        const uId = user?.id || 'guest';
+        localStorage.setItem(`clickflicks_comms_preferences_${uId}`, JSON.stringify(updated));
+        localStorage.setItem('clickflicks_comms_preferences', JSON.stringify(updated));
+      } catch (_) {}
       return updated;
     });
+    // Auditory feedback on toggle
+    try {
+      playSystemAudioTone(systemTone);
+    } catch (_) {}
   };
 
   const handleSetSystemTone = (tone: 'cinematic' | 'standard') => {
     setSystemTone(tone);
-    try { localStorage.setItem('clickflicks_system_tone', tone); } catch (_) {}
+    setPlayingTone(tone);
+    try {
+      localStorage.setItem('clickflicks_system_tone', tone);
+    } catch (_) {}
+    playSystemAudioTone(tone);
+    setTimeout(() => {
+      setPlayingTone(prev => (prev === tone ? null : prev));
+    }, 1400);
   };
 
   const handleRemovePaymentMethod = async (id: string | number) => {
@@ -424,10 +516,17 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   };
 
   const renderHeader = (title: string, subtitle: string) => (
-    <header className="pt-16 pb-8 px-6 bg-white border-b border-gray-100 flex items-center space-x-4 sticky top-0 z-50">
+    <header className="pt-16 pb-8 px-6 bg-white border-b border-gray-100 flex items-center space-x-4 sticky top-0 z-50 relative">
+      {/* Subtle Indigenous Ghanaian Kente ribbon along subpage header */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-[2.5px] opacity-85"
+        style={{
+          background: 'repeating-linear-gradient(90deg, #D4AF37 0px, #D4AF37 12px, #059669 12px, #059669 24px, #DC2626 24px, #DC2626 36px, #0B0F17 36px, #0B0F17 48px, #F59E0B 48px, #F59E0B 60px)'
+        }}
+      />
       <button 
         onClick={() => setSubPage('main')} 
-        className="p-3 bg-gray-50 rounded-2xl text-gray-900 active:scale-90 transition-transform"
+        className="p-3 bg-gray-50 rounded-2xl text-gray-900 active:scale-90 transition-transform shadow-sm"
       >
         <Icons.ChevronLeft size={20} strokeWidth={2.5} />
       </button>
@@ -1108,10 +1207,56 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                  onToggle={() => togglePreference('sms')}
                />
                <div className="pt-8">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-4 ml-2">System Tone</h3>
+                  <div className="flex items-center justify-between mb-4 ml-2 mr-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-600">System Tone</h3>
+                    <span className="text-[9px] font-bold text-brand-DEFAULT uppercase tracking-wider">Tap to preview sound</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => handleSetSystemTone('cinematic')} className={`p-5 rounded-3xl font-bold text-[10px] uppercase tracking-widest transition-all ${systemTone === 'cinematic' ? 'bg-gray-900 text-gray-200 shadow-lg' : 'bg-gray-50 text-gray-500 border border-gray-100'}`}>Cinematic</button>
-                    <button onClick={() => handleSetSystemTone('standard')} className={`p-5 rounded-3xl font-bold text-[10px] uppercase tracking-widest transition-all ${systemTone === 'standard' ? 'bg-gray-900 text-gray-200 shadow-lg' : 'bg-gray-50 text-gray-500 border border-gray-100'}`}>Standard</button>
+                    <button 
+                      onClick={() => handleSetSystemTone('cinematic')} 
+                      className={`p-5 rounded-3xl font-bold text-[10px] uppercase tracking-widest transition-all flex flex-col items-center justify-center space-y-2.5 relative overflow-hidden active:scale-95 ${
+                        systemTone === 'cinematic' 
+                          ? 'bg-gray-900 text-amber-300 shadow-xl border-2 border-amber-400/40 ring-2 ring-amber-400/20' 
+                          : 'bg-gray-50 text-gray-500 border border-gray-100 hover:bg-gray-100'
+                      }`}
+                    >
+                      {playingTone === 'cinematic' && (
+                        <div className="absolute inset-0 bg-amber-400/10 animate-pulse pointer-events-none" />
+                      )}
+                      <div className="flex items-center space-x-2">
+                        <Icons.Volume2 size={16} className={systemTone === 'cinematic' ? 'text-amber-400' : 'text-gray-400'} />
+                        <span>Cinematic</span>
+                      </div>
+                      <span className="text-[8px] font-medium tracking-wider text-amber-200/80 lowercase">
+                        {playingTone === 'cinematic' ? '▶ playing tone...' : 'warm luxury chord'}
+                      </span>
+                    </button>
+                    <button 
+                      onClick={() => handleSetSystemTone('standard')} 
+                      className={`p-5 rounded-3xl font-bold text-[10px] uppercase tracking-widest transition-all flex flex-col items-center justify-center space-y-2.5 relative overflow-hidden active:scale-95 ${
+                        systemTone === 'standard' 
+                          ? 'bg-gray-900 text-cyan-300 shadow-xl border-2 border-cyan-400/40 ring-2 ring-cyan-400/20' 
+                          : 'bg-gray-50 text-gray-500 border border-gray-100 hover:bg-gray-100'
+                      }`}
+                    >
+                      {playingTone === 'standard' && (
+                        <div className="absolute inset-0 bg-cyan-400/10 animate-pulse pointer-events-none" />
+                      )}
+                      <div className="flex items-center space-x-2">
+                        <Icons.Volume2 size={16} className={systemTone === 'standard' ? 'text-cyan-400' : 'text-gray-400'} />
+                        <span>Standard</span>
+                      </div>
+                      <span className="text-[8px] font-medium tracking-wider text-cyan-200/80 lowercase">
+                        {playingTone === 'standard' ? '▶ playing tone...' : 'crisp modern chime'}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="mt-4 p-3.5 bg-gray-50 rounded-2xl border border-gray-100/80 flex items-center justify-between text-[9px] uppercase tracking-wider text-gray-500">
+                    <span className="flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Active Tone:</span>
+                    </span>
+                    <span className="font-bold text-gray-900 capitalize">{systemTone} Audible</span>
                   </div>
                </div>
             </div>

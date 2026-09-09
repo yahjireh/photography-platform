@@ -160,10 +160,18 @@ export function Sidebar() {
          */}
         <button
           onClick={closeMobileMenu}
-          className="absolute top-4 right-4 lg:hidden p-2 rounded-lg hover:bg-sidebar-hover transition-colors"
+          className="absolute top-4 right-4 lg:hidden p-2 rounded-lg hover:bg-sidebar-hover transition-colors z-10"
         >
           <X className="h-5 w-5 text-gray-400 hover:text-white" />
         </button>
+
+        {/* Subtle Indigenous Ghanaian Kente woven ribbon accent at the top of sidebar */}
+        <div 
+          className="h-[3px] w-full opacity-90 rounded-tr-[32px]" 
+          style={{ 
+            background: 'repeating-linear-gradient(90deg, #D4AF37 0px, #D4AF37 14px, #059669 14px, #059669 28px, #DC2626 28px, #DC2626 42px, #0B0F17 42px, #0B0F17 56px, #F59E0B 56px, #F59E0B 70px)' 
+          }} 
+        />
 
         {/* Header - Admin Profile (Column Layout) */}
         <div className="p-6 border-b border-sidebar-hover">
@@ -182,6 +190,11 @@ export function Sidebar() {
               <p className="text-xs text-gray-400">
                 {adminProfile?.email || 'Loading...'}
               </p>
+              <div className="mt-2 inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] text-accent-gold font-medium">
+                <span>Accra HQ</span>
+                <span className="opacity-50">•</span>
+                <span>Ghana 🇬🇭</span>
+              </div>
             </div>
           </div>
         </div>
