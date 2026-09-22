@@ -61,29 +61,24 @@ const AppContent: React.FC = () => {
   const unreadMessagesCount = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   const getResolvedKYCStatus = (): KYCStatus => {
-    if (photographerProfile?.verification_status === 'VERIFIED' || photographerProfile?.photographer_kyc?.kyc_status === 'APPROVED') {
+    // Only genuine verified: photographer verification_status === 'VERIFIED' AND photographer_kyc is APPROVED
+    if (
+      photographerProfile?.verification_status === 'VERIFIED' && 
+      (photographerProfile?.photographer_kyc?.kyc_status === 'APPROVED' || (photographerProfile as any)?.kyc_verified_at != null)
+    ) {
       return 'verified';
     }
+    // Submitted status: photographer has actually submitted their KYC records for review
     if (
       photographerProfile?.photographer_kyc?.kyc_status === 'SUBMITTED' || 
-      photographerProfile?.photographer_kyc?.kyc_status === 'IN_REVIEW' ||
-      photographerProfile?.photographer_kyc != null ||
-      photographerProfile?.verification_status === 'PENDING'
+      photographerProfile?.photographer_kyc?.kyc_status === 'IN_REVIEW'
     ) {
       return 'submitted';
     }
-    if (typeof window !== 'undefined') {
-      if (
-        localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
-        localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
-        localStorage.getItem('clickflicks_photographer_kyc_status') === 'verified'
-      ) {
-        return 'submitted';
-      }
-      if (user?.id) {
-        const userKyc = localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`);
-        if (userKyc === 'submitted' || userKyc === 'verified') return userKyc as KYCStatus;
-      }
+    if (typeof window !== 'undefined' && user?.id) {
+      const userKyc = localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`);
+      if (userKyc === 'submitted') return 'submitted';
+      if (userKyc === 'verified' && photographerProfile?.verification_status === 'VERIFIED') return 'verified';
     }
     return 'pending';
   };

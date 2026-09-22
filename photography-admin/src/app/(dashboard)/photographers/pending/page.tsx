@@ -27,8 +27,14 @@ interface VerificationCardProps {
 
 function VerificationCard({ photographer, onViewDetails }: VerificationCardProps) {
   const { mutate: verify, isPending } = useVerifyPhotographer();
+  const kycStatus = (photographer as any)?.photographer_kyc?.kyc_status;
+  const hasSubmittedKYC = kycStatus === 'SUBMITTED' || kycStatus === 'IN_REVIEW';
 
   const handleApprove = () => {
+    if (!hasSubmittedKYC) {
+      toast.error('Photographer has not yet submitted KYC documents.');
+      return;
+    }
     verify(
       { photographerId: photographer.id, action: "approve" },
       {
@@ -157,16 +163,17 @@ function VerificationCard({ photographer, onViewDetails }: VerificationCardProps
           </button>
           <button
             onClick={handleApprove}
-            disabled={isPending}
+            disabled={isPending || !hasSubmittedKYC}
+            title={!hasSubmittedKYC ? "Photographer has not yet submitted KYC documents" : undefined}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors",
-              isPending
+              isPending || !hasSubmittedKYC
                 ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700 text-white"
             )}
           >
             <CheckCircle className="w-5 h-5" />
-            {isPending ? "Processing..." : "Quick Approve"}
+            {isPending ? "Processing..." : !hasSubmittedKYC ? "Awaiting KYC" : "Quick Approve"}
           </button>
           <button
             onClick={handleReject}

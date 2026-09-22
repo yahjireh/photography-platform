@@ -6,7 +6,7 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient, VerificationStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import bcrypt from 'bcryptjs';
 import { validateEmail, validatePhoneNumber } from '../services/validation.service';
@@ -862,7 +862,7 @@ export const getPendingVerifications = async (_req: Request, res: Response) => {
 export const verifyPhotographer = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { action } = req.body; // action: 'approve' | 'reject'
+    const { action, reason } = req.body; // action: 'approve' | 'reject'
 
     if (!['approve', 'reject'].includes(action)) {
       return res.status(400).json({
@@ -871,23 +871,79 @@ export const verifyPhotographer = async (req: Request, res: Response) => {
       });
     }
 
-    const status: VerificationStatus = action === 'approve' ? 'VERIFIED' : 'REJECTED';
-
-    const photographer = await prisma.photographers.update({
+    const photographer = await prisma.photographers.findUnique({
       where: { id },
-      data: {
-        verification_status: status,
-        // Add rejection reason field if needed
+      include: { photographer_kyc: true, users: true }
+    });
+
+    if (!photographer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Photographer not found'
+      });
+    }
+
+    if (action === 'approve') {
+      if (!photographer.photographer_kyc || !['SUBMITTED', 'IN_REVIEW'].includes(photographer.photographer_kyc.kyc_status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot verify photographer: No pending KYC submission found. Photographer must submit KYC documents first.'
+        });
       }
-    });
 
-    // TODO: Send notification/email to photographer
+      const now = new Date();
+      const updated = await prisma.photographers.update({
+        where: { id },
+        data: {
+          verification_status: 'VERIFIED',
+          kyc_verified_at: now
+        }
+      });
 
-    return res.json({
-      success: true,
-      message: `Photographer ${action}d successfully`,
-      data: photographer
-    });
+      await prisma.photographer_kyc.update({
+        where: { photographer_id: id },
+        data: {
+          kyc_status: 'APPROVED',
+          approved_at: now,
+          kyc_verified_badge: true,
+          is_search_visible: true,
+          can_accept_bookings: true,
+          can_receive_payouts: true,
+          last_updated_at: now
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Photographer approved and verified successfully',
+        data: updated
+      });
+    } else {
+      const updated = await prisma.photographers.update({
+        where: { id },
+        data: {
+          verification_status: 'REJECTED'
+        }
+      });
+
+      if (photographer.photographer_kyc) {
+        await prisma.photographer_kyc.update({
+          where: { photographer_id: id },
+          data: {
+            kyc_status: 'REJECTED',
+            rejected_at: new Date(),
+            decision_notes: reason || 'Rejected by administrator',
+            last_updated_at: new Date()
+          }
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Photographer verification rejected',
+        data: updated
+      });
+    }
   } catch (error: any) {
     console.error('Error verifying photographer:', error);
     return res.status(500).json({
@@ -3092,7 +3148,7 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
           is_search_visible: false,
           can_accept_bookings: false,
           can_receive_payouts: false,
-          kyc_verified_badge: photographer.verification_status === 'VERIFIED'
+          kyc_verified_badge: false
         },
         decision_reason_code: null,
         decision_notes: '',
@@ -3120,6 +3176,8 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
       orderBy: { created_at: 'desc' }
     });
 
+    const isApproved = kyc.kyc_status === 'APPROVED';
+
     const response = {
       id: kyc.id,
       photographer_id: kyc.photographer_id,
@@ -3130,13 +3188,13 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
       approved_at: kyc.approved_at,
       rejected_at: kyc.rejected_at,
       identity: {
-        legal_name: kyc.legal_name || `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`,
+        legal_name: kyc.legal_name || `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim(),
         date_of_birth: kyc.date_of_birth,
-        age: calculateAge(kyc.date_of_birth),
+        age: kyc.date_of_birth ? calculateAge(kyc.date_of_birth) : null,
         nationality: kyc.nationality || 'Ghana',
         id_type: kyc.id_type || 'GHANA_CARD',
-        id_number: kyc.id_number || 'GHA-000000000-0',
-        identity_check_result: kyc.identity_check_result || 'PASS',
+        id_number: kyc.id_number || null,
+        identity_check_result: kyc.identity_check_result || null,
         identity_fail_reason_code: kyc.identity_fail_reason_code,
         identity_notes: kyc.identity_notes
       },
@@ -3145,37 +3203,37 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         email_verified: kyc.email_verified,
         phone: kyc.phone || photographer.users?.phone_number || '',
         phone_verified: kyc.phone_verified,
-        city: kyc.city || photographer.users?.location_city || 'Accra',
-        region: kyc.region || 'Greater Accra',
-        service_area: kyc.service_area || 'Greater Accra',
-        contact_check_result: kyc.contact_check_result || 'PASS',
+        city: kyc.city || photographer.users?.location_city || null,
+        region: kyc.region || null,
+        service_area: kyc.service_area || null,
+        contact_check_result: kyc.contact_check_result || null,
         contact_notes: kyc.contact_notes
       },
       portfolio: {
-        categories: kyc.categories || ['PORTRAIT'],
-        years_experience: kyc.years_experience || 'TWO_FOUR',
-        portfolio_link: kyc.portfolio_link || photographer.portfolio_website,
-        portfolio_check_result: kyc.portfolio_check_result || 'PASS',
-        portfolio_quality: kyc.portfolio_quality || 'GOOD',
-        originality_flag: kyc.originality_flag || 'ORIGINAL',
+        categories: kyc.categories || [],
+        years_experience: kyc.years_experience || null,
+        portfolio_link: kyc.portfolio_link || photographer.portfolio_website || null,
+        portfolio_check_result: kyc.portfolio_check_result || null,
+        portfolio_quality: kyc.portfolio_quality || null,
+        originality_flag: kyc.originality_flag || null,
         portfolio_notes: kyc.portfolio_notes
       },
       payment: {
         payout_method: kyc.payout_method || 'MOMO',
-        account_holder_name: kyc.account_holder_name || `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`,
+        account_holder_name: kyc.account_holder_name || `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim(),
         bank_name: kyc.bank_name,
         bank_account_number: kyc.bank_account_number,
-        momo_network: kyc.momo_network || 'MTN',
-        momo_number: kyc.momo_number || photographer.users?.phone_number,
-        payout_name_match: kyc.payout_name_match || 'EXACT_MATCH',
-        payout_check_result: kyc.payout_check_result || 'PASS',
+        momo_network: kyc.momo_network || null,
+        momo_number: kyc.momo_number || photographer.users?.phone_number || null,
+        payout_name_match: kyc.payout_name_match || 'NOT_CHECKED',
+        payout_check_result: kyc.payout_check_result || null,
         payout_notes: kyc.payout_notes
       },
       access_controls: {
-        is_search_visible: kyc.is_search_visible ?? true,
-        can_accept_bookings: kyc.can_accept_bookings ?? true,
-        can_receive_payouts: kyc.can_receive_payouts ?? true,
-        kyc_verified_badge: kyc.kyc_verified_badge ?? (photographer.verification_status === 'VERIFIED')
+        is_search_visible: kyc.is_search_visible ?? isApproved,
+        can_accept_bookings: kyc.can_accept_bookings ?? isApproved,
+        can_receive_payouts: kyc.can_receive_payouts ?? isApproved,
+        kyc_verified_badge: kyc.kyc_verified_badge ?? (isApproved && photographer.verification_status === 'VERIFIED')
       },
       decision_reason_code: kyc.decision_reason_code,
       decision_notes: kyc.decision_notes,
@@ -3542,29 +3600,17 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
       }
     }
 
-    let updatedKYC;
-    if (kyc) {
-      updatedKYC = await prisma.photographer_kyc.update({
-        where: { photographer_id: photographerId },
-        data: updateData
-      });
-    } else {
-      updatedKYC = await prisma.photographer_kyc.create({
-        data: {
-          photographer_id: photographerId,
-          user_id: photographer.user_id,
-          legal_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Artisan',
-          date_of_birth: new Date('1995-01-01'),
-          id_type: 'GHANA_CARD',
-          id_number: 'PENDING',
-          email: photographer.users?.email || '',
-          phone: photographer.users?.phone_number || 'N/A',
-          payout_method: 'MOMO',
-          account_holder_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim(),
-          ...updateData
-        }
+    if (!kyc) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot process KYC decision: Photographer has not yet submitted KYC verification documents.'
       });
     }
+
+    const updatedKYC = await prisma.photographer_kyc.update({
+      where: { photographer_id: photographerId },
+      data: updateData
+    });
 
     // Synchronize core photographer verification status
     if (action === 'approve') {

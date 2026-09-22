@@ -297,46 +297,73 @@ export default function KYCVerificationPage() {
     );
   }
 
+  // Calculate age safely
+  const calculateAge = (dob?: string | null) => {
+    if (!dob) return null;
+    try {
+      const birthDate = new Date(dob);
+      if (isNaN(birthDate.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age > 0 ? age : null;
+    } catch {
+      return null;
+    }
+  };
+
   // Safe object normalization to guarantee zero rendering crashes
   const kyc = {
     ...kycData,
-    identity: kycData.identity || {
-      legal_name: 'Photographer Applicant',
-      date_of_birth: '1995-01-01',
-      age: 29,
-      nationality: 'Ghana',
-      id_type: 'GHANA_CARD' as const,
-      id_number: 'GHA-000000000-0',
-      identity_check_result: 'PASS' as const
+    identity: {
+      legal_name: kycData.identity?.legal_name || 'Photographer Applicant',
+      date_of_birth: kycData.identity?.date_of_birth || null,
+      age: kycData.identity?.age ?? calculateAge(kycData.identity?.date_of_birth),
+      nationality: kycData.identity?.nationality || 'Ghana',
+      id_type: (kycData.identity?.id_type || 'GHANA_CARD') as any,
+      id_number: kycData.identity?.id_number || 'Not provided',
+      identity_check_result: kycData.identity?.identity_check_result || undefined,
+      identity_fail_reason_code: kycData.identity?.identity_fail_reason_code,
+      identity_notes: kycData.identity?.identity_notes
     },
-    contact: kycData.contact || {
-      email: '',
-      phone: '',
-      city: 'Accra',
-      region: 'Greater Accra',
-      service_area: 'Accra',
-      contact_check_result: 'PASS' as const
+    contact: {
+      email: kycData.contact?.email || '',
+      phone: kycData.contact?.phone || '',
+      email_verified: !!kycData.contact?.email_verified,
+      phone_verified: !!kycData.contact?.phone_verified,
+      city: kycData.contact?.city || '—',
+      region: kycData.contact?.region || '—',
+      service_area: kycData.contact?.service_area || '—',
+      contact_check_result: kycData.contact?.contact_check_result || undefined,
+      contact_notes: kycData.contact?.contact_notes
     },
-    portfolio: kycData.portfolio || {
-      categories: ['PORTRAIT' as const],
-      years_experience: 'TWO_FOUR' as const,
-      portfolio_link: '',
-      portfolio_check_result: 'PASS' as const,
-      portfolio_quality: 'GOOD' as const,
-      originality_flag: 'ORIGINAL' as const
+    portfolio: {
+      categories: kycData.portfolio?.categories || [],
+      years_experience: kycData.portfolio?.years_experience || undefined,
+      portfolio_link: kycData.portfolio?.portfolio_link || '',
+      portfolio_check_result: kycData.portfolio?.portfolio_check_result || undefined,
+      portfolio_quality: kycData.portfolio?.portfolio_quality || undefined,
+      originality_flag: kycData.portfolio?.originality_flag || undefined,
+      portfolio_notes: kycData.portfolio?.portfolio_notes
     },
-    payment: kycData.payment || {
-      payout_method: 'MOMO' as const,
-      account_holder_name: '',
-      momo_network: 'MTN' as const,
-      momo_number: '',
-      payout_name_match: 'EXACT_MATCH' as const,
-      payout_check_result: 'PASS' as const
+    payment: {
+      payout_method: (kycData.payment?.payout_method || 'MOMO') as any,
+      account_holder_name: kycData.payment?.account_holder_name || '—',
+      momo_network: (kycData.payment?.momo_network || undefined) as any,
+      momo_number: kycData.payment?.momo_number || '',
+      bank_name: kycData.payment?.bank_name || undefined,
+      bank_account_number: kycData.payment?.bank_account_number || undefined,
+      payout_name_match: (kycData.payment?.payout_name_match || 'NOT_CHECKED') as any,
+      payout_check_result: kycData.payment?.payout_check_result || undefined,
+      payout_notes: kycData.payment?.payout_notes
     },
     access_controls: kycData.access_controls || {
-      is_search_visible: true,
-      can_accept_bookings: true,
-      can_receive_payouts: true,
+      is_search_visible: false,
+      can_accept_bookings: false,
+      can_receive_payouts: false,
       kyc_verified_badge: false
     },
     documents: kycData.documents || [],
@@ -347,24 +374,6 @@ export default function KYCVerificationPage() {
     id: photographerId,
     display_name: kyc.identity.legal_name || 'Artisan Photographer',
     business_name: 'Studio Artisan'
-  };
-
-  // Calculate age
-  const calculateAge = (dob: string) => {
-    if (!dob) return 28;
-    try {
-      const birthDate = new Date(dob);
-      if (isNaN(birthDate.getTime())) return 28;
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      return age > 0 ? age : 28;
-    } catch {
-      return 28;
-    }
   };
 
   // Handle decision action
@@ -458,12 +467,19 @@ export default function KYCVerificationPage() {
           {/* Decision Actions: Only show when not yet approved */}
           {kyc.kyc_status !== 'APPROVED' ? (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => openDecisionModal('approve')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors cursor-pointer shadow-sm"
-              >
-                Approve
-              </button>
+              {(!kyc.submitted_at || kyc.kyc_status === 'DRAFT') ? (
+                <span className="px-3.5 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  Awaiting Applicant Submission
+                </span>
+              ) : (
+                <button
+                  onClick={() => openDecisionModal('approve')}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors cursor-pointer shadow-sm"
+                >
+                  Approve
+                </button>
+              )}
               <button
                 onClick={() => openDecisionModal('request_more_info')}
                 className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
@@ -516,6 +532,21 @@ export default function KYCVerificationPage() {
         </div>
       </div>
 
+      {/* Notice when KYC is not yet submitted */}
+      {(!kyc.submitted_at || kyc.kyc_status === 'DRAFT') && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-300 dark:border-amber-800/40 rounded-xl p-5 flex items-start gap-4 shadow-sm">
+          <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-amber-900 dark:text-amber-200">
+              KYC Verification Not Yet Submitted
+            </h3>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+              This photographer has created an account but has not yet completed their 8-step verification or uploaded identity credentials. The information below is an unsubmitted draft and has not been evaluated or verified.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Main Verification Sections */}
         <div className="lg:col-span-2 space-y-6">
@@ -526,11 +557,11 @@ export default function KYCVerificationPage() {
                 <DetailRow label="Legal Name" value={kyc.identity.legal_name} />
                 <DetailRow
                   label="Date of Birth"
-                  value={`${formatDate(kyc.identity.date_of_birth)} (${calculateAge(kyc.identity.date_of_birth)} years old)`}
+                  value={kyc.identity.date_of_birth ? `${formatDate(kyc.identity.date_of_birth)}${calculateAge(kyc.identity.date_of_birth) ? ` (${calculateAge(kyc.identity.date_of_birth)} years old)` : ''}` : 'Not provided'}
                 />
-                <DetailRow label="Nationality" value={kyc.identity.nationality} />
-                <DetailRow label="ID Type" value={kyc.identity.id_type.replace(/_/g, ' ')} />
-                <DetailRow label="ID Number" value={kyc.identity.id_number} />
+                <DetailRow label="Nationality" value={kyc.identity.nationality || 'Ghana'} />
+                <DetailRow label="ID Type" value={kyc.identity.id_type ? kyc.identity.id_type.replace(/_/g, ' ') : '—'} />
+                <DetailRow label="ID Number" value={kyc.identity.id_number || 'Not provided'} />
                 <DetailRow
                   label="Check Result"
                   value={<CheckResultBadge result={kyc.identity.identity_check_result} />}
@@ -542,28 +573,32 @@ export default function KYCVerificationPage() {
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                   Identity Documents
                 </h4>
-                <div className="grid grid-cols-3 gap-4">
-                  {kyc.documents
-                    .filter(doc => doc.document_type.startsWith('id_') || doc.document_type === 'selfie')
-                    .map(doc => (
-                      <div key={doc.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <img
-                          src={doc.file_url}
-                          alt={doc.document_type}
-                          className="w-full h-32 object-cover cursor-pointer hover:opacity-80"
-                          onClick={() => window.open(doc.file_url, '_blank')}
-                        />
-                        <div className="p-2 bg-gray-50 dark:bg-gray-800">
-                          <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {doc.document_type.replace(/_/g, ' ').toUpperCase()}
-                          </p>
-                          {doc.is_verified && (
-                            <CheckCircle className="w-4 h-4 text-green-600 mt-1" />
-                          )}
+                {kyc.documents.filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie').length > 0 ? (
+                  <div className="grid grid-cols-3 gap-4">
+                    {kyc.documents
+                      .filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie')
+                      .map(doc => (
+                        <div key={doc.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                          <img
+                            src={doc.file_url}
+                            alt={doc.document_type}
+                            className="w-full h-32 object-cover cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(doc.file_url, '_blank')}
+                          />
+                          <div className="p-2 bg-gray-50 dark:bg-gray-800">
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {doc.document_type.replace(/_/g, ' ').toUpperCase()}
+                            </p>
+                            {doc.is_verified && (
+                              <CheckCircle className="w-4 h-4 text-green-600 mt-1" />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No identity documents uploaded yet.</p>
+                )}
               </div>
 
               {/* Review Notes */}
@@ -642,20 +677,24 @@ export default function KYCVerificationPage() {
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                   Portfolio Images
                 </h4>
-                <div className="grid grid-cols-4 gap-4">
-                  {kyc.documents
-                    .filter(doc => doc.document_type.startsWith('portfolio_'))
-                    .map(doc => (
-                      <div key={doc.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <img
-                          src={doc.file_url}
-                          alt="Portfolio"
-                          className="w-full h-24 object-cover cursor-pointer hover:opacity-80"
-                          onClick={() => window.open(doc.file_url, '_blank')}
-                        />
-                      </div>
-                    ))}
-                </div>
+                {kyc.documents.filter(doc => doc.document_type.startsWith('portfolio_')).length > 0 ? (
+                  <div className="grid grid-cols-4 gap-4">
+                    {kyc.documents
+                      .filter(doc => doc.document_type.startsWith('portfolio_'))
+                      .map(doc => (
+                        <div key={doc.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                          <img
+                            src={doc.file_url}
+                            alt="Portfolio"
+                            className="w-full h-24 object-cover cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(doc.file_url, '_blank')}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No portfolio media uploaded yet.</p>
+                )}
               </div>
 
               {kyc.portfolio.portfolio_notes && (
@@ -689,7 +728,7 @@ export default function KYCVerificationPage() {
                   </>
                 )}
 
-                <DetailRow label="Name Match" value={kyc.payment.payout_name_match.replace(/_/g, ' ')} />
+                <DetailRow label="Name Match" value={kyc.payment.payout_name_match ? kyc.payment.payout_name_match.replace(/_/g, ' ') : 'NOT CHECKED'} />
                 <DetailRow
                   label="Check Result"
                   value={<CheckResultBadge result={kyc.payment.payout_check_result} />}

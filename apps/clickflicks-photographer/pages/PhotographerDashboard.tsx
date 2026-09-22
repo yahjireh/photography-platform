@@ -45,14 +45,20 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
     : (user?.is_verified ? '5.0' : 'New');
 
   const isKYCCompletedLocal = typeof window !== 'undefined' && (
-    localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
-    localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
-    localStorage.getItem('clickflicks_photographer_kyc_status') === 'verified' ||
     (user?.id && (localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'submitted' || localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'verified'))
   );
 
-  const isKYCAlreadyDone = isKYCCompletedLocal || kycStatus === 'submitted' || kycStatus === 'verified' || (profile as any)?.photographer_kyc != null || profile?.verification_status === 'PENDING' || profile?.verification_status === 'VERIFIED';
-  const isVerifiedUser = profile?.verification_status === 'VERIFIED' || (profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || kycStatus === 'verified';
+  const hasSubmittedKYC = (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || 
+    (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' ||
+    kycStatus === 'submitted' ||
+    isKYCCompletedLocal;
+
+  const isVerifiedUser = (
+    (profile?.verification_status === 'VERIFIED' && ((profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || (profile as any)?.kyc_verified_at != null)) ||
+    kycStatus === 'verified'
+  );
+
+  const isKYCAlreadyDone = hasSubmittedKYC || isVerifiedUser;
 
   const handleNavigate = (loc?: string) => {
     const query = encodeURIComponent(loc || 'Accra, Ghana');
