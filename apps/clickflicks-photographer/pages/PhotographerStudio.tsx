@@ -59,11 +59,17 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const [newSecAccountName, setNewSecAccountName] = useState('');
 
   // Modals state
-  const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | 'support' | null>(null);
+  const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | 'support' | 'delete-account' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('');
+
+  // Delete Account State
+  const [deleteReason, setDeleteReason] = useState<string>('');
+  const [deleteReasonDetails, setDeleteReasonDetails] = useState<string>('');
+  const [deleteConfirmChecked, setDeleteConfirmChecked] = useState<boolean>(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
 
   // Support Ticket States
   const [supportSubject, setSupportSubject] = useState('');
@@ -112,7 +118,42 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!deleteReason) {
+      alert('Please select a reason for deleting your account.');
+      return;
+    }
+    if (!deleteConfirmChecked) {
+      alert('Please confirm that you understand this action is permanent and irreversible.');
+      return;
+    }
+
+    const confirmFinal = window.confirm(
+      'Are you completely sure you want to delete your account? All your profile information, portfolio items, bookings, and KYC records will be permanently deleted. This cannot be undone.'
+    );
+    if (!confirmFinal) return;
+
+    try {
+      setIsDeletingAccount(true);
+      await apiClient.delete('/users/me', {
+        data: {
+          reason: deleteReason,
+          reason_details: deleteReasonDetails.trim()
+        }
+      });
+      alert('Your account and all associated data have been permanently removed.');
+      localStorage.clear();
+      onLogout();
+    } catch (err: any) {
+      console.error('Account deletion error:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to delete account. Please contact support.');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const portfolioList = profile?.portfolio_items || [];
+  const tierName = (profile as any)?.subscriptions?.tier || 'FREE';
   const isVerified = profile?.verification_status === 'VERIFIED' || (profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || kycStatus === 'verified';
   const isKYCSubmitted = (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted' || isVerified;
 
@@ -655,6 +696,15 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           <Icons.LogOut size={16} />
           <span>Exit Studio</span>
         </button>
+
+        {/* Delete Account */}
+        <button 
+          onClick={() => setActiveModal('delete-account')}
+          className="w-full mt-3 mb-8 py-3 rounded-2xl text-gray-400 hover:text-red-500 font-bold text-[11px] uppercase tracking-wider hover:bg-red-50/60 transition-colors flex items-center justify-center space-x-2"
+        >
+          <Icons.Trash2 size={14} />
+          <span>Permanently Delete Account</span>
+        </button>
       </div>
 
       {/* Sub-Modals */}
@@ -1173,6 +1223,107 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                   >
                     Close
                   </button>
+                </div>
+              )}
+
+              {/* Permanently Delete Account Modal */}
+              {activeModal === 'delete-account' && (
+                <div className="space-y-5">
+                  <div className="flex items-center space-x-3 text-red-600">
+                    <div className="p-3 bg-red-100 rounded-2xl">
+                      <Icons.Trash2 size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-gray-950">Delete Account</h3>
+                      <p className="text-xs text-red-600 font-bold uppercase tracking-wider">Irreversible Action</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 leading-relaxed">
+                    <p className="font-bold mb-1">⚠️ Warning: Complete Data Purge</p>
+                    <p>
+                      Deleting your account permanently deletes your profile, portfolio masterpieces, schedule, payout credentials, KYC documents, and booking records. This cannot be undone.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-2">
+                      Why are you deleting your account? <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        'Taking a temporary break from photography',
+                        'Switching to another platform / portfolio service',
+                        'Platform fees / commission rates are too high',
+                        'Not receiving enough client bookings',
+                        'Privacy concerns or verification issues',
+                        'Experienced technical bugs or app issues',
+                        'Other reason'
+                      ].map((reason) => (
+                        <label
+                          key={reason}
+                          onClick={() => setDeleteReason(reason)}
+                          className={`flex items-center space-x-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                            deleteReason === reason
+                              ? 'bg-red-50/70 border-red-400 text-gray-900 font-bold shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                            deleteReason === reason ? 'border-red-600 bg-red-600' : 'border-gray-300'
+                          }`}>
+                            {deleteReason === reason && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                          <span>{reason}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Tell us more (Optional feedback)
+                    </label>
+                    <textarea
+                      value={deleteReasonDetails}
+                      onChange={(e) => setDeleteReasonDetails(e.target.value)}
+                      placeholder="Help us improve: what could we have done better?"
+                      rows={3}
+                      className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs font-medium text-gray-900 outline-none resize-none focus:border-red-400"
+                    />
+                  </div>
+
+                  <label className="flex items-start space-x-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deleteConfirmChecked}
+                      onChange={(e) => setDeleteConfirmChecked(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-[11px] text-gray-700 leading-snug">
+                      I understand that this action is permanent and completely erases my account, portfolio, and all associated data.
+                    </span>
+                  </label>
+
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={!deleteReason || !deleteConfirmChecked || isDeletingAccount}
+                      onClick={handleDeleteAccount}
+                      className="w-full py-4 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:hover:bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-98 transition-all flex items-center justify-center space-x-2 shadow-lg shadow-red-600/20"
+                    >
+                      <Icons.Trash2 size={16} />
+                      <span>{isDeletingAccount ? 'Purging Account Data...' : 'Permanently Delete My Account'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingAccount}
+                      onClick={() => setActiveModal(null)}
+                      className="w-full py-3.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors"
+                    >
+                      Cancel & Keep Account
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>

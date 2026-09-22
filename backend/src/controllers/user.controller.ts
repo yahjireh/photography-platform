@@ -347,6 +347,124 @@ export async function getPhotographerStats(req: Request, res: Response): Promise
 }
 
 /**
+ * Delete current user's account and all associated resources
+ * DELETE /api/users/me
+ */
+export async function deleteCurrentUser(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.user_id;
+    const { reason, reason_details } = req.body || {};
+
+    // 1. Record feedback survey in system_settings for analytics
+    try {
+      const existingSettings = await prisma.system_settings.findUnique({
+        where: { key: 'account_deletion_feedback' }
+      });
+      const logs = existingSettings && Array.isArray(existingSettings.value) ? (existingSettings.value as any[]) : [];
+      logs.push({
+        userId,
+        reason: reason || 'Not specified',
+        details: reason_details || '',
+        deletedAt: new Date().toISOString()
+      });
+      await prisma.system_settings.upsert({
+        where: { key: 'account_deletion_feedback' },
+        create: { key: 'account_deletion_feedback', value: logs },
+        update: { value: logs }
+      });
+    } catch (feedbackErr) {
+      console.warn('Could not record account deletion feedback:', feedbackErr);
+    }
+
+    // 2. Cascade delete bookings and related items if any exist
+    const userBookings = await prisma.bookings.findMany({
+      where: {
+        OR: [
+          { client_id: userId },
+          { photographer_id: userId }
+        ]
+      },
+      select: { id: true }
+    });
+    const bookingIds = userBookings.map(b => b.id);
+
+    if (bookingIds.length > 0) {
+      await prisma.booking_photos.deleteMany({ where: { booking_id: { in: bookingIds } } });
+      await prisma.payments.deleteMany({ where: { booking_id: { in: bookingIds } } });
+      await prisma.reviews.deleteMany({ where: { booking_id: { in: bookingIds } } });
+      await prisma.disputes.deleteMany({ where: { booking_id: { in: bookingIds } } });
+      await prisma.messages.deleteMany({ where: { booking_id: { in: bookingIds } } });
+      await prisma.bookings.deleteMany({ where: { id: { in: bookingIds } } });
+    }
+
+    // Direct user messages, reviews, disputes
+    await prisma.messages.deleteMany({
+      where: {
+        OR: [{ sender_id: userId }, { receiver_id: userId }]
+      }
+    });
+    await prisma.reviews.deleteMany({
+      where: {
+        OR: [{ reviewer_id: userId }, { reviewee_id: userId }]
+      }
+    });
+    await prisma.disputes.deleteMany({
+      where: {
+        OR: [{ raised_by_id: userId }, { raised_against_id: userId }, { resolved_by_id: userId }]
+      }
+    });
+
+    // 3. Clean up photographer-specific dependencies if user is a photographer
+    const photographer = await prisma.photographers.findUnique({
+      where: { user_id: userId }
+    });
+
+    if (photographer) {
+      // Delete availability, packages, portfolio, subscriptions, paystack subaccount
+      await prisma.availability.deleteMany({ where: { photographer_id: photographer.id } });
+      await prisma.packages.deleteMany({ where: { photographer_id: photographer.id } });
+      await prisma.portfolio_items.deleteMany({ where: { photographer_id: photographer.id } });
+      await prisma.subscriptions.deleteMany({ where: { photographer_id: photographer.id } });
+      await prisma.paystack_subaccounts.deleteMany({ where: { photographer_id: photographer.id } });
+
+      // Clean up KYC records
+      const kyc = await prisma.photographer_kyc.findUnique({
+        where: { photographer_id: photographer.id }
+      });
+      if (kyc) {
+        await prisma.photographer_kyc_documents.deleteMany({ where: { kyc_id: kyc.id } });
+        await prisma.photographer_kyc_audit.deleteMany({ where: { kyc_id: kyc.id } });
+        await prisma.photographer_kyc.delete({ where: { id: kyc.id } });
+      }
+
+      await prisma.photographers.delete({ where: { id: photographer.id } });
+    }
+
+    // 4. Clean up user payment methods, notifications, and transactions
+    await prisma.user_payment_methods.deleteMany({ where: { user_id: userId } });
+    await prisma.notifications.deleteMany({ where: { user_id: userId } });
+    await prisma.wallet_transactions.deleteMany({ where: { user_id: userId } });
+
+    // 5. Finally delete the user account
+    await prisma.users.delete({
+      where: { id: userId }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account successfully and permanently deleted'
+    });
+  } catch (error: any) {
+    console.error('Error deleting account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete account',
+      error: error.message
+    });
+  }
+}
+
+/**
  * SUMMARY: How these controllers work with middleware
  * 
  * 1. Client sends request with JWT token in header

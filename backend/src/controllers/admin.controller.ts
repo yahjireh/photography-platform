@@ -3449,6 +3449,14 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
     const { id: photographerId } = req.params;
     const { action, decision_reason_code, decision_notes, request_info_items, access_controls } = req.body;
     const adminUser = (req as any).user;
+    const adminUserId = adminUser?.user_id || adminUser?.id || 'admin';
+    let adminName = 'Admin Curator';
+    if (adminUser?.user_id) {
+      try {
+        const u = await prisma.users.findUnique({ where: { id: adminUser.user_id } });
+        if (u) adminName = `${u.first_name} ${u.last_name}`.trim();
+      } catch (_) {}
+    }
 
     if (!action || !['approve', 'reject', 'request_more_info', 'suspend'].includes(action)) {
       return res.status(400).json({
@@ -3457,23 +3465,28 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
       });
     }
 
-    // Find the KYC record
+    const photographer = await prisma.photographers.findUnique({
+      where: { id: photographerId },
+      include: { users: true }
+    });
+
+    if (!photographer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Photographer not found'
+      });
+    }
+
+    // Find existing KYC record or prepare target
     const kyc = await prisma.photographer_kyc.findUnique({
       where: { photographer_id: photographerId }
     });
 
-    if (!kyc) {
-      return res.status(404).json({
-        success: false,
-        message: 'KYC record not found'
-      });
-    }
-
     const now = new Date();
     const updateData: any = {
-      decision_reason_code,
-      decision_notes,
-      reviewed_by: adminUser.id,
+      decision_reason_code: decision_reason_code || undefined,
+      decision_notes: decision_notes || undefined,
+      reviewed_by: adminUserId,
       reviewed_at: now,
       last_updated_at: now
     };
@@ -3522,7 +3535,6 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
         updateData.can_receive_payouts = false;
         updateData.kyc_verified_badge = false;
       } else if (action === 'approve') {
-        // For approve, set all to true by default
         updateData.is_search_visible = true;
         updateData.can_accept_bookings = true;
         updateData.can_receive_payouts = true;
@@ -3530,28 +3542,62 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
       }
     }
 
-    // Update KYC record
-    const updatedKYC = await prisma.photographer_kyc.update({
-      where: { photographer_id: photographerId },
-      data: updateData
-    });
+    let updatedKYC;
+    if (kyc) {
+      updatedKYC = await prisma.photographer_kyc.update({
+        where: { photographer_id: photographerId },
+        data: updateData
+      });
+    } else {
+      updatedKYC = await prisma.photographer_kyc.create({
+        data: {
+          photographer_id: photographerId,
+          user_id: photographer.user_id,
+          legal_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Artisan',
+          date_of_birth: new Date('1995-01-01'),
+          id_type: 'GHANA_CARD',
+          id_number: 'PENDING',
+          email: photographer.users?.email || '',
+          phone: photographer.users?.phone_number || 'N/A',
+          payout_method: 'MOMO',
+          account_holder_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim(),
+          ...updateData
+        }
+      });
+    }
 
-    // Create audit log
+    // Synchronize core photographer verification status
+    if (action === 'approve') {
+      await prisma.photographers.update({
+        where: { id: photographerId },
+        data: {
+          verification_status: 'VERIFIED',
+          kyc_verified_at: now
+        }
+      });
+    } else if (action === 'reject' || action === 'suspend') {
+      await prisma.photographers.update({
+        where: { id: photographerId },
+        data: {
+          verification_status: 'REJECTED'
+        }
+      });
+    }
+
+    // Create audit log safely
     await prisma.photographer_kyc_audit.create({
       data: {
         photographer_id: photographerId,
-        kyc_id: kyc.id,
+        kyc_id: updatedKYC.id,
         event_type: 'status_change',
         field_name: 'kyc_status',
-        old_value: kyc.kyc_status,
+        old_value: kyc ? kyc.kyc_status : 'DRAFT',
         new_value: updateData.kyc_status,
-        admin_user_id: adminUser.id,
-        admin_name: `${adminUser.first_name} ${adminUser.last_name}`,
-        action_notes: decision_notes
+        admin_user_id: adminUserId,
+        admin_name: adminName,
+        action_notes: decision_notes || `KYC decision: ${action}`
       }
     });
-
-    // TODO: Send notification to photographer about decision
 
     return res.json({
       success: true,

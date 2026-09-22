@@ -10,7 +10,8 @@ import {
   getCurrentUser,
   updateCurrentUser,
   uploadAvatar,
-  getPhotographerStats
+  getPhotographerStats,
+  deleteCurrentUser
 } from '../controllers/user.controller';
 
 const avatarUpload = multer({
@@ -50,6 +51,14 @@ router.post('/avatar', authenticate, avatarUpload.single('avatar'), uploadAvatar
  * PROTECTED: Must be logged in
  */
 router.patch('/me', authenticate, updateCurrentUser);
+
+/**
+ * DELETE /api/users/me
+ * Delete current user's account and all associated resources
+ * 
+ * PROTECTED: Must be logged in
+ */
+router.delete('/me', authenticate, deleteCurrentUser);
 
 /**
  * GET /api/users/photographer-stats

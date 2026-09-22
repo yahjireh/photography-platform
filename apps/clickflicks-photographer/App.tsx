@@ -20,7 +20,9 @@ import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './servi
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
-import { apiClient } from './lib/api-client';
+import { apiClient, tokenManager } from './lib/api-client';
+
+const CURRENT_APP_VERSION = '2.4.2';
 
 type FlowState = 'onboarding' | 'auth' | 'kyc' | 'app';
 type AuthMode = 'login' | 'signup';
@@ -31,7 +33,13 @@ const AppContent: React.FC = () => {
   const { bookings } = usePhotographerBookings();
   const { conversations } = useMessages();
 
-  const [flowState, setFlowState] = useState<FlowState>('onboarding');
+  const [flowState, setFlowState] = useState<FlowState>(() => {
+    if (typeof window !== 'undefined' && tokenManager.getToken()) {
+      return 'app';
+    }
+    const onboarded = typeof window !== 'undefined' && localStorage.getItem('clickflicks_photographer_onboarded') === 'true';
+    return onboarded ? 'auth' : 'onboarding';
+  });
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [kycStatus, setKycStatus] = useState<KYCStatus>('pending');
   const [currentView, setCurrentView] = useState('dashboard');
@@ -42,6 +50,11 @@ const AppContent: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeInAppMessage, setActiveInAppMessage] = useState<InAppMessageItem | null>(null);
   const [updateNotice, setUpdateNotice] = useState<VersionCheckInfo | null>(null);
+  const [showNewReleaseModal, setShowNewReleaseModal] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const lastSeen = localStorage.getItem('clickflicks_photographer_last_seen_version');
+    return lastSeen !== CURRENT_APP_VERSION;
+  });
 
   // Dynamic notification counts from live database
   const pendingRequestsCount = bookings.filter(b => b.status === 'pending' || (b.status as any) === 'PENDING').length;
@@ -95,21 +108,24 @@ const AppContent: React.FC = () => {
     window.addEventListener('clickflicks:soft-update', handleSoftUpdate);
     window.addEventListener('clickflicks:force-update', handleForceUpdate);
 
+    const token = tokenManager.getToken();
     const hasOnboarded = localStorage.getItem('clickflicks_photographer_onboarded') === 'true';
 
-    if (!hasOnboarded) {
-      setFlowState('onboarding');
-    } else if (!isAuthLoading && !isAuthenticated) {
-      setFlowState('auth');
-    } else if (!isAuthLoading && isAuthenticated) {
+    // If authenticated or token exists, KEEP user in active session across all updates
+    if (isAuthenticated || token) {
+      localStorage.setItem('clickflicks_photographer_onboarded', 'true');
       const currentKyc = getResolvedKYCStatus();
       setKycStatus(currentKyc);
-      if (flowState === 'auth' || flowState === 'onboarding') {
-        if (currentKyc === 'pending') {
-          setFlowState('kyc');
-        } else {
-          setFlowState('app');
-        }
+      if (currentKyc === 'pending') {
+        setFlowState('kyc');
+      } else {
+        setFlowState('app');
+      }
+    } else if (!isAuthLoading) {
+      if (hasOnboarded) {
+        setFlowState('auth');
+      } else {
+        setFlowState('onboarding');
       }
     }
 
@@ -478,18 +494,105 @@ const AppContent: React.FC = () => {
                 >
                   Update Now
                 </button>
-                {!updateNotice.forceUpdate && (
-                  <button
-                    onClick={() => {
-                      sessionStorage.setItem(`clickflicks_pro_update_dismissed_${updateNotice.latestVersion}`, 'true');
-                      setUpdateNotice(null);
-                    }}
-                    className="w-full py-2 text-xs text-neutral-400 hover:text-neutral-200"
-                  >
-                    Remind Me Later
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem(`clickflicks_pro_update_dismissed_${updateNotice.latestVersion}`, 'true');
+                    setUpdateNotice(null);
+                  }}
+                  className="w-full py-2.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+                >
+                  {updateNotice.forceUpdate ? 'Continue for now' : 'Remind Me Later'}
+                </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* What's New in New Release Pop-up */}
+      <AnimatePresence>
+        {showNewReleaseModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-neutral-900 border border-amber-500/40 rounded-3xl p-6 shadow-2xl text-center"
+            >
+              {/* Kente Gold Accent Header */}
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-400/10 border border-amber-500/40 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-lg shadow-amber-500/10">
+                <Icons.Sparkles className="w-8 h-8 animate-pulse" />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                Updated to v{CURRENT_APP_VERSION}
+              </div>
+
+              <h3 className="text-xl font-bold text-white mb-1.5">
+                What's New in ClickFlicks
+              </h3>
+              <p className="text-xs text-neutral-400 mb-4">
+                Your session is active! Here are the latest updates in this release:
+              </p>
+
+              <div className="p-3.5 bg-neutral-800/80 rounded-2xl border border-neutral-700/60 text-xs text-neutral-300 text-left space-y-2.5 mb-5">
+                <div className="flex items-start space-x-2.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                    <Icons.Check className="w-3 h-3" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white block">Studio Stability</span>
+                    <span className="text-[11px] text-neutral-400">Fixed studio menu crash and improved tier and profile performance.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-2.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                    <Icons.Check className="w-3 h-3" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white block">Continuous Sessions</span>
+                    <span className="text-[11px] text-neutral-400">Applying updates preserves your login session seamlessly.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-2.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                    <Icons.Check className="w-3 h-3" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white block">Admin KYC Processing</span>
+                    <span className="text-[11px] text-neutral-400">Ghana Card verification status syncs instantly with administrators.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-2.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                    <Icons.Check className="w-3 h-3" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white block">Account Privacy Controls</span>
+                    <span className="text-[11px] text-neutral-400">Self-service permanent account deletion with exit feedback.</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  localStorage.setItem('clickflicks_photographer_last_seen_version', CURRENT_APP_VERSION);
+                  setShowNewReleaseModal(false);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-sm shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2"
+              >
+                <span>Awesome, Continue</span>
+                <Icons.ArrowRight className="w-4 h-4" />
+              </button>
             </motion.div>
           </motion.div>
         )}

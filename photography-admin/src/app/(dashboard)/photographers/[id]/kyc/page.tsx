@@ -404,6 +404,9 @@ export default function KYCVerificationPage() {
           setDecisionModalOpen(false);
           refetch();
         },
+        onError: (err: any) => {
+          toast.error(err?.message || 'Failed to process KYC decision');
+        }
       }
     );
   };
@@ -452,34 +455,40 @@ export default function KYCVerificationPage() {
             </div>
           </div>
 
-          {/* Decision Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => openDecisionModal('approve')}
-              disabled={kyc.kyc_status === 'APPROVED'}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => openDecisionModal('request_more_info')}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
-            >
-              Request Info
-            </button>
-            <button
-              onClick={() => openDecisionModal('reject')}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-            >
-              Reject
-            </button>
-            <button
-              onClick={() => openDecisionModal('suspend')}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors"
-            >
-              Suspend
-            </button>
-          </div>
+          {/* Decision Actions: Only show when not yet approved */}
+          {kyc.kyc_status !== 'APPROVED' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => openDecisionModal('approve')}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors cursor-pointer shadow-sm"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => openDecisionModal('request_more_info')}
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
+              >
+                Request Info
+              </button>
+              <button
+                onClick={() => openDecisionModal('reject')}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors cursor-pointer"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => openDecisionModal('suspend')}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors cursor-pointer"
+              >
+                Suspend
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-xs font-semibold">
+              <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+              <span>Verified & Approved • Action Completed</span>
+            </div>
+          )}
         </div>
 
         {/* Quick Links */}
