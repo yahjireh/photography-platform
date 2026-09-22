@@ -10,7 +10,10 @@ export enum OccasionType {
   CORPORATE = 'Corporate',
   FASHION = 'Fashion',
   EVENT = 'Event',
-  PRODUCT = 'Product'
+  PRODUCT = 'Product',
+  MOBILE_PHOTOGRAPHY = 'Mobile Photography',
+  PHOTOJOURNALISM = 'Photojournalism',
+  VIDEOGRAPHY = 'Videography'
 }
 
 export interface PricingPackage {

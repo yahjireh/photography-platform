@@ -9,7 +9,17 @@ export enum OccasionType {
   FASHION = 'Fashion',
   PORTRAIT = 'Portrait',
   EVENT = 'Event',
-  PRODUCT = 'Product'
+  PRODUCT = 'Product',
+  MOBILE_PHOTOGRAPHY = 'Mobile Photography',
+  PHOTOJOURNALISM = 'Photojournalism',
+  VIDEOGRAPHY = 'Videography'
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  image: string;
 }
 
 export interface PhotographerPackage {

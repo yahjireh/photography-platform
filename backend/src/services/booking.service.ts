@@ -99,12 +99,45 @@ export async function createBooking(data: CreateBookingData) {
     throw new Error(`Photographer is not available on this date. ${availabilityCheck.reason || ''}`);
   }
   
+  const createOccasionMap: Record<string, string> = {
+    'portrait': 'PORTRAIT',
+    'wedding': 'WEDDING',
+    'fashion': 'PORTRAIT',
+    'events': 'CORPORATE_EVENT',
+    'event': 'CORPORATE_EVENT',
+    'corporate': 'CORPORATE_EVENT',
+    'corporate_event': 'CORPORATE_EVENT',
+    'product': 'PRODUCT_SHOOT',
+    'product_shoot': 'PRODUCT_SHOOT',
+    'commercial': 'PRODUCT_SHOOT',
+    'birthday': 'BIRTHDAY',
+    'conference': 'CONFERENCE',
+    'family': 'FAMILY_SHOOT',
+    'real_estate': 'REAL_ESTATE',
+    'sports': 'SPORTS',
+    'graduation': 'GRADUATION',
+    'mobile': 'MOBILE_PHOTOGRAPHY',
+    'mobile_photography': 'MOBILE_PHOTOGRAPHY',
+    'mobile photographer': 'MOBILE_PHOTOGRAPHY',
+    'mobile photographers': 'MOBILE_PHOTOGRAPHY',
+    'photojournalism': 'PHOTOJOURNALISM',
+    'photojournalist': 'PHOTOJOURNALISM',
+    'photo_journalism': 'PHOTOJOURNALISM',
+    'photo journalist': 'PHOTOJOURNALISM',
+    'photo journalists': 'PHOTOJOURNALISM',
+    'videography': 'VIDEOGRAPHY',
+    'videographer': 'VIDEOGRAPHY',
+    'videographers': 'VIDEOGRAPHY',
+    'video': 'VIDEOGRAPHY'
+  };
+  const normalizedOccasion = (createOccasionMap[String(data.occasionType).toLowerCase()] || String(data.occasionType).toUpperCase()) as OccasionType;
+
   const booking = await prisma.bookings.create({
     data: {
       booking_number: bookingNumber,
       client_id: data.clientId,
       photographer_id: data.photographerId,
-      occasion_type: data.occasionType,
+      occasion_type: normalizedOccasion,
       package_id: data.packageId || null,
       event_location: data.eventLocation,
       event_latitude: data.eventLatitude,
@@ -598,7 +631,20 @@ export async function updateBookingDetails(
       'family': 'FAMILY_SHOOT',
       'real_estate': 'REAL_ESTATE',
       'sports': 'SPORTS',
-      'graduation': 'GRADUATION'
+      'graduation': 'GRADUATION',
+      'mobile': 'MOBILE_PHOTOGRAPHY',
+      'mobile_photography': 'MOBILE_PHOTOGRAPHY',
+      'mobile photographer': 'MOBILE_PHOTOGRAPHY',
+      'mobile photographers': 'MOBILE_PHOTOGRAPHY',
+      'photojournalism': 'PHOTOJOURNALISM',
+      'photojournalist': 'PHOTOJOURNALISM',
+      'photo_journalism': 'PHOTOJOURNALISM',
+      'photo journalist': 'PHOTOJOURNALISM',
+      'photo journalists': 'PHOTOJOURNALISM',
+      'videography': 'VIDEOGRAPHY',
+      'videographer': 'VIDEOGRAPHY',
+      'videographers': 'VIDEOGRAPHY',
+      'video': 'VIDEOGRAPHY'
     };
     const norm = occasionMap[String(data.occasionType).toLowerCase()] || String(data.occasionType).toUpperCase();
     updatePayload.occasion_type = norm as OccasionType;

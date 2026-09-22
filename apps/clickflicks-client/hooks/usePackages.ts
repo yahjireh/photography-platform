@@ -34,7 +34,14 @@ export const usePackages = (photographerId?: string, occasionType?: string) => {
           'family': 'FAMILY_SHOOT',
           'real_estate': 'REAL_ESTATE',
           'sports': 'SPORTS',
-          'graduation': 'GRADUATION'
+          'graduation': 'GRADUATION',
+          'mobile': 'MOBILE_PHOTOGRAPHY',
+          'mobile_photography': 'MOBILE_PHOTOGRAPHY',
+          'photojournalism': 'PHOTOJOURNALISM',
+          'photojournalist': 'PHOTOJOURNALISM',
+          'videography': 'VIDEOGRAPHY',
+          'videographer': 'VIDEOGRAPHY',
+          'video': 'VIDEOGRAPHY'
         };
         const norm = occasionMap[occasionType.toLowerCase()] || occasionType.toUpperCase();
         url += `?occasionType=${norm}`;

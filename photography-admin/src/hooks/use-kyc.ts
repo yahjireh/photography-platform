@@ -23,7 +23,7 @@ export type NameMatch = 'EXACT_MATCH' | 'PARTIAL_MATCH' | 'NO_MATCH' | 'NOT_CHEC
 export type PortfolioQuality = 'GOOD' | 'BORDERLINE' | 'POOR';
 export type OriginalityFlag = 'ORIGINAL' | 'SUSPECTED_STOLEN' | 'UNCLEAR';
 export type YearsExperience = 'ZERO_ONE' | 'TWO_FOUR' | 'FIVE_NINE' | 'TEN_PLUS';
-export type PhotoCategory = 'WEDDING' | 'PORTRAIT' | 'EVENTS' | 'FASHION' | 'PRODUCT' | 'REAL_ESTATE' | 'DOCUMENTARY' | 'OTHER';
+export type PhotoCategory = 'WEDDING' | 'PORTRAIT' | 'EVENTS' | 'FASHION' | 'PRODUCT' | 'REAL_ESTATE' | 'DOCUMENTARY' | 'MOBILE_PHOTOGRAPHY' | 'PHOTOJOURNALISM' | 'VIDEOGRAPHY' | 'OTHER';
 export type ReasonCode =
   | 'ID_NOT_CLEAR'
   | 'ID_EXPIRED'

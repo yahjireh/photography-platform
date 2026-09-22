@@ -64,6 +64,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('');
+  const [selectedOccasionType, setSelectedOccasionType] = useState<string>('PORTRAIT');
+  const [servicesList, setServicesList] = useState<string[]>(() => {
+    return Array.isArray((profile as any)?.services) ? (profile as any).services : ['PORTRAIT', 'MOBILE_PHOTOGRAPHY'];
+  });
+  const [isUpdatingServices, setIsUpdatingServices] = useState(false);
 
   // Delete Account State
   const [deleteReason, setDeleteReason] = useState<string>('');
@@ -296,7 +301,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           await addPortfolio({
             title: selectedPhotoTitle || 'Portfolio Masterpiece',
             imageUrl: reader.result,
-            occasionType: 'PORTRAIT',
+            occasionType: selectedOccasionType || 'PORTRAIT',
             isFeatured: false
           });
           setUploadSuccess(true);
@@ -304,6 +309,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             setUploadSuccess(false);
             setActiveModal(null);
             setSelectedPhotoTitle('');
+            setSelectedOccasionType('PORTRAIT');
           }, 1200);
         } catch (err) {
           console.error('Error adding portfolio:', err);
@@ -558,6 +564,65 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 <span className="truncate">{phoneText || 'Not configured'}</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Specialization Categories Card */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+          <div className="flex justify-between items-center mb-2">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block">Service Specializations</span>
+              <p className="text-[10px] text-gray-500 mt-0.5">Toggle disciplines where you accept bookings</p>
+            </div>
+            {isUpdatingServices && (
+              <span className="text-[9px] font-bold text-brand-DEFAULT animate-pulse">Saving...</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {[
+              { id: 'MOBILE_PHOTOGRAPHY', label: 'Mobile Photography', icon: '📱' },
+              { id: 'PHOTOJOURNALISM', label: 'Photojournalism', icon: '📰' },
+              { id: 'VIDEOGRAPHY', label: 'Videography', icon: '🎥' },
+              { id: 'PORTRAIT', label: 'Portrait', icon: '👤' },
+              { id: 'WEDDING', label: 'Wedding', icon: '💍' },
+              { id: 'CORPORATE_EVENT', label: 'Corporate', icon: '🏢' },
+              { id: 'FASHION', label: 'Fashion', icon: '👗' },
+              { id: 'PRODUCT_SHOOT', label: 'Product', icon: '📦' },
+              { id: 'DOCUMENTARY', label: 'Documentary', icon: '🎞️' },
+              { id: 'REAL_ESTATE', label: 'Real Estate', icon: '🏡' }
+            ].map(cat => {
+              const isSelected = servicesList.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={async () => {
+                    const current = servicesList;
+                    const next = isSelected
+                      ? current.filter(c => c !== cat.id)
+                      : [...current, cat.id];
+                    const finalServices = next.length > 0 ? next : [cat.id];
+                    setServicesList(finalServices);
+                    try {
+                      setIsUpdatingServices(true);
+                      await updateProfile({ services: finalServices });
+                    } catch (err) {
+                      console.error('Failed to update services:', err);
+                    } finally {
+                      setIsUpdatingServices(false);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-gray-900 text-white shadow-xs'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1051,6 +1116,29 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                         placeholder="Photo Title / Label (e.g. Traditional Wedding)"
                         className="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-xs font-bold text-gray-900 outline-none"
                       />
+                      <div className="text-left">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">
+                          Media Category / Discipline
+                        </label>
+                        <select
+                          value={selectedOccasionType}
+                          onChange={(e) => setSelectedOccasionType(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 p-3.5 rounded-2xl text-xs font-bold text-gray-900 outline-none"
+                        >
+                          <option value="MOBILE_PHOTOGRAPHY">📱 Mobile Photography</option>
+                          <option value="PHOTOJOURNALISM">📰 Photojournalism & Press</option>
+                          <option value="VIDEOGRAPHY">🎥 Videography & Motion</option>
+                          <option value="PORTRAIT">👤 Portrait & Headshots</option>
+                          <option value="WEDDING">💍 Wedding & Nuptials</option>
+                          <option value="CORPORATE_EVENT">🏢 Corporate & Gala</option>
+                          <option value="PRODUCT_SHOOT">📦 Product & Commercial</option>
+                          <option value="FASHION">👗 Fashion & Editorial</option>
+                          <option value="FAMILY_SHOOT">👨‍👩‍👧 Family & Lifestyle</option>
+                          <option value="REAL_ESTATE">🏡 Real Estate</option>
+                          <option value="SPORTS">⚽ Sports</option>
+                          <option value="GRADUATION">🎓 Graduation</option>
+                        </select>
+                      </div>
                       <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-3xl p-8 cursor-pointer hover:bg-gray-50 transition-colors">
                         <Icons.Upload size={32} className="text-gray-400 mb-3" />
                         <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Select Photo File</span>

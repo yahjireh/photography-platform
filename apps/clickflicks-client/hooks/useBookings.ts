@@ -106,7 +106,14 @@ export const useBookings = () => {
         'family': 'FAMILY_SHOOT',
         'real_estate': 'REAL_ESTATE',
         'sports': 'SPORTS',
-        'graduation': 'GRADUATION'
+        'graduation': 'GRADUATION',
+        'mobile': 'MOBILE_PHOTOGRAPHY',
+        'mobile_photography': 'MOBILE_PHOTOGRAPHY',
+        'photojournalism': 'PHOTOJOURNALISM',
+        'photojournalist': 'PHOTOJOURNALISM',
+        'videography': 'VIDEOGRAPHY',
+        'videographer': 'VIDEOGRAPHY',
+        'video': 'VIDEOGRAPHY'
       };
 
       const normalizedOccasion = occasionMap[bookingData.occasionType.toLowerCase()] || 'PORTRAIT';
@@ -218,7 +225,14 @@ export const useBookings = () => {
         'family': 'FAMILY_SHOOT',
         'real_estate': 'REAL_ESTATE',
         'sports': 'SPORTS',
-        'graduation': 'GRADUATION'
+        'graduation': 'GRADUATION',
+        'mobile': 'MOBILE_PHOTOGRAPHY',
+        'mobile_photography': 'MOBILE_PHOTOGRAPHY',
+        'photojournalism': 'PHOTOJOURNALISM',
+        'photojournalist': 'PHOTOJOURNALISM',
+        'videography': 'VIDEOGRAPHY',
+        'videographer': 'VIDEOGRAPHY',
+        'video': 'VIDEOGRAPHY'
       };
 
       const payload: any = { ...updateData };

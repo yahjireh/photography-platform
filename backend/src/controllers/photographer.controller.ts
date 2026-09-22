@@ -573,7 +573,8 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
           bio: `${businessName || 'Artisan Studio'} • ${businessType || 'Solo Independent'}`,
           verification_status: 'PENDING',
           portfolio_website: portfolioLinks || '',
-          equipment_list: equipmentList || []
+          equipment_list: equipmentList || [],
+          services: (categories && categories.length > 0) ? categories : ['PORTRAIT', 'WEDDING']
         },
         include: { users: true }
       });
@@ -584,6 +585,7 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
           bio: `${businessName || photographer.bio || 'Artisan Studio'} • ${businessType || 'Solo Independent'}`,
           portfolio_website: portfolioLinks || photographer.portfolio_website,
           equipment_list: equipmentList || photographer.equipment_list,
+          services: (categories && categories.length > 0) ? categories : photographer.services,
           verification_status: 'PENDING'
         }
       });
@@ -643,6 +645,7 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
         id_number: ghanaCardNumber || undefined,
         city: registeredCity || undefined,
         portfolio_link: portfolioLinks || undefined,
+        categories: (categories && categories.length > 0) ? categories : undefined,
         payout_method: payoutMethod,
         bank_name: isMomo ? null : preferredBank,
         bank_account_number: isMomo ? null : accountNumber,

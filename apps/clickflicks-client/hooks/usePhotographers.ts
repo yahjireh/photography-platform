@@ -24,6 +24,9 @@ const mapCategoryToBackendEnum = (category?: string): string | undefined => {
   if (lower.includes('real')) return 'REAL_ESTATE';
   if (lower.includes('sport')) return 'SPORTS';
   if (lower.includes('grad')) return 'GRADUATION';
+  if (lower.includes('mobile')) return 'MOBILE_PHOTOGRAPHY';
+  if (lower.includes('journal') || lower.includes('press')) return 'PHOTOJOURNALISM';
+  if (lower.includes('video') || lower.includes('film')) return 'VIDEOGRAPHY';
   return undefined;
 };
 

@@ -227,6 +227,9 @@ export const OCCASION_TYPES = [
   'REAL_ESTATE',
   'SPORTS',
   'GRADUATION',
+  'MOBILE_PHOTOGRAPHY',
+  'PHOTOJOURNALISM',
+  'VIDEOGRAPHY',
   'OTHER',
 ] as const;
 
@@ -244,6 +247,9 @@ export const OCCASION_TYPE_LABELS: Record<string, string> = {
   REAL_ESTATE: 'Real Estate',
   SPORTS: 'Sports',
   GRADUATION: 'Graduation',
+  MOBILE_PHOTOGRAPHY: 'Mobile Photography',
+  PHOTOJOURNALISM: 'Photojournalism',
+  VIDEOGRAPHY: 'Videography',
   OTHER: 'Other',
 };
 

@@ -716,6 +716,9 @@ const Bookings: React.FC<BookingsProps> = ({ onTabChange, onOpenChat }) => {
                     <option value="Product">Product & Commercial</option>
                     <option value="Fashion">Fashion & Editorial</option>
                     <option value="Family">Family & Lifestyle</option>
+                    <option value="Mobile">Mobile Photography</option>
+                    <option value="Photojournalism">Photojournalism & Press</option>
+                    <option value="Videography">Videography & Film</option>
                   </select>
                 </div>
 

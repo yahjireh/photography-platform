@@ -7,4 +7,7 @@ export const CATEGORIES: Category[] = [
   { id: 'portrait', name: 'Portrait', icon: 'User', image: '' },
   { id: 'events', name: 'Events', icon: 'Calendar', image: '' },
   { id: 'product', name: 'Product', icon: 'Package', image: '' },
+  { id: 'mobile', name: 'Mobile', icon: 'Smartphone', image: '' },
+  { id: 'photojournalism', name: 'Photojournalism', icon: 'Newspaper', image: '' },
+  { id: 'videography', name: 'Videography', icon: 'Video', image: '' },
 ];

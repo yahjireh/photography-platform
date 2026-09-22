@@ -28,7 +28,8 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
     accountNumber: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
-    agreedToTerms: false
+    agreedToTerms: false,
+    categories: ['PORTRAIT', 'MOBILE_PHOTOGRAPHY'] as string[]
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,12 +58,14 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
           portfolioLinks: formData.portfolioLinks,
           preferredBank: formData.preferredBank,
           accountNumber: formData.accountNumber,
+          categories: formData.categories,
           equipmentList: gearList
         });
 
         await apiClient.patch('/photographers/profile', {
           bio: `${formData.businessName || 'Master Studio'} • ${formData.businessType}`,
           equipmentList: gearList,
+          services: formData.categories,
           yearsExperience: formData.yearsExperience.includes('10+') ? 10 : 5,
           portfolioWebsite: formData.portfolioLinks
         });
@@ -218,6 +221,51 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
                     placeholder="e.g. Accra, Kumasi, Takoradi" 
                     className="w-full bg-white border border-gray-200 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none"
                   />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">
+                    Photography & Media Categories (Select all that apply)
+                  </label>
+                  <p className="text-[10px] text-gray-400 mb-2.5">
+                    Select your disciplines so clients looking for mobile shooters, journalists, or videographers find you.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: 'MOBILE_PHOTOGRAPHY', label: 'Mobile Photography', icon: '📱' },
+                      { id: 'PHOTOJOURNALISM', label: 'Photojournalism', icon: '📰' },
+                      { id: 'VIDEOGRAPHY', label: 'Videography', icon: '🎥' },
+                      { id: 'PORTRAIT', label: 'Portrait', icon: '👤' },
+                      { id: 'WEDDING', label: 'Wedding', icon: '💍' },
+                      { id: 'EVENTS', label: 'Events', icon: '🎉' },
+                      { id: 'FASHION', label: 'Fashion', icon: '👗' },
+                      { id: 'PRODUCT', label: 'Product', icon: '📦' },
+                      { id: 'DOCUMENTARY', label: 'Documentary', icon: '🎞️' },
+                      { id: 'REAL_ESTATE', label: 'Real Estate', icon: '🏡' }
+                    ].map(cat => {
+                      const isSelected = formData.categories.includes(cat.id);
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.categories;
+                            const next = isSelected
+                              ? current.filter(c => c !== cat.id)
+                              : [...current, cat.id];
+                            handleInputChange('categories', next.length > 0 ? next : [cat.id]);
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                            isSelected
+                              ? 'bg-brand-DEFAULT text-white shadow-xs shadow-brand-DEFAULT/30 scale-[1.02]'
+                              : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          <span>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}

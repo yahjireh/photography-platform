@@ -53,7 +53,9 @@ import {
   Image,
   FileCheck,
   Building,
-  CheckCircle
+  CheckCircle,
+  Video,
+  Newspaper
 } from 'lucide-react';
 
 export const Icons = {
@@ -111,5 +113,7 @@ export const Icons = {
   Image,
   FileCheck,
   Building,
-  CheckCircle
+  CheckCircle,
+  Video,
+  Newspaper
 };

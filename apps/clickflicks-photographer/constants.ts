@@ -7,6 +7,9 @@ export const CATEGORIES: Category[] = [
   { id: 'portrait', name: 'Portrait', icon: 'User', image: 'https://picsum.photos/seed/portrait/400/300' },
   { id: 'events', name: 'Events', icon: 'Calendar', image: 'https://picsum.photos/seed/event/400/300' },
   { id: 'product', name: 'Product', icon: 'Package', image: 'https://picsum.photos/seed/product/400/300' },
+  { id: 'mobile', name: 'Mobile Photography', icon: 'Smartphone', image: 'https://picsum.photos/seed/mobile/400/300' },
+  { id: 'photojournalism', name: 'Photojournalism', icon: 'Newspaper', image: 'https://picsum.photos/seed/journalism/400/300' },
+  { id: 'videography', name: 'Videography', icon: 'Video', image: 'https://picsum.photos/seed/video/400/300' },
 ];
 
 export const MOCK_PHOTOGRAPHERS: Photographer[] = [

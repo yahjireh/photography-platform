@@ -132,6 +132,9 @@ const Home: React.FC<HomeProps> = ({
                     {cat.id === 'portrait' && <Icons.User size={26} strokeWidth={1.5} />}
                     {cat.id === 'events' && <Icons.Calendar size={26} strokeWidth={1.5} />}
                     {cat.id === 'product' && <Icons.Package size={26} strokeWidth={1.5} />}
+                    {cat.id === 'mobile' && <Icons.Smartphone size={26} strokeWidth={1.5} />}
+                    {cat.id === 'photojournalism' && <Icons.Newspaper size={26} strokeWidth={1.5} />}
+                    {cat.id === 'videography' && <Icons.Video size={26} strokeWidth={1.5} />}
                   </div>
                 </div>
               </button>
@@ -291,6 +294,9 @@ const Home: React.FC<HomeProps> = ({
                       {cat.id === 'portrait' && <Icons.User size={32} strokeWidth={1.5} />}
                       {cat.id === 'events' && <Icons.Calendar size={32} strokeWidth={1.5} />}
                       {cat.id === 'product' && <Icons.Package size={32} strokeWidth={1.5} />}
+                      {cat.id === 'mobile' && <Icons.Smartphone size={32} strokeWidth={1.5} />}
+                      {cat.id === 'photojournalism' && <Icons.Newspaper size={32} strokeWidth={1.5} />}
+                      {cat.id === 'videography' && <Icons.Video size={32} strokeWidth={1.5} />}
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-900">{cat.name}</span>
                   </motion.button>
