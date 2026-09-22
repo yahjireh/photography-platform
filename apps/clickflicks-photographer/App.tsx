@@ -27,13 +27,13 @@ type AuthMode = 'login' | 'signup';
 type KYCStatus = 'pending' | 'submitted' | 'verified';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, isLoading: isAuthLoading, logout, user } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, logout, user, photographerProfile, fetchProfile } = useAuth();
   const { bookings } = usePhotographerBookings();
   const { conversations } = useMessages();
 
-  const [flowState, setFlowState] = useState<FlowState>('app');
+  const [flowState, setFlowState] = useState<FlowState>('onboarding');
   const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [kycStatus, setKycStatus] = useState<KYCStatus>('submitted');
+  const [kycStatus, setKycStatus] = useState<KYCStatus>('pending');
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeChatPartner, setActiveChatPartner] = useState<ChatPartnerInfo | null>(null);
@@ -46,6 +46,20 @@ const AppContent: React.FC = () => {
   // Dynamic notification counts from live database
   const pendingRequestsCount = bookings.filter(b => b.status === 'pending' || (b.status as any) === 'PENDING').length;
   const unreadMessagesCount = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+
+  const getResolvedKYCStatus = (): KYCStatus => {
+    if (photographerProfile?.verification_status === 'VERIFIED' || photographerProfile?.photographer_kyc?.kyc_status === 'APPROVED') {
+      return 'verified';
+    }
+    if (photographerProfile?.photographer_kyc?.kyc_status === 'SUBMITTED' || photographerProfile?.photographer_kyc?.kyc_status === 'IN_REVIEW') {
+      return 'submitted';
+    }
+    if (user?.id) {
+      const userKyc = localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`);
+      if (userKyc === 'submitted' || userKyc === 'verified') return userKyc as KYCStatus;
+    }
+    return 'pending';
+  };
 
   useEffect(() => {
     initPushNotifications();
@@ -82,16 +96,21 @@ const AppContent: React.FC = () => {
     window.addEventListener('clickflicks:force-update', handleForceUpdate);
 
     const hasOnboarded = localStorage.getItem('clickflicks_photographer_onboarded') === 'true';
-    const savedKyc = localStorage.getItem('clickflicks_photographer_kyc') as KYCStatus | null;
-
-    if (savedKyc) setKycStatus(savedKyc);
 
     if (!hasOnboarded) {
       setFlowState('onboarding');
     } else if (!isAuthLoading && !isAuthenticated) {
       setFlowState('auth');
-    } else if (!isAuthLoading && isAuthenticated && flowState === 'auth') {
-      setFlowState('app');
+    } else if (!isAuthLoading && isAuthenticated) {
+      const currentKyc = getResolvedKYCStatus();
+      setKycStatus(currentKyc);
+      if (flowState === 'auth' || flowState === 'onboarding') {
+        if (currentKyc === 'pending') {
+          setFlowState('kyc');
+        } else {
+          setFlowState('app');
+        }
+      }
     }
 
     return () => {
@@ -99,7 +118,7 @@ const AppContent: React.FC = () => {
       window.removeEventListener('clickflicks:soft-update', handleSoftUpdate);
       window.removeEventListener('clickflicks:force-update', handleForceUpdate);
     };
-  }, [isAuthenticated, isAuthLoading]);
+  }, [isAuthenticated, isAuthLoading, photographerProfile, user?.id]);
 
   const handleInAppAction = (msg: InAppMessageItem) => {
     localStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
@@ -137,12 +156,15 @@ const AppContent: React.FC = () => {
     }, 900);
   };
 
-  const handleAuthSuccess = () => {
-    const isKYCCompleted = localStorage.getItem('clickflicks_photographer_kyc');
-    
+  const handleAuthSuccess = async () => {
+    try {
+      await fetchProfile();
+    } catch (_) {}
     setTransitionState('closing');
     setTimeout(() => {
-      if (!isKYCCompleted) {
+      const currentKyc = getResolvedKYCStatus();
+      setKycStatus(currentKyc);
+      if (currentKyc === 'pending') {
         setFlowState('kyc');
       } else {
         setFlowState('app');
@@ -153,8 +175,11 @@ const AppContent: React.FC = () => {
   };
 
   const handleKYCComplete = () => {
-    localStorage.setItem('clickflicks_photographer_kyc', 'submitted');
+    if (user?.id) {
+      localStorage.setItem(`clickflicks_photographer_kyc_${user.id}`, 'submitted');
+    }
     setKycStatus('submitted');
+    fetchProfile().catch(() => {});
     setTransitionState('closing');
     setTimeout(() => {
       setFlowState('app');
@@ -305,6 +330,7 @@ const AppContent: React.FC = () => {
                     kycStatus={kycStatus} 
                     onGeminiClick={() => setCurrentView('ai-concierge')} 
                     onNavigateTab={handleTabChange}
+                    onNavigateKYC={() => setFlowState('kyc')}
                   />
                 )}
                 {currentView === 'requests' && (

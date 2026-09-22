@@ -810,7 +810,10 @@ export const getPendingVerifications = async (_req: Request, res: Response) => {
   try {
     const photographers = await prisma.photographers.findMany({
       where: {
-        verification_status: 'PENDING'
+        verification_status: 'PENDING',
+        photographer_kyc: {
+          kyc_status: { in: ['SUBMITTED', 'IN_REVIEW'] }
+        }
       },
       orderBy: {
         created_at: 'asc' // Oldest first
@@ -825,6 +828,14 @@ export const getPendingVerifications = async (_req: Request, res: Response) => {
             phone_number: true,
             profile_image_url: true,
             location_city: true
+          }
+        },
+        photographer_kyc: {
+          select: {
+            id: true,
+            kyc_status: true,
+            submitted_at: true,
+            id_number: true
           }
         }
       }
@@ -3025,62 +3036,62 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
     };
 
     if (!kyc) {
-      // Synthesize clean default state so admin view never crashes
+      // Return clean draft state indicating user has not yet submitted KYC documents
       const defaultResponse = {
         id: `kyc-${photographer.id}`,
         photographer_id: photographer.id,
         user_id: photographer.user_id,
-        kyc_status: 'SUBMITTED',
-        submitted_at: photographer.created_at,
-        last_updated_at: new Date(),
+        kyc_status: 'DRAFT',
+        submitted_at: null,
+        last_updated_at: photographer.created_at,
         approved_at: null,
         rejected_at: null,
         identity: {
-          legal_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Master Artisan',
-          date_of_birth: '1995-05-15',
-          age: 29,
+          legal_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Unsubmitted',
+          date_of_birth: null,
+          age: null,
           nationality: 'Ghana',
           id_type: 'GHANA_CARD',
-          id_number: 'GHA-726481920-1',
-          identity_check_result: 'PASS',
+          id_number: 'Not provided',
+          identity_check_result: null,
           identity_fail_reason_code: null,
-          identity_notes: 'Biometric Ghana Card verified upon on-boarding submission.'
+          identity_notes: 'Photographer has not yet submitted KYC verification documents.'
         },
         contact: {
           email: photographer.users?.email || '',
           email_verified: !!photographer.users?.is_verified,
-          phone: photographer.users?.phone_number || '+233 54 284 9284',
-          phone_verified: true,
-          city: photographer.users?.location_city || 'Accra',
-          region: 'Greater Accra',
-          service_area: 'Accra & Tema Metro',
-          contact_check_result: 'PASS',
-          contact_notes: 'Phone verified via SMS OTP.'
+          phone: photographer.users?.phone_number || '',
+          phone_verified: false,
+          city: photographer.users?.location_city || '',
+          region: '',
+          service_area: '',
+          contact_check_result: null,
+          contact_notes: ''
         },
         portfolio: {
-          categories: ['PORTRAIT', 'WEDDING'],
-          years_experience: 'FIVE_NINE',
-          portfolio_link: photographer.portfolio_website || 'https://instagram.com/masterartisan',
-          portfolio_check_result: 'PASS',
-          portfolio_quality: 'GOOD',
-          originality_flag: 'ORIGINAL',
-          portfolio_notes: 'Verified live portfolio galleries.'
+          categories: [],
+          years_experience: null,
+          portfolio_link: photographer.portfolio_website || '',
+          portfolio_check_result: null,
+          portfolio_quality: null,
+          originality_flag: null,
+          portfolio_notes: ''
         },
         payment: {
           payout_method: 'MOMO',
           account_holder_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim(),
           bank_name: null,
           bank_account_number: null,
-          momo_network: 'MTN',
-          momo_number: photographer.users?.phone_number || '0542849284',
-          payout_name_match: 'EXACT_MATCH',
-          payout_check_result: 'PASS',
-          payout_notes: 'MTN MoMo Escrow Account active.'
+          momo_network: null,
+          momo_number: null,
+          payout_name_match: 'NOT_CHECKED',
+          payout_check_result: null,
+          payout_notes: ''
         },
         access_controls: {
-          is_search_visible: true,
-          can_accept_bookings: true,
-          can_receive_payouts: true,
+          is_search_visible: false,
+          can_accept_bookings: false,
+          can_receive_payouts: false,
           kyc_verified_badge: photographer.verification_status === 'VERIFIED'
         },
         decision_reason_code: null,
@@ -3088,27 +3099,10 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         request_info_items: [],
         reviewed_by: null,
         reviewed_at: null,
-        documents: [
-          {
-            id: `doc-front-${photographer.id}`,
-            document_type: 'GHANA_CARD_FRONT',
-            file_name: 'ghana_card_front.jpg',
-            file_url: 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop',
-            is_verified: true,
-            uploaded_at: photographer.created_at
-          },
-          {
-            id: `doc-back-${photographer.id}`,
-            document_type: 'GHANA_CARD_BACK',
-            file_name: 'ghana_card_back.jpg',
-            file_url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=600&auto=format&fit=crop',
-            is_verified: true,
-            uploaded_at: photographer.created_at
-          }
-        ],
+        documents: [],
         photographer: {
           id: photographer.id,
-          display_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Master Artisan',
+          display_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Artisan',
           business_name: photographer.bio || 'Studio Artisan'
         },
         audit_timeline: []

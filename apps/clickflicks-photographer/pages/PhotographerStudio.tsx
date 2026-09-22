@@ -113,9 +113,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   };
 
   const portfolioList = profile?.portfolio_items || [];
-  const tierName = profile?.subscriptions?.tier || 'FREE';
-  const isVerified = profile?.verification_status === 'VERIFIED' || kycStatus === 'verified';
-  const isKYCSubmitted = profile?.verification_status === 'PENDING' || kycStatus === 'submitted' || isVerified;
+  const isVerified = profile?.verification_status === 'VERIFIED' || (profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || kycStatus === 'verified';
+  const isKYCSubmitted = (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted' || isVerified;
 
   useEffect(() => {
     if (profile?.hourly_rate != null) {
@@ -697,11 +696,13 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                     <div className="bg-gray-50 rounded-2xl p-4 space-y-3 border border-gray-100 text-xs">
                       <div className="flex justify-between py-1 border-b border-gray-100">
                         <span className="text-gray-400 font-bold uppercase text-[9px]">Identity Status</span>
-                        <span className="font-bold text-emerald-600 uppercase">Ghana Card Biometric Verified</span>
+                        <span className={`font-bold uppercase ${isVerified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {isVerified ? 'Ghana Card Biometric Verified' : 'Ghana Card Submitted • Review Pending'}
+                        </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-gray-100">
                         <span className="text-gray-400 font-bold uppercase text-[9px]">Business Designation</span>
-                        <span className="font-bold text-gray-900">Verified Master Artisan</span>
+                        <span className="font-bold text-gray-900">{isVerified ? 'Verified Master Artisan' : 'Studio Artisan (Under Review)'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-gray-100">
                         <span className="text-gray-400 font-bold uppercase text-[9px]">Operating City</span>

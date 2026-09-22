@@ -153,7 +153,8 @@ export async function getOwnPhotographerProfile(userId: string) {
           { created_at: 'desc' }
         ]
       },
-      paystack_subaccounts: true
+      paystack_subaccounts: true,
+      photographer_kyc: true
     }
   });
   

@@ -8,12 +8,14 @@ interface PhotographerDashboardProps {
   kycStatus?: 'pending' | 'submitted' | 'verified';
   onGeminiClick?: () => void;
   onNavigateTab?: (tab: string) => void;
+  onNavigateKYC?: () => void;
 }
 
 const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({ 
   kycStatus, 
   onGeminiClick,
-  onNavigateTab 
+  onNavigateTab,
+  onNavigateKYC
 }) => {
   const { user, profile } = usePhotographerProfile();
   const { bookings } = usePhotographerBookings();
@@ -93,20 +95,42 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
         
         {/* Verification Status Banner */}
-        {profile?.verification_status === 'PENDING' && (
+        {kycStatus === 'pending' && (!(profile as any)?.photographer_kyc || (profile as any)?.photographer_kyc?.kyc_status === 'DRAFT') ? (
             <motion.div 
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center space-x-3"
+                onClick={onNavigateKYC}
+                className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
             >
-                <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
+                <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-amber-500/20 text-amber-500 rounded-xl">
+                        <Icons.AlertCircle size={18} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-900">Action Required • Complete KYC</p>
+                        <p className="text-[10px] text-amber-800 font-medium leading-tight mt-0.5">Complete your 8-step verification to publish your studio.</p>
+                    </div>
+                </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
+                  className="px-3 py-1.5 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-colors shrink-0 ml-2 shadow-sm"
+                >
+                  Start
+                </button>
+            </motion.div>
+        ) : (kycStatus === 'submitted' || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW') ? (
+            <motion.div 
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-sky-50 border border-sky-100 rounded-2xl flex items-center space-x-3"
+            >
+                <div className="p-2 bg-sky-100 text-sky-600 rounded-xl">
                     <Icons.Clock size={16} />
                 </div>
                 <div>
                     <p className="text-xs font-bold text-gray-900">Verification Pending</p>
-                    <p className="text-[9px] text-gray-500 font-medium leading-tight mt-0.5">Your KYC credentials are under review by the studio curator.</p>
+                    <p className="text-[9px] text-gray-500 font-medium leading-tight mt-0.5">Your KYC credentials have been submitted and are under review.</p>
                 </div>
             </motion.div>
-        )}
+        ) : null}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">

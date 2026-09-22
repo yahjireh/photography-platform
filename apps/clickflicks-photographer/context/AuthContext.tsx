@@ -28,6 +28,13 @@ export interface PhotographerProfile {
   average_rating?: number;
   total_bookings?: number;
   portfolio_items?: any[];
+  photographer_kyc?: {
+    id: string;
+    kyc_status: string;
+    submitted_at?: string;
+    approved_at?: string;
+    id_number?: string;
+  } | null;
 }
 
 interface AuthContextType {

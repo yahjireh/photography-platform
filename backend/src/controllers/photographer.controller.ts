@@ -616,11 +616,11 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
         date_of_birth: new Date('1995-01-01'),
         nationality: 'Ghana',
         id_type: 'GHANA_CARD',
-        id_number: ghanaCardNumber || 'GHA-000000000-0',
+        id_number: ghanaCardNumber || (user.phone_number ? `GHA-${user.phone_number}` : 'PENDING_ENTRY'),
         email: user.email,
         email_verified: user.is_verified,
-        phone: user.phone_number || accountNumber || '0500000000',
-        phone_verified: true,
+        phone: user.phone_number || accountNumber || 'N/A',
+        phone_verified: !!user.phone_number,
         city: registeredCity || user.location_city || 'Accra',
         region: 'Greater Accra',
         categories: (categories && categories.length > 0) ? categories : ['PORTRAIT', 'WEDDING'],
@@ -628,7 +628,7 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
         portfolio_link: portfolioLinks || photographer.portfolio_website || '',
         payout_method: payoutMethod,
         account_holder_name: `${user.first_name} ${user.last_name}`,
-        bank_name: isMomo ? null : (preferredBank || 'Standard Chartered'),
+        bank_name: isMomo ? null : preferredBank,
         bank_account_number: isMomo ? null : accountNumber,
         momo_network: isMomo ? momoNet : null,
         momo_number: isMomo ? (accountNumber || user.phone_number || '') : null,
@@ -652,27 +652,27 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
     });
 
     // 3. Insert documents if provided
-    if (ghanaCardFront) {
+    if (ghanaCardFront && typeof ghanaCardFront === 'string' && ghanaCardFront.length > 10) {
       await prisma.photographer_kyc_documents.create({
         data: {
           photographer_id: photographer.id,
           kyc_id: kyc.id,
           document_type: 'GHANA_CARD_FRONT',
           file_name: 'ghana_card_front.jpg',
-          file_url: typeof ghanaCardFront === 'string' && ghanaCardFront.startsWith('http') ? ghanaCardFront : 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop',
+          file_url: ghanaCardFront,
           is_verified: false
         }
       });
     }
 
-    if (ghanaCardBack) {
+    if (ghanaCardBack && typeof ghanaCardBack === 'string' && ghanaCardBack.length > 10) {
       await prisma.photographer_kyc_documents.create({
         data: {
           photographer_id: photographer.id,
           kyc_id: kyc.id,
           document_type: 'GHANA_CARD_BACK',
           file_name: 'ghana_card_back.jpg',
-          file_url: typeof ghanaCardBack === 'string' && ghanaCardBack.startsWith('http') ? ghanaCardBack : 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=600&auto=format&fit=crop',
+          file_url: ghanaCardBack,
           is_verified: false
         }
       });
