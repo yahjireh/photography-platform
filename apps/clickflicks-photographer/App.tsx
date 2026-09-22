@@ -64,12 +64,26 @@ const AppContent: React.FC = () => {
     if (photographerProfile?.verification_status === 'VERIFIED' || photographerProfile?.photographer_kyc?.kyc_status === 'APPROVED') {
       return 'verified';
     }
-    if (photographerProfile?.photographer_kyc?.kyc_status === 'SUBMITTED' || photographerProfile?.photographer_kyc?.kyc_status === 'IN_REVIEW') {
+    if (
+      photographerProfile?.photographer_kyc?.kyc_status === 'SUBMITTED' || 
+      photographerProfile?.photographer_kyc?.kyc_status === 'IN_REVIEW' ||
+      photographerProfile?.photographer_kyc != null ||
+      photographerProfile?.verification_status === 'PENDING'
+    ) {
       return 'submitted';
     }
-    if (user?.id) {
-      const userKyc = localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`);
-      if (userKyc === 'submitted' || userKyc === 'verified') return userKyc as KYCStatus;
+    if (typeof window !== 'undefined') {
+      if (
+        localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
+        localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
+        localStorage.getItem('clickflicks_photographer_kyc_status') === 'verified'
+      ) {
+        return 'submitted';
+      }
+      if (user?.id) {
+        const userKyc = localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`);
+        if (userKyc === 'submitted' || userKyc === 'verified') return userKyc as KYCStatus;
+      }
     }
     return 'pending';
   };
@@ -191,8 +205,12 @@ const AppContent: React.FC = () => {
   };
 
   const handleKYCComplete = () => {
-    if (user?.id) {
-      localStorage.setItem(`clickflicks_photographer_kyc_${user.id}`, 'submitted');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clickflicks_photographer_kyc_completed', 'true');
+      localStorage.setItem('clickflicks_photographer_kyc_status', 'submitted');
+      if (user?.id) {
+        localStorage.setItem(`clickflicks_photographer_kyc_${user.id}`, 'submitted');
+      }
     }
     setKycStatus('submitted');
     fetchProfile().catch(() => {});
@@ -202,6 +220,16 @@ const AppContent: React.FC = () => {
       setTransitionState('opening');
       setTimeout(() => setTransitionState('idle'), 900);
     }, 900);
+  };
+
+  const handleNavigateKYC = () => {
+    const current = getResolvedKYCStatus();
+    if (current !== 'pending') {
+      // 8-step KYC is already done! Directly navigate to studio where read-only KYC status & details are shown
+      setCurrentView('studio');
+    } else {
+      setFlowState('kyc');
+    }
   };
 
   const handleLogout = () => {
@@ -346,7 +374,7 @@ const AppContent: React.FC = () => {
                     kycStatus={kycStatus} 
                     onGeminiClick={() => setCurrentView('ai-concierge')} 
                     onNavigateTab={handleTabChange}
-                    onNavigateKYC={() => setFlowState('kyc')}
+                    onNavigateKYC={handleNavigateKYC}
                   />
                 )}
                 {currentView === 'requests' && (
@@ -364,7 +392,7 @@ const AppContent: React.FC = () => {
                 {currentView === 'studio' && (
                   <PhotographerStudio 
                     onLogout={handleLogout}
-                    onNavigateKYC={() => setFlowState('kyc')}
+                    onNavigateKYC={handleNavigateKYC}
                     kycStatus={kycStatus}
                   />
                 )}

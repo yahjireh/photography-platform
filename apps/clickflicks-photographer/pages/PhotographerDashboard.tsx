@@ -44,6 +44,16 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
     ? Number(profile.average_rating).toFixed(1) 
     : (user?.is_verified ? '5.0' : 'New');
 
+  const isKYCCompletedLocal = typeof window !== 'undefined' && (
+    localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
+    localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
+    localStorage.getItem('clickflicks_photographer_kyc_status') === 'verified' ||
+    (user?.id && (localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'submitted' || localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'verified'))
+  );
+
+  const isKYCAlreadyDone = isKYCCompletedLocal || kycStatus === 'submitted' || kycStatus === 'verified' || (profile as any)?.photographer_kyc != null || profile?.verification_status === 'PENDING' || profile?.verification_status === 'VERIFIED';
+  const isVerifiedUser = profile?.verification_status === 'VERIFIED' || (profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || kycStatus === 'verified';
+
   const handleNavigate = (loc?: string) => {
     const query = encodeURIComponent(loc || 'Accra, Ghana');
     window.open(`https://maps.google.com/?q=${query}`, '_blank');
@@ -95,7 +105,7 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
         
         {/* Verification Status Banner */}
-        {kycStatus === 'pending' && (!(profile as any)?.photographer_kyc || (profile as any)?.photographer_kyc?.kyc_status === 'DRAFT') ? (
+        {!isKYCAlreadyDone ? (
             <motion.div 
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                 onClick={onNavigateKYC}
@@ -117,7 +127,7 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
                   Start
                 </button>
             </motion.div>
-        ) : (kycStatus === 'submitted' || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW') ? (
+        ) : !isVerifiedUser ? (
             <motion.div 
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                 className="mb-6 p-4 bg-sky-50 border border-sky-100 rounded-2xl flex items-center space-x-3"

@@ -154,8 +154,14 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
   const portfolioList = profile?.portfolio_items || [];
   const tierName = (profile as any)?.subscriptions?.tier || 'FREE';
+  const isKYCCompletedLocal = typeof window !== 'undefined' && (
+    localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
+    localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
+    localStorage.getItem('clickflicks_photographer_kyc_status') === 'verified' ||
+    (user?.id && (localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'submitted' || localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'verified'))
+  );
   const isVerified = profile?.verification_status === 'VERIFIED' || (profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || kycStatus === 'verified';
-  const isKYCSubmitted = (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted' || isVerified;
+  const isKYCSubmitted = isKYCCompletedLocal || (profile as any)?.photographer_kyc != null || profile?.verification_status === 'PENDING' || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted' || isVerified;
 
   useEffect(() => {
     if (profile?.hourly_rate != null) {

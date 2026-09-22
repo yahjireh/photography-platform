@@ -69,6 +69,10 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
       } catch (err) {
         console.warn('KYC submission response:', err);
       } finally {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('clickflicks_photographer_kyc_completed', 'true');
+          localStorage.setItem('clickflicks_photographer_kyc_status', 'submitted');
+        }
         setIsSubmitting(false);
         onComplete();
       }
