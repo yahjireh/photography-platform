@@ -125,11 +125,20 @@ const AppContent: React.FC = () => {
       localStorage.setItem('clickflicks_photographer_onboarded', 'true');
       const currentKyc = getResolvedKYCStatus();
       setKycStatus(currentKyc);
-      if (currentKyc === 'pending') {
-        setFlowState('kyc');
-      } else {
-        setFlowState('app');
-      }
+
+      setFlowState(prev => {
+        // If already inside the app, NEVER kick the user back to KYC
+        if (prev === 'app') return 'app';
+        const hasSkipped = typeof window !== 'undefined' && (
+          localStorage.getItem('clickflicks_photographer_kyc_skipped') === 'true' ||
+          (user?.id && localStorage.getItem(`clickflicks_photographer_kyc_skipped_${user.id}`) === 'true')
+        );
+        if (hasSkipped) return 'app';
+        if (prev === 'auth' || prev === 'onboarding') {
+          return currentKyc === 'pending' ? 'kyc' : 'app';
+        }
+        return prev;
+      });
     } else if (!isAuthLoading) {
       if (hasOnboarded) {
         setFlowState('auth');
@@ -189,7 +198,11 @@ const AppContent: React.FC = () => {
     setTimeout(() => {
       const currentKyc = getResolvedKYCStatus();
       setKycStatus(currentKyc);
-      if (currentKyc === 'pending') {
+      const hasSkipped = typeof window !== 'undefined' && (
+        localStorage.getItem('clickflicks_photographer_kyc_skipped') === 'true' ||
+        (user?.id && localStorage.getItem(`clickflicks_photographer_kyc_skipped_${user.id}`) === 'true')
+      );
+      if (currentKyc === 'pending' && !hasSkipped) {
         setFlowState('kyc');
       } else {
         setFlowState('app');
@@ -199,12 +212,29 @@ const AppContent: React.FC = () => {
     }, 900);
   };
 
+  const handleKYCSkip = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('clickflicks_photographer_kyc_skipped', 'true');
+      if (user?.id) {
+        localStorage.setItem(`clickflicks_photographer_kyc_skipped_${user.id}`, 'true');
+      }
+    }
+    setTransitionState('closing');
+    setTimeout(() => {
+      setFlowState('app');
+      setTransitionState('opening');
+      setTimeout(() => setTransitionState('idle'), 900);
+    }, 900);
+  };
+
   const handleKYCComplete = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('clickflicks_photographer_kyc_completed', 'true');
       localStorage.setItem('clickflicks_photographer_kyc_status', 'submitted');
+      localStorage.removeItem('clickflicks_photographer_kyc_skipped');
       if (user?.id) {
         localStorage.setItem(`clickflicks_photographer_kyc_${user.id}`, 'submitted');
+        localStorage.removeItem(`clickflicks_photographer_kyc_skipped_${user.id}`);
       }
     }
     setKycStatus('submitted');
@@ -223,11 +253,20 @@ const AppContent: React.FC = () => {
       // 8-step KYC is already done! Directly navigate to studio where read-only KYC status & details are shown
       setCurrentView('studio');
     } else {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('clickflicks_photographer_kyc_skipped');
+        if (user?.id) {
+          localStorage.removeItem(`clickflicks_photographer_kyc_skipped_${user.id}`);
+        }
+      }
       setFlowState('kyc');
     }
   };
 
   const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clickflicks_photographer_kyc_skipped');
+    }
     logout();
     setTransitionState('closing');
     setTimeout(() => {
@@ -340,9 +379,7 @@ const AppContent: React.FC = () => {
         {flowState === 'kyc' && (
           <PhotographerKYC 
             onComplete={handleKYCComplete} 
-            onSkip={() => {
-              setFlowState('app');
-            }} 
+            onSkip={handleKYCSkip} 
           />
         )}
 

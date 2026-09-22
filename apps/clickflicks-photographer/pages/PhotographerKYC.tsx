@@ -79,7 +79,9 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
     }
   };
 
-  const handleBack = () => {
+  const handleBack = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
     } else if (onSkip) {
@@ -121,7 +123,11 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
       {/* Top Header */}
       <div>
         <div className="flex justify-between items-center mb-6 pt-6">
-          <button onClick={handleBack} className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
+          <button 
+            type="button"
+            onClick={handleBack} 
+            className="p-2 -ml-2 text-gray-500 hover:text-gray-900 cursor-pointer"
+          >
             <Icons.ArrowLeft size={20} />
           </button>
           <div className="flex items-center space-x-1">
@@ -129,7 +135,15 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
             <span className="text-xs text-gray-400 font-bold">/ {totalSteps}</span>
           </div>
           {onSkip ? (
-            <button onClick={onSkip} className="text-xs font-bold text-gray-400 hover:text-gray-600">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSkip();
+              }} 
+              className="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer shadow-xs"
+            >
               Skip
             </button>
           ) : <div className="w-8" />}
@@ -419,11 +433,12 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
       </div>
 
       {/* Action Footer */}
-      <div className="pt-6">
+      <div className="pt-6 space-y-3">
         <button
+          type="button"
           onClick={handleNext}
           disabled={isSubmitting || (currentStep === 8 && !formData.agreedToTerms)}
-          className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center space-x-2 active:scale-95 transition-all disabled:opacity-50"
+          className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center space-x-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
         >
           {isSubmitting ? (
             <Icons.Loader2 className="animate-spin" size={18} />
@@ -434,6 +449,19 @@ const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, onSkip })
             </>
           )}
         </button>
+        {onSkip && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSkip();
+            }}
+            className="w-full py-3 text-center text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
+          >
+            I'll complete verification later
+          </button>
+        )}
       </div>
     </div>
   );
