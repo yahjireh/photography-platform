@@ -62,6 +62,12 @@ export const usePhotographerProfile = () => {
     dayRate?: number;
     portfolioWebsite?: string;
     instagramHandle?: string;
+    service_area?: string;
+    serviceArea?: string;
+    region?: string;
+    business_name?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
   }) => {
     setIsLoading(true);
     try {

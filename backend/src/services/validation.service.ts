@@ -141,3 +141,116 @@ export function validatePhoneNumber(phone: string): PhoneValidationResult {
     formatted
   };
 }
+
+/**
+ * Ghana Telecom & Mobile Money Providers
+ */
+export type MomoProvider = 'MTN' | 'VODAFONE' | 'TELECEL' | 'AIRTELTIGO';
+
+export interface MomoValidationResult {
+  isValid: boolean;
+  detectedProvider?: MomoProvider;
+  reason?: string;
+}
+
+/**
+ * Detect Ghana telecom network provider from phone number prefix:
+ * - MTN: 024, 025, 053, 054, 055, 059
+ * - Telecel (formerly Vodafone): 020, 050
+ * - AT (AirtelTigo): 026, 027, 056, 057
+ */
+export function detectGhanaMomoProvider(phone: string): MomoProvider | 'UNKNOWN' {
+  if (!phone || typeof phone !== 'string') return 'UNKNOWN';
+
+  const cleaned = phone.trim().replace(/[\s\-()]/g, '');
+  let local10 = cleaned;
+  if (local10.startsWith('+233')) {
+    local10 = '0' + local10.substring(4);
+  } else if (local10.startsWith('233')) {
+    local10 = '0' + local10.substring(3);
+  }
+
+  const prefix3 = local10.substring(0, 3);
+
+  // MTN prefixes
+  if (['024', '025', '053', '054', '055', '059'].includes(prefix3)) {
+    return 'MTN';
+  }
+  // Telecel prefixes
+  if (['020', '050'].includes(prefix3)) {
+    return 'TELECEL';
+  }
+  // AirtelTigo prefixes
+  if (['026', '027', '056', '057'].includes(prefix3)) {
+    return 'AIRTELTIGO';
+  }
+
+  return 'UNKNOWN';
+}
+
+/**
+ * Validate that phone number prefix matches the selected payout channel
+ * E.g., a 020 or 050 number cannot be paired with MTN Mobile Money.
+ */
+export function validateMomoNetworkPairing(phone: string, selectedProvider: string): MomoValidationResult {
+  if (!phone) {
+    return { isValid: false, reason: 'Mobile Money phone number is required' };
+  }
+
+  const detected = detectGhanaMomoProvider(phone);
+  const normalized = (selectedProvider || '').toUpperCase();
+
+  const isMTN = normalized.includes('MTN');
+  const isTelecel = normalized.includes('TELECEL') || normalized.includes('VODAFONE');
+  const isAT = normalized.includes('AIRTEL') || normalized.includes('TIGO') || normalized.includes('AT');
+
+  if (isMTN) {
+    if (detected === 'TELECEL') {
+      return {
+        isValid: false,
+        detectedProvider: 'TELECEL',
+        reason: 'A Telecel number (020, 050) cannot be paired with an MTN Mobile Money selection. Please choose Vodafone/Telecel Cash or enter a valid MTN number (024, 054, 055, 059, 053, 025).'
+      };
+    }
+    if (detected === 'AIRTELTIGO') {
+      return {
+        isValid: false,
+        detectedProvider: 'AIRTELTIGO',
+        reason: 'An AirtelTigo number (026, 027, 056, 057) cannot be paired with an MTN Mobile Money selection. Please choose AirtelTigo Money or enter an MTN number.'
+      };
+    }
+  } else if (isTelecel) {
+    if (detected === 'MTN') {
+      return {
+        isValid: false,
+        detectedProvider: 'MTN',
+        reason: 'An MTN number (024, 054, 055, etc.) cannot be paired with Vodafone/Telecel Cash. Please choose MTN Mobile Money or enter a Telecel number (020, 050).'
+      };
+    }
+    if (detected === 'AIRTELTIGO') {
+      return {
+        isValid: false,
+        detectedProvider: 'AIRTELTIGO',
+        reason: 'An AirtelTigo number cannot be paired with Vodafone/Telecel Cash. Please choose AirtelTigo Money.'
+      };
+    }
+  } else if (isAT) {
+    if (detected === 'MTN') {
+      return {
+        isValid: false,
+        detectedProvider: 'MTN',
+        reason: 'An MTN number cannot be paired with AirtelTigo Money. Please choose MTN Mobile Money.'
+      };
+    }
+    if (detected === 'TELECEL') {
+      return {
+        isValid: false,
+        detectedProvider: 'TELECEL',
+        reason: 'A Telecel number cannot be paired with AirtelTigo Money. Please choose Vodafone/Telecel Cash.'
+      };
+    }
+  }
+
+  return { isValid: true, detectedProvider: detected === 'UNKNOWN' ? undefined : detected };
+}
+

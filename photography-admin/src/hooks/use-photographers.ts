@@ -20,6 +20,11 @@ export interface Photographer {
   verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   tier: 'FREE' | 'BASIC' | 'PRO' | 'PREMIUM' | 'ENTERPRISE';
   created_at: string;
+  service_area?: string;
+  region?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  packages?: any[];
   total_bookings?: number;
   total_revenue?: number;
   users: {

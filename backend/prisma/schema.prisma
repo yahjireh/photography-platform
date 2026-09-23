@@ -203,6 +203,8 @@ model photographers {
   kyc_verified_at      DateTime?
   average_rating       Float?                @default(0)
   total_bookings       Int                   @default(0)
+  emergency_contact_name   String?
+  emergency_contact_phone  String?
   created_at           DateTime              @default(now())
   updated_at           DateTime              @updatedAt
   availability         availability[]
@@ -223,6 +225,7 @@ model packages {
   price           Decimal       @db.Decimal(10, 2)
   delivery_days   Int           @default(7)
   features        Json          @default("[]")
+  image_url       String?
   is_popular      Boolean       @default(false)
   created_at      DateTime      @default(now())
   updated_at      DateTime      @updatedAt
@@ -374,6 +377,8 @@ model photographer_kyc {
   city                      String?
   region                    String?
   service_area              String?
+  emergency_contact_name    String?
+  emergency_contact_phone   String?
   contact_check_result      CheckResult?
   contact_notes             String?
   categories                PhotoCategory[]             @default([])

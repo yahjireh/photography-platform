@@ -53,7 +53,16 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       hourlyRate,
       dayRate,
       portfolioWebsite,
-      instagramHandle
+      instagramHandle,
+      service_area,
+      serviceArea,
+      region,
+      business_name,
+      businessName,
+      emergency_contact_name,
+      emergencyContactName,
+      emergency_contact_phone,
+      emergencyContactPhone
     } = req.body;
     
     // Validate services array if provided
@@ -110,7 +119,16 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       hourlyRate,
       dayRate,
       portfolioWebsite,
-      instagramHandle
+      instagramHandle,
+      service_area,
+      serviceArea,
+      region,
+      business_name,
+      businessName,
+      emergency_contact_name,
+      emergencyContactName,
+      emergency_contact_phone,
+      emergencyContactPhone
     });
     
     res.status(200).json({
@@ -538,7 +556,48 @@ export async function deletePortfolio(req: Request, res: Response): Promise<void
 }
 
 /**
- * Submit Photographer KYC
+ * Get Current Photographer KYC status & draft data
+ * GET /api/photographers/kyc/me
+ */
+export async function getMyKYC(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.user_id;
+    const photographer = await prisma.photographers.findUnique({
+      where: { user_id: userId },
+      include: {
+        photographer_kyc: {
+          include: {
+            documents: {
+              where: { deleted_at: null }
+            }
+          }
+        },
+        packages: true,
+        users: true
+      }
+    });
+
+    if (!photographer) {
+      res.status(404).json({ success: false, message: 'Photographer not found' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        photographer,
+        kyc: photographer.photographer_kyc,
+        packages: photographer.packages,
+        user: photographer.users
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * Submit / Update Photographer KYC (Supports progressive step saving)
  * POST /api/photographers/kyc
  */
 export async function submitKYC(req: Request, res: Response): Promise<void> {
@@ -548,19 +607,25 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       businessName,
       businessType,
       registeredCity,
+      region,
+      serviceArea,
+      dateOfBirth,
       ghanaCardNumber,
       ghanaCardFront,
       ghanaCardBack,
-      tinNumber: _tinNumber,
+      faceVerificationVideo,
       yearsExperience,
       portfolioLinks,
       preferredBank,
       accountNumber,
+      emergencyContactName,
+      emergencyContactPhone,
       categories,
-      equipmentList
+      packages,
+      isDraft = false
     } = req.body;
 
-    // 1. Get or create photographer
+    // 1. Get or create photographer profile
     let photographer = await prisma.photographers.findUnique({
       where: { user_id: userId },
       include: { users: true }
@@ -573,37 +638,66 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
           bio: `${businessName || 'Artisan Studio'} • ${businessType || 'Solo Independent'}`,
           verification_status: 'PENDING',
           portfolio_website: portfolioLinks || '',
-          equipment_list: equipmentList || [],
+          emergency_contact_name: emergencyContactName || null,
+          emergency_contact_phone: emergencyContactPhone || null,
           services: (categories && categories.length > 0) ? categories : ['PORTRAIT', 'WEDDING']
         },
         include: { users: true }
       });
     } else {
-      await prisma.photographers.update({
+      photographer = await prisma.photographers.update({
         where: { id: photographer.id },
         data: {
-          bio: `${businessName || photographer.bio || 'Artisan Studio'} • ${businessType || 'Solo Independent'}`,
+          bio: businessName ? `${businessName} • ${businessType || 'Solo Independent'}` : photographer.bio,
           portfolio_website: portfolioLinks || photographer.portfolio_website,
-          equipment_list: equipmentList || photographer.equipment_list,
+          emergency_contact_name: emergencyContactName || photographer.emergency_contact_name,
+          emergency_contact_phone: emergencyContactPhone || photographer.emergency_contact_phone,
           services: (categories && categories.length > 0) ? categories : photographer.services,
           verification_status: 'PENDING'
-        }
+        },
+        include: { users: true }
       });
+    }
+
+    if (!photographer || !photographer.users) {
+      res.status(404).json({
+        success: false,
+        message: 'Photographer profile or user account not found'
+      });
+      return;
     }
 
     const user = photographer.users;
     const now = new Date();
 
-    // Map experience
+    // Map experience enum safely
     let expEnum: any = 'TWO_FOUR';
-    if (yearsExperience && yearsExperience.includes('10+')) expEnum = 'TEN_PLUS';
-    else if (yearsExperience && (yearsExperience.includes('5-9') || yearsExperience.includes('5'))) expEnum = 'FIVE_NINE';
-    else if (yearsExperience && yearsExperience.includes('0-1')) expEnum = 'ZERO_ONE';
+    if (yearsExperience) {
+      if (yearsExperience.includes('10+')) expEnum = 'TEN_PLUS';
+      else if (yearsExperience.includes('5-9') || yearsExperience.includes('5-10') || yearsExperience.includes('5')) expEnum = 'FIVE_NINE';
+      else if (yearsExperience.includes('0-1') || yearsExperience.includes('1-2')) expEnum = 'ZERO_ONE';
+    }
 
     // Map payout method
-    const isMomo = !preferredBank || preferredBank.toLowerCase().includes('momo') || preferredBank.toLowerCase().includes('mobile') || preferredBank.toLowerCase().includes('mtn');
+    const isMomo = !preferredBank || preferredBank.toLowerCase().includes('momo') || preferredBank.toLowerCase().includes('mobile') || preferredBank.toLowerCase().includes('mtn') || preferredBank.toLowerCase().includes('telecel') || preferredBank.toLowerCase().includes('vodafone') || preferredBank.toLowerCase().includes('airtel');
     const payoutMethod = isMomo ? 'MOMO' : 'BANK';
-    const momoNet = preferredBank?.toLowerCase().includes('telecel') || preferredBank?.toLowerCase().includes('vodafone') ? 'VODAFONE' : (preferredBank?.toLowerCase().includes('airtel') ? 'AIRTELTIGO' : 'MTN');
+    let momoNet: any = 'MTN';
+    if (preferredBank?.toLowerCase().includes('telecel') || preferredBank?.toLowerCase().includes('vodafone')) {
+      momoNet = 'VODAFONE';
+    } else if (preferredBank?.toLowerCase().includes('airtel') || preferredBank?.toLowerCase().includes('tigo')) {
+      momoNet = 'AIRTELTIGO';
+    }
+
+    const kycStatus = isDraft ? 'DRAFT' : 'SUBMITTED';
+
+    // Parse date of birth safely
+    let parsedDob: Date = new Date('1998-01-01');
+    if (dateOfBirth) {
+      const d = new Date(dateOfBirth);
+      if (!isNaN(d.getTime())) {
+        parsedDob = d;
+      }
+    }
 
     // 2. Upsert photographer_kyc
     const kyc = await prisma.photographer_kyc.upsert({
@@ -611,21 +705,24 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       create: {
         photographer_id: photographer.id,
         user_id: userId,
-        kyc_status: 'SUBMITTED',
-        submitted_at: now,
+        kyc_status: kycStatus,
+        submitted_at: isDraft ? null : now,
         last_updated_at: now,
         legal_name: `${user.first_name} ${user.last_name}`,
-        date_of_birth: new Date('2000-01-01'),
+        date_of_birth: parsedDob,
         nationality: 'Ghana',
         id_type: 'GHANA_CARD',
-        id_number: ghanaCardNumber || 'PENDING_VERIFICATION',
+        id_number: ghanaCardNumber || 'PENDING_ENTRY',
         email: user.email,
-        email_verified: user.is_verified,
+        email_verified: !!user.is_verified,
         phone: user.phone_number || accountNumber || 'N/A',
-        phone_verified: !!user.phone_number,
+        phone_verified: !!user.is_verified,
         city: registeredCity || user.location_city || 'Accra',
-        region: 'Greater Accra',
-        categories: (categories && categories.length > 0) ? categories : ['PORTRAIT', 'WEDDING'],
+        region: region || 'Greater Accra',
+        service_area: serviceArea || `${registeredCity || 'Accra'} & Surrounding`,
+        emergency_contact_name: emergencyContactName || null,
+        emergency_contact_phone: emergencyContactPhone || null,
+        categories: (categories && categories.length > 0) ? categories : ['PORTRAIT', 'MOBILE_PHOTOGRAPHY'],
         years_experience: expEnum,
         portfolio_link: portfolioLinks || photographer.portfolio_website || '',
         payout_method: payoutMethod,
@@ -639,22 +736,27 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
         can_receive_payouts: true
       },
       update: {
-        kyc_status: 'SUBMITTED',
-        submitted_at: now,
+        kyc_status: kycStatus,
+        submitted_at: isDraft ? undefined : now,
         last_updated_at: now,
+        date_of_birth: dateOfBirth ? parsedDob : undefined,
         id_number: ghanaCardNumber || undefined,
         city: registeredCity || undefined,
+        region: region || undefined,
+        service_area: serviceArea || undefined,
+        emergency_contact_name: emergencyContactName || undefined,
+        emergency_contact_phone: emergencyContactPhone || undefined,
         portfolio_link: portfolioLinks || undefined,
         categories: (categories && categories.length > 0) ? categories : undefined,
         payout_method: payoutMethod,
         bank_name: isMomo ? null : preferredBank,
         bank_account_number: isMomo ? null : accountNumber,
         momo_network: isMomo ? momoNet : null,
-        momo_number: isMomo ? accountNumber : null
+        momo_number: isMomo ? (accountNumber || undefined) : null
       }
     });
 
-    // 3. Insert documents if provided
+    // 3. Insert or update documents
     if (ghanaCardFront && typeof ghanaCardFront === 'string' && ghanaCardFront.length > 10) {
       await prisma.photographer_kyc_documents.create({
         data: {
@@ -681,31 +783,80 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       });
     }
 
-    // 4. Audit entry
+    if (faceVerificationVideo && typeof faceVerificationVideo === 'string' && faceVerificationVideo.length > 10) {
+      await prisma.photographer_kyc_documents.create({
+        data: {
+          photographer_id: photographer.id,
+          kyc_id: kyc.id,
+          document_type: 'FACE_VERIFICATION_VIDEO',
+          file_name: 'biometric_liveness_video.webm',
+          file_url: faceVerificationVideo,
+          is_verified: false
+        }
+      });
+    }
+
+    // 4. Save Packages if provided
+    if (Array.isArray(packages) && packages.length > 0) {
+      for (const pkg of packages) {
+        if (pkg.name && pkg.price) {
+          // If pkg has an existing ID, update it; otherwise create
+          if (pkg.id && !pkg.id.startsWith('temp-')) {
+            await prisma.packages.update({
+              where: { id: pkg.id },
+              data: {
+                name: pkg.name,
+                description: pkg.description || '',
+                occasion_type: pkg.occasionType || 'PORTRAIT',
+                price: Number(pkg.price),
+                delivery_days: Number(pkg.deliveryDays || 7),
+                features: Array.isArray(pkg.features) ? pkg.features : (pkg.features ? [pkg.features] : []),
+                image_url: pkg.imageUrl || pkg.image_url || null
+              }
+            }).catch(() => null);
+          } else {
+            await prisma.packages.create({
+              data: {
+                photographer_id: photographer.id,
+                name: pkg.name,
+                description: pkg.description || '',
+                occasion_type: pkg.occasionType || 'PORTRAIT',
+                price: Number(pkg.price),
+                delivery_days: Number(pkg.deliveryDays || 7),
+                features: Array.isArray(pkg.features) ? pkg.features : (pkg.features ? [pkg.features] : []),
+                image_url: pkg.imageUrl || pkg.image_url || null
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Audit entry
     await prisma.photographer_kyc_audit.create({
       data: {
         photographer_id: photographer.id,
         kyc_id: kyc.id,
-        event_type: 'submitted',
+        event_type: isDraft ? 'draft_saved' : 'submitted',
         field_name: 'kyc_status',
         old_value: 'DRAFT',
-        new_value: 'SUBMITTED',
+        new_value: kycStatus,
         admin_user_id: userId,
         admin_name: `${user.first_name} ${user.last_name}`,
-        action_notes: 'KYC on-boarding completed by photographer applicant.'
+        action_notes: isDraft ? 'Progressive KYC draft saved' : 'KYC application submitted by photographer.'
       }
     });
 
     res.status(200).json({
       success: true,
-      message: 'KYC submission received successfully',
+      message: isDraft ? 'KYC draft saved successfully' : 'KYC submission received successfully',
       data: kyc
     });
   } catch (error: any) {
     console.error('Submit KYC error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to submit KYC verification',
+      message: 'Failed to process KYC verification',
       error: error.message
     });
   }

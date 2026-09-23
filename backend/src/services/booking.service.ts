@@ -290,7 +290,13 @@ export async function getClientBookings(
           profile_image_url: true,
           location_city: true,
           location_country: true,
-          phone_number: true
+          phone_number: true,
+          photographers: {
+            select: {
+              emergency_contact_name: true,
+              emergency_contact_phone: true
+            }
+          }
         }
       },
       payments: {

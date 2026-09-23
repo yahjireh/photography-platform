@@ -29,6 +29,23 @@ export async function getPhotographerPackages(req: Request, res: Response): Prom
   }
 }
 
+export async function getMyPackages(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id || (req as any).user.id;
+    const packages = await PackageService.getPhotographerPackages(userId);
+
+    res.json({
+      success: true,
+      data: packages
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
 export async function getPackageById(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
@@ -49,7 +66,7 @@ export async function getPackageById(req: Request, res: Response): Promise<void>
 export async function createPackage(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user.user_id || (req as any).user.id;
-    const { name, description, occasionType, price, deliveryDays, features, isPopular } = req.body;
+    const { name, description, occasionType, price, deliveryDays, features, isPopular, imageUrl, image_url } = req.body;
 
     if (!name || !occasionType || price === undefined) {
       res.status(400).json({
@@ -66,6 +83,7 @@ export async function createPackage(req: Request, res: Response): Promise<void> 
       price: Number(price),
       deliveryDays: deliveryDays ? Number(deliveryDays) : 7,
       features: Array.isArray(features) ? features : [],
+      imageUrl: imageUrl || image_url || undefined,
       isPopular: !!isPopular
     });
 
@@ -86,7 +104,7 @@ export async function updatePackage(req: Request, res: Response): Promise<void> 
   try {
     const userId = (req as any).user.user_id || (req as any).user.id;
     const { id } = req.params;
-    const { name, description, occasionType, price, deliveryDays, features, isPopular } = req.body;
+    const { name, description, occasionType, price, deliveryDays, features, isPopular, imageUrl, image_url } = req.body;
 
     const updated = await PackageService.updatePackage(userId, id, {
       name,
@@ -95,6 +113,7 @@ export async function updatePackage(req: Request, res: Response): Promise<void> 
       price: price !== undefined ? Number(price) : undefined,
       deliveryDays: deliveryDays !== undefined ? Number(deliveryDays) : undefined,
       features,
+      imageUrl: imageUrl !== undefined ? imageUrl : (image_url !== undefined ? image_url : undefined),
       isPopular
     });
 

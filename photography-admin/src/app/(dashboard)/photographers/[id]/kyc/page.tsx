@@ -280,6 +280,7 @@ export default function KYCVerificationPage() {
   // Decision modal state
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<'approve' | 'reject' | 'request_more_info' | 'suspend'>('approve');
+  const [previewPackage, setPreviewPackage] = useState<any | null>(null);
 
   // Loading state
   if (isLoading) {
@@ -337,6 +338,8 @@ export default function KYCVerificationPage() {
       city: kycData.contact?.city || '—',
       region: kycData.contact?.region || '—',
       service_area: kycData.contact?.service_area || '—',
+      emergency_contact_name: (kycData.contact as any)?.emergency_contact_name || (kycData as any).emergency_contact_name || (kycData as any).photographer?.emergency_contact_name || '—',
+      emergency_contact_phone: (kycData.contact as any)?.emergency_contact_phone || (kycData as any).emergency_contact_phone || (kycData as any).photographer?.emergency_contact_phone || '—',
       contact_check_result: kycData.contact?.contact_check_result || undefined,
       contact_notes: kycData.contact?.contact_notes
     },
@@ -367,6 +370,7 @@ export default function KYCVerificationPage() {
       kyc_verified_badge: false
     },
     documents: kycData.documents || [],
+    packages: (kycData as any).packages || [],
     audit_timeline: kycData.audit_timeline || []
   };
 
@@ -568,15 +572,65 @@ export default function KYCVerificationPage() {
                 />
               </DetailGrid>
 
-              {/* ID Documents */}
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                  Identity Documents
+              {/* ID Documents & Biometric Liveness Video */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  National ID Documents & Biometric Liveness Video
                 </h4>
-                {kyc.documents.filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie').length > 0 ? (
-                  <div className="grid grid-cols-3 gap-4">
+
+                {/* Biometric Video Comparison Section */}
+                {kyc.documents.some(d => d.document_type === 'FACE_VERIFICATION_VIDEO' || d.document_type === 'face_verification_video' || d.file_url?.includes('video') || d.file_url?.startsWith('data:video')) && (
+                  <div className="p-4 bg-teal-50 dark:bg-teal-950/20 border-2 border-teal-300 dark:border-teal-800 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-teal-600 animate-pulse" />
+                      <h5 className="text-xs font-bold text-teal-900 dark:text-teal-300 uppercase tracking-wider">
+                        Biometric Face Liveness Verification (Head Movements)
+                      </h5>
+                    </div>
+                    <p className="text-xs text-teal-700 dark:text-teal-400">
+                      Compare the applicant's live video recording (head moving left, right, up, down) against the photo on the Ghana Card below.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {/* Ghana Card Front */}
+                      <div className="border border-teal-200 dark:border-teal-800 rounded-xl overflow-hidden bg-white dark:bg-gray-800 p-2 text-center">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                          Ghana Card Photo Reference
+                        </span>
+                        {kyc.documents.find(d => d.document_type === 'GHANA_CARD_FRONT' || d.document_type === 'id_front') ? (
+                          <img
+                            src={kyc.documents.find(d => d.document_type === 'GHANA_CARD_FRONT' || d.document_type === 'id_front')?.file_url}
+                            alt="Ghana Card Front"
+                            className="w-full h-44 object-contain rounded-lg bg-gray-50 cursor-pointer"
+                            onClick={() => window.open(kyc.documents.find(d => d.document_type === 'GHANA_CARD_FRONT' || d.document_type === 'id_front')?.file_url, '_blank')}
+                          />
+                        ) : (
+                          <div className="h-44 flex items-center justify-center text-xs text-gray-400">
+                            Front card photo not found
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Face Liveness Video Player */}
+                      <div className="border border-teal-200 dark:border-teal-800 rounded-xl overflow-hidden bg-black p-2 text-center">
+                        <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider block mb-1">
+                          Applicant Liveness Video (Left / Right / Up / Down)
+                        </span>
+                        <video
+                          src={kyc.documents.find(d => d.document_type === 'FACE_VERIFICATION_VIDEO' || d.document_type === 'face_verification_video' || d.file_url?.includes('video') || d.file_url?.startsWith('data:video'))?.file_url}
+                          controls
+                          playsInline
+                          className="w-full h-44 rounded-lg object-contain bg-black"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* All Uploaded Identity Documents Grid */}
+                {kyc.documents.filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie' || doc.document_type === 'GHANA_CARD_FRONT' || doc.document_type === 'GHANA_CARD_BACK').length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {kyc.documents
-                      .filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie')
+                      .filter(doc => doc.document_type.startsWith('id_') || doc.document_type.startsWith('ghana_') || doc.document_type === 'selfie' || doc.document_type === 'GHANA_CARD_FRONT' || doc.document_type === 'GHANA_CARD_BACK')
                       .map(doc => (
                         <div key={doc.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                           <img
@@ -634,11 +688,27 @@ export default function KYCVerificationPage() {
                 }
               />
               <DetailRow label="City" value={kyc.contact.city || '—'} />
-              <DetailRow label="Region" value={kyc.contact.region || '—'} />
+              <DetailRow label="Region" value={kyc.contact.region ? `${kyc.contact.region} Region` : '—'} />
               <DetailRow label="Service Area" value={kyc.contact.service_area || '—'} />
               <DetailRow
                 label="Check Result"
                 value={<CheckResultBadge result={kyc.contact.contact_check_result} />}
+              />
+              <DetailRow
+                label="Emergency Contact"
+                value={
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {kyc.contact.emergency_contact_name || '—'}
+                  </span>
+                }
+              />
+              <DetailRow
+                label="Emergency Phone"
+                value={
+                  <span className="font-semibold text-teal-700 dark:text-teal-400">
+                    {kyc.contact.emergency_contact_phone || '—'}
+                  </span>
+                }
               />
             </DetailGrid>
 
@@ -744,6 +814,64 @@ export default function KYCVerificationPage() {
               )}
             </div>
           </DetailCard>
+
+          {/* F. Studio Packages & Offerings Section */}
+          <DetailCard title="Studio Packages & Offerings" icon={FileText}>
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500">
+                Custom rates and bookable packages configured by this photographer. Tap any package to review its full flyer image.
+              </p>
+
+              {Array.isArray(kyc.packages) && kyc.packages.length > 0 ? (
+                <div className="space-y-2.5">
+                  {kyc.packages.map((pkg: any) => (
+                    <div
+                      key={pkg.id}
+                      className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPackage(pkg)}
+                        className="flex-1 text-left flex items-center space-x-3 cursor-pointer group"
+                      >
+                        {pkg.image_url || pkg.imageUrl ? (
+                          <img
+                            src={pkg.image_url || pkg.imageUrl}
+                            alt={pkg.name}
+                            className="w-12 h-12 object-cover rounded-lg border border-gray-300 dark:border-gray-600 group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-800 dark:text-teal-300">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-xs font-bold text-gray-900 dark:text-gray-100 group-hover:text-teal-600">
+                              {pkg.name}
+                            </h5>
+                            {(pkg.image_url || pkg.imageUrl) && (
+                              <span className="text-[9px] bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 px-1.5 py-0.5 rounded font-bold">
+                                Flyer Attached
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-400">
+                            GH₵ {Number(pkg.price).toLocaleString()} • {pkg.delivery_days || pkg.deliveryDays || 3} Days Turnaround
+                          </p>
+                          <span className="text-[10px] text-gray-400 group-hover:underline">
+                            Click to view flyer & deliverables →
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No custom packages created yet.</p>
+              )}
+            </div>
+          </DetailCard>
         </div>
 
         {/* Right Column - Access Controls & Audit */}
@@ -817,6 +945,83 @@ export default function KYCVerificationPage() {
         onSubmit={handleDecision}
         isPending={isDecisionPending}
       />
+
+      {/* Package Flyer Preview Modal */}
+      {previewPackage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-800">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                {previewPackage.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPreviewPackage(null)}
+                className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full cursor-pointer"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-4">
+              {previewPackage.image_url || previewPackage.imageUrl ? (
+                <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+                  <img
+                    src={previewPackage.image_url || previewPackage.imageUrl}
+                    alt={previewPackage.name}
+                    className="w-full max-h-72 object-contain mx-auto"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 italic text-center py-6">No flyer picture uploaded.</p>
+              )}
+              <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-950/20 rounded-xl border border-teal-100 dark:border-teal-900/30">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-teal-800 dark:text-teal-300 block">Price</span>
+                  <span className="text-base font-bold text-teal-950 dark:text-teal-100">
+                    GH₵ {Number(previewPackage.price).toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold text-teal-800 dark:text-teal-300 block">Turnaround</span>
+                  <span className="text-xs font-bold text-teal-950 dark:text-teal-100">
+                    {previewPackage.delivery_days || previewPackage.deliveryDays || 3} Days
+                  </span>
+                </div>
+              </div>
+              {previewPackage.description && (
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Description</h4>
+                  <p className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2.5 rounded-lg">
+                    {previewPackage.description}
+                  </p>
+                </div>
+              )}
+              {Array.isArray(previewPackage.features) && previewPackage.features.length > 0 && (
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deliverables</h4>
+                  <ul className="space-y-1">
+                    {previewPackage.features.map((feat: string, i: number) => (
+                      <li key={i} className="text-xs text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+              <button
+                type="button"
+                onClick={() => setPreviewPackage(null)}
+                className="w-full py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

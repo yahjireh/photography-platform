@@ -45,7 +45,9 @@ const mapBackendToBooking = (b: any): Booking => {
     budgetOffered: b.budget_offered ? Number(b.budget_offered) : undefined,
     specialRequirements: b.special_requirements || '',
     package: b.packages || null,
-    disputes: b.disputes || []
+    disputes: b.disputes || [],
+    emergencyContactName: photographerUser.photographers?.emergency_contact_name || b.photographer?.emergency_contact_name || b.photographer?.emergencyContactName || null,
+    emergencyContactPhone: photographerUser.photographers?.emergency_contact_phone || b.photographer?.emergency_contact_phone || b.photographer?.emergencyContactPhone || null
   };
 };
 

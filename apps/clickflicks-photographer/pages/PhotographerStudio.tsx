@@ -19,6 +19,84 @@ interface PaymentMethodConfig {
   isPrimary: boolean;
 }
 
+const GHANA_REGIONS = [
+  'Greater Accra',
+  'Ashanti',
+  'Central',
+  'Eastern',
+  'Western',
+  'Western North',
+  'Volta',
+  'Oti',
+  'Northern',
+  'North East',
+  'Savannah',
+  'Upper East',
+  'Upper West',
+  'Bono',
+  'Bono East',
+  'Ahafo'
+];
+
+const CITY_TO_REGION_MAP: Record<string, string> = {
+  accra: 'Greater Accra',
+  tema: 'Greater Accra',
+  madina: 'Greater Accra',
+  adenta: 'Greater Accra',
+  spintex: 'Greater Accra',
+  'east legon': 'Greater Accra',
+  osu: 'Greater Accra',
+  kumasi: 'Ashanti',
+  obuas: 'Ashanti',
+  ejisu: 'Ashanti',
+  tafo: 'Ashanti',
+  asokwa: 'Ashanti',
+  'cape coast': 'Central',
+  elmina: 'Central',
+  winneba: 'Central',
+  mankessim: 'Central',
+  kasoa: 'Central',
+  koforidua: 'Eastern',
+  nkawkaw: 'Eastern',
+  nsawam: 'Eastern',
+  suhum: 'Eastern',
+  takoradi: 'Western',
+  sekondi: 'Western',
+  tarkwa: 'Western',
+  axim: 'Western',
+  'sefwi wiawso': 'Western North',
+  bibiani: 'Western North',
+  ho: 'Volta',
+  hohoe: 'Volta',
+  keta: 'Volta',
+  aflao: 'Volta',
+  dambai: 'Oti',
+  nkwanta: 'Oti',
+  tamale: 'Northern',
+  yendi: 'Northern',
+  savelugu: 'Northern',
+  nalerigu: 'North East',
+  walewale: 'North East',
+  damongo: 'Savannah',
+  bole: 'Savannah',
+  salaga: 'Savannah',
+  bolgatanga: 'Upper East',
+  navrongo: 'Upper East',
+  bawku: 'Upper East',
+  wa: 'Upper West',
+  jirapa: 'Upper West',
+  lawra: 'Upper West',
+  sunyani: 'Bono',
+  berekum: 'Bono',
+  'dormaa ahenkro': 'Bono',
+  techiman: 'Bono East',
+  kintampo: 'Bono East',
+  atebubu: 'Bono East',
+  goaso: 'Ahafo',
+  mim: 'Ahafo',
+  kenyasi: 'Ahafo'
+};
+
 const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNavigateKYC, kycStatus }) => {
   const { profile, updateProfile, updateUserProfile, addPortfolio, deletePortfolio, user } = usePhotographerProfile();
   
@@ -31,13 +109,38 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const [bioText, setBioText] = useState<string>(profile?.bio || '');
   const [isEditingBio, setIsEditingBio] = useState(false);
 
-  // Operating City state
+  // Operating City & Region state
   const [cityText, setCityText] = useState<string>(user?.location_city || 'Accra');
+  const [regionText, setRegionText] = useState<string>((profile as any)?.region || 'Greater Accra');
   const [isEditingCity, setIsEditingCity] = useState(false);
 
   // Phone Number state
   const [phoneText, setPhoneText] = useState<string>(user?.phone_number || '');
   const [isEditingPhone, setIsEditingPhone] = useState(false);
+
+  // Emergency contact state
+  const [emergencyContact, setEmergencyContact] = useState({
+    name: (profile as any)?.emergency_contact_name || '',
+    phone: (profile as any)?.emergency_contact_phone || ''
+  });
+
+  // Studio Packages State
+  const [studioPackages, setStudioPackages] = useState<any[]>([]);
+  const [isLoadingPackages, setIsLoadingPackages] = useState(false);
+  const [previewPackage, setPreviewPackage] = useState<any | null>(null);
+  const [isAddingPackage, setIsAddingPackage] = useState(false);
+  const [editingPkgId, setEditingPkgId] = useState<string | null>(null);
+  const [pkgForm, setPkgForm] = useState({
+    name: '',
+    price: 1000,
+    deliveryDays: 3,
+    occasionType: 'PORTRAIT',
+    description: '',
+    features: '',
+    imageUrl: ''
+  });
+  const [isSavingPackage, setIsSavingPackage] = useState(false);
+  const packageFileRef = React.useRef<HTMLInputElement>(null);
 
   // Payment Methods state
   const [primaryPayout, setPrimaryPayout] = useState<PaymentMethodConfig>({
@@ -178,6 +281,18 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
     if (user?.location_city) {
       setCityText(user.location_city);
     }
+    if ((profile as any)?.service_area) {
+      setCityText((profile as any).service_area);
+    }
+    if ((profile as any)?.region) {
+      setRegionText((profile as any).region);
+    }
+    if ((profile as any)?.emergency_contact_name) {
+      setEmergencyContact({
+        name: (profile as any).emergency_contact_name,
+        phone: (profile as any).emergency_contact_phone || ''
+      });
+    }
     if (user?.phone_number) {
       setPhoneText(user.phone_number);
     }
@@ -198,7 +313,26 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
         }
       } catch (_) {}
     }
-  }, [profile?.hourly_rate, profile?.day_rate, profile?.bio, user?.location_city, user?.phone_number, user?.id]);
+  }, [profile?.hourly_rate, profile?.day_rate, profile?.bio, user?.location_city, user?.phone_number, user?.id, (profile as any)?.region, (profile as any)?.service_area]);
+
+  // Load packages
+  const loadPackages = async () => {
+    try {
+      setIsLoadingPackages(true);
+      const res = await apiClient.get('/packages/me');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setStudioPackages(res.data.data);
+      }
+    } catch (e) {
+      console.warn('Could not load packages', e);
+    } finally {
+      setIsLoadingPackages(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPackages();
+  }, []);
 
   const savePayoutConfig = (primary: PaymentMethodConfig, secondary: PaymentMethodConfig | null) => {
     setPrimaryPayout(primary);
@@ -211,6 +345,36 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
         }));
       } catch (_) {}
     }
+  };
+
+  // Telecom MoMo Network Checker
+  const validateMomoNumber = (provider: string, num: string): string | null => {
+    const raw = num.trim().replace(/\D/g, '');
+    if (!raw || raw.length < 3) return null;
+    let prefix = raw.substring(0, 3);
+    if (raw.startsWith('233') && raw.length >= 5) {
+      prefix = '0' + raw.substring(3, 5);
+    }
+    const mtnPrefixes = ['024', '025', '053', '054', '055', '059'];
+    const telecelPrefixes = ['020', '050'];
+    const atPrefixes = ['026', '027', '056', '057'];
+
+    if (provider.includes('MTN')) {
+      if (telecelPrefixes.includes(prefix)) {
+        return `⚠️ ${prefix} is a Telecel (Vodafone) number and cannot be paired with MTN Mobile Money.`;
+      }
+      if (atPrefixes.includes(prefix)) {
+        return `⚠️ ${prefix} is an AT (AirtelTigo) number and cannot be paired with MTN Mobile Money.`;
+      }
+    } else if (provider.includes('Telecel') || provider.includes('Vodafone')) {
+      if (mtnPrefixes.includes(prefix)) {
+        return `⚠️ ${prefix} is an MTN number and cannot be paired with Telecel Cash.`;
+      }
+      if (atPrefixes.includes(prefix)) {
+        return `⚠️ ${prefix} is an AT number and cannot be paired with Telecel Cash.`;
+      }
+    }
+    return null;
   };
 
   const handleSaveRate = async () => {
@@ -239,16 +403,120 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
     }
   };
 
-  const handleSaveCity = async () => {
+  // City & Region Smart Auto-detector
+  const handleCityChange = (val: string) => {
+    setCityText(val);
+    const cleanCity = val.trim().toLowerCase();
+    for (const [key, regionName] of Object.entries(CITY_TO_REGION_MAP)) {
+      if (cleanCity.includes(key) || key.includes(cleanCity)) {
+        setRegionText(regionName);
+        break;
+      }
+    }
+  };
+
+  const handleSaveArea = async () => {
     if (isEditingCity) {
       try {
         await updateUserProfile({ locationCity: cityText });
+        await updateProfile({ service_area: cityText, region: regionText });
       } catch (err) {
-        console.error('City update error:', err);
+        console.error('Service area update error:', err);
       }
       setIsEditingCity(false);
     } else {
       setIsEditingCity(true);
+    }
+  };
+
+  // Package Management Handlers
+  const handlePackageFlyerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPkgForm(prev => ({ ...prev, imageUrl: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpenAddPackage = () => {
+    setEditingPkgId(null);
+    setPkgForm({
+      name: '',
+      price: 1000,
+      deliveryDays: 3,
+      occasionType: 'PORTRAIT',
+      description: '',
+      features: 'High Resolution Gallery\nColor Grading',
+      imageUrl: ''
+    });
+    setIsAddingPackage(true);
+  };
+
+  const handleOpenEditPackage = (pkg: any) => {
+    setEditingPkgId(pkg.id);
+    setPkgForm({
+      name: pkg.name || '',
+      price: Number(pkg.price) || 1000,
+      deliveryDays: Number(pkg.delivery_days || pkg.deliveryDays) || 3,
+      occasionType: pkg.occasion_type || pkg.occasionType || 'PORTRAIT',
+      description: pkg.description || '',
+      features: Array.isArray(pkg.features) ? pkg.features.join('\n') : '',
+      imageUrl: pkg.image_url || pkg.imageUrl || ''
+    });
+    setIsAddingPackage(true);
+  };
+
+  const handleSavePackageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pkgForm.name.trim()) {
+      alert('Please enter a package name');
+      return;
+    }
+    setIsSavingPackage(true);
+    try {
+      const featArray = pkgForm.features.split('\n').map(f => f.trim()).filter(Boolean);
+      if (editingPkgId) {
+        await apiClient.patch(`/packages/${editingPkgId}`, {
+          name: pkgForm.name.trim(),
+          price: Number(pkgForm.price),
+          deliveryDays: Number(pkgForm.deliveryDays),
+          occasionType: pkgForm.occasionType,
+          description: pkgForm.description.trim(),
+          features: featArray,
+          imageUrl: pkgForm.imageUrl || undefined
+        });
+      } else {
+        await apiClient.post('/packages', {
+          name: pkgForm.name.trim(),
+          price: Number(pkgForm.price),
+          deliveryDays: Number(pkgForm.deliveryDays),
+          occasionType: pkgForm.occasionType,
+          description: pkgForm.description.trim(),
+          features: featArray,
+          imageUrl: pkgForm.imageUrl || undefined
+        });
+      }
+      await loadPackages();
+      setIsAddingPackage(false);
+      setEditingPkgId(null);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to save package');
+    } finally {
+      setIsSavingPackage(false);
+    }
+  };
+
+  const handleDeletePackageItem = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this package?')) return;
+    try {
+      await apiClient.delete(`/packages/${id}`);
+      setStudioPackages(prev => prev.filter(p => p.id !== id));
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to delete package');
     }
   };
 
@@ -510,31 +778,42 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           )}
         </div>
 
-        {/* Operating City & Primary Phone Number Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Operating City */}
+        {/* Service Area, Region & Contact Details Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Service Area & Ghana Region */}
           <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Operating City</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Service Area & Region</span>
               <button 
-                onClick={handleSaveCity}
+                onClick={handleSaveArea}
                 className="text-[9px] font-black uppercase tracking-widest text-brand-DEFAULT"
               >
                 {isEditingCity ? 'Save' : 'Edit'}
               </button>
             </div>
             {isEditingCity ? (
-              <input
-                type="text"
-                value={cityText}
-                onChange={(e) => setCityText(e.target.value)}
-                placeholder="e.g. Accra"
-                className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs font-bold text-gray-900 outline-none"
-              />
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={cityText}
+                  onChange={(e) => handleCityChange(e.target.value)}
+                  placeholder="City (e.g. Accra, Kumasi)"
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                />
+                <select
+                  value={regionText}
+                  onChange={(e) => setRegionText(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs font-bold text-gray-900 outline-none cursor-pointer"
+                >
+                  {GHANA_REGIONS.map(reg => (
+                    <option key={reg} value={reg}>{reg} Region</option>
+                  ))}
+                </select>
+              </div>
             ) : (
               <div className="flex items-center space-x-1.5 text-xs font-bold text-gray-900 truncate">
                 <Icons.MapPin size={13} className="text-brand-DEFAULT shrink-0" />
-                <span className="truncate">{cityText || 'Accra'}</span>
+                <span className="truncate">{cityText || 'Accra'}, {regionText} Region</span>
               </div>
             )}
           </div>
@@ -564,6 +843,33 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 <span className="truncate">{phoneText || 'Not configured'}</span>
               </div>
             )}
+          </div>
+
+          {/* Emergency Contact on Record */}
+          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm col-span-1 sm:col-span-2">
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Emergency Contact (Guarantor)</span>
+              {onNavigateKYC && (
+                <button
+                  onClick={onNavigateKYC}
+                  className="text-[9px] font-black uppercase tracking-widest text-brand-DEFAULT hover:underline cursor-pointer"
+                >
+                  Edit via KYC
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-xs">
+                <Icons.ShieldCheck size={14} className="text-teal-700" />
+                <span className="font-bold text-gray-900">
+                  {emergencyContact.name || 'Not provided'}
+                </span>
+                {emergencyContact.phone && (
+                  <span className="text-gray-500 font-medium">({emergencyContact.phone})</span>
+                )}
+              </div>
+              <span className="text-[10px] text-gray-400 italic">Disclosed to client upon confirmed booking</span>
+            </div>
           </div>
         </div>
 
@@ -624,6 +930,102 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
               );
             })}
           </div>
+        </div>
+
+        {/* Studio Packages & Offerings Card */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block">
+                Studio Packages & Offerings
+              </span>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Packages bookable by clients. Tap any package to view its flyer.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddPackage}
+              className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer shadow-xs transition-colors"
+            >
+              <Icons.Plus size={14} />
+              <span>New Package</span>
+            </button>
+          </div>
+
+          {isLoadingPackages ? (
+            <div className="py-6 text-center text-xs text-gray-400">Loading packages...</div>
+          ) : studioPackages.length === 0 ? (
+            <div className="text-center py-6 bg-gray-50 rounded-2xl p-4 border border-dashed border-gray-200">
+              <Icons.Package size={24} className="mx-auto text-gray-400 mb-1" />
+              <p className="text-xs font-bold text-gray-700">No Custom Packages Yet</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Create your first package with a flyer to attract bookings.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {studioPackages.map((pkg: any) => (
+                <div
+                  key={pkg.id}
+                  className="bg-gray-50 hover:bg-gray-100/80 border border-gray-200 hover:border-teal-600 rounded-2xl p-3 flex items-center justify-between transition-all"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPackage(pkg)}
+                    className="flex-1 text-left flex items-center space-x-3 cursor-pointer group"
+                  >
+                    {pkg.image_url || pkg.imageUrl ? (
+                      <img
+                        src={pkg.image_url || pkg.imageUrl}
+                        alt={pkg.name}
+                        className="w-12 h-12 object-cover rounded-xl border border-gray-200 group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800">
+                        <Icons.Package size={20} />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black text-gray-900 group-hover:text-teal-800">
+                          {pkg.name}
+                        </h4>
+                        {(pkg.image_url || pkg.imageUrl) && (
+                          <span className="text-[9px] bg-teal-100 text-teal-900 px-1.5 py-0.5 rounded-md font-black flex items-center gap-0.5">
+                            <Icons.Image size={10} /> Flyer
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-black text-teal-700 mt-0.5">
+                        GH₵ {Number(pkg.price).toLocaleString()} • {pkg.delivery_days || pkg.deliveryDays || 3} Days Turnaround
+                      </p>
+                      <span className="text-[9px] font-bold text-gray-400 group-hover:underline">
+                        Tap to preview flyer & deliverables →
+                      </span>
+                    </div>
+                  </button>
+
+                  <div className="flex items-center space-x-1 pl-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditPackage(pkg)}
+                      className="p-2 text-gray-500 hover:text-gray-900 cursor-pointer"
+                      title="Edit Package"
+                    >
+                      <Icons.Edit3 size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePackageItem(pkg.id)}
+                      className="p-2 text-red-400 hover:text-red-600 cursor-pointer"
+                      title="Delete Package"
+                    >
+                      <Icons.Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -907,6 +1309,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                             placeholder="e.g. 0244123456"
                             className="w-full bg-white border border-gray-200 p-2.5 rounded-xl text-xs font-bold text-gray-900 outline-none"
                           />
+                          {validateMomoNumber(primaryPayout.provider, primaryPayout.accountNumber) && (
+                            <div className="mt-1.5 p-2 bg-red-50 border border-red-200 rounded-lg text-[11px] font-bold text-red-700">
+                              {validateMomoNumber(primaryPayout.provider, primaryPayout.accountNumber)}
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label className="text-[9px] font-bold uppercase text-gray-500 block mb-1">Account Holder Name</label>
@@ -1417,6 +1824,252 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ============================================================ */}
+      {/* PACKAGE FLYER PREVIEW MODAL                                  */}
+      {/* ============================================================ */}
+      <AnimatePresence>
+        {previewPackage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-black text-gray-900 truncate">
+                  {previewPackage.name}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPackage(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full cursor-pointer"
+                >
+                  <Icons.X size={18} />
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-4">
+                {previewPackage.image_url || previewPackage.imageUrl ? (
+                  <div className="rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
+                    <img 
+                      src={previewPackage.image_url || previewPackage.imageUrl} 
+                      alt={previewPackage.name} 
+                      className="w-full max-h-72 object-contain mx-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="py-8 bg-gray-50 rounded-2xl text-center">
+                    <Icons.Package size={36} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-xs text-gray-500 font-bold">No flyer picture uploaded for this package</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between bg-teal-50 p-3 rounded-2xl border border-teal-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Price</span>
+                    <span className="text-base font-black text-teal-900">
+                      GH₵ {Number(previewPackage.price).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Turnaround</span>
+                    <span className="text-xs font-black text-teal-900">
+                      {previewPackage.delivery_days || previewPackage.deliveryDays || 3} Days
+                    </span>
+                  </div>
+                </div>
+
+                {previewPackage.description && (
+                  <div>
+                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Description</h4>
+                    <p className="text-xs text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-xl">
+                      {previewPackage.description}
+                    </p>
+                  </div>
+                )}
+
+                {Array.isArray(previewPackage.features) && previewPackage.features.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">Deliverables</h4>
+                    <ul className="space-y-1.5">
+                      {previewPackage.features.map((feat: string, fi: number) => (
+                        <li key={fi} className="text-xs font-bold text-gray-800 flex items-center gap-2">
+                          <Icons.CheckCircle size={14} className="text-teal-700 shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setPreviewPackage(null)}
+                  className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-black cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ============================================================ */}
+      {/* ADD / EDIT PACKAGE MODAL                                     */}
+      {/* ============================================================ */}
+      <AnimatePresence>
+        {isAddingPackage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-black text-gray-900">
+                  {editingPkgId ? 'Edit Package' : 'Create New Package'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingPackage(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full cursor-pointer"
+                >
+                  <Icons.X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePackageSubmit} className="p-4 overflow-y-auto space-y-3.5">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                    Package Name *
+                  </label>
+                  <input 
+                    type="text" 
+                    required
+                    value={pkgForm.name}
+                    onChange={(e) => setPkgForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Silver Portrait Session, VIP Wedding"
+                    className="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                      Price (GH₵) *
+                    </label>
+                    <input 
+                      type="number" 
+                      required
+                      value={pkgForm.price}
+                      onChange={(e) => setPkgForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                      className="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                      Turnaround (Days)
+                    </label>
+                    <input 
+                      type="number" 
+                      value={pkgForm.deliveryDays}
+                      onChange={(e) => setPkgForm(prev => ({ ...prev, deliveryDays: Number(e.target.value) }))}
+                      className="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                    Occasion Discipline
+                  </label>
+                  <select 
+                    value={pkgForm.occasionType}
+                    onChange={(e) => setPkgForm(prev => ({ ...prev, occasionType: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none cursor-pointer"
+                  >
+                    <option value="PORTRAIT">Portrait</option>
+                    <option value="WEDDING">Wedding</option>
+                    <option value="EVENTS">Events</option>
+                    <option value="MOBILE_PHOTOGRAPHY">Mobile Photography</option>
+                    <option value="PHOTOJOURNALISM">Photojournalism</option>
+                    <option value="FASHION">Fashion</option>
+                    <option value="PRODUCT">Product</option>
+                    <option value="REAL_ESTATE">Real Estate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                    Deliverables (One per line)
+                  </label>
+                  <textarea 
+                    rows={3}
+                    value={pkgForm.features}
+                    onChange={(e) => setPkgForm(prev => ({ ...prev, features: e.target.value }))}
+                    placeholder="20 Retouched Photos&#10;Private Cloud Gallery&#10;1 Outfit Change"
+                    className="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-xs font-bold text-gray-900 outline-none"
+                  />
+                </div>
+
+                {/* Flyer Picture Upload */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 block mb-1">
+                    Upload Package Flyer / Price Menu Image
+                  </label>
+                  <input 
+                    type="file" 
+                    ref={packageFileRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePackageFlyerUpload}
+                  />
+                  {pkgForm.imageUrl ? (
+                    <div className="relative inline-block mt-1">
+                      <img 
+                        src={pkgForm.imageUrl} 
+                        alt="Package Flyer Preview" 
+                        className="w-28 h-28 object-cover rounded-xl border border-teal-500 shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPkgForm(prev => ({ ...prev, imageUrl: '' }))}
+                        className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full text-xs cursor-pointer shadow-md"
+                      >
+                        <Icons.X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => packageFileRef.current?.click()}
+                      className="w-full py-3 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Icons.Upload size={14} /> Choose Flyer Picture
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingPackage}
+                    className="w-full py-3.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    {isSavingPackage ? 'Saving Package...' : (editingPkgId ? 'Update Package' : 'Save Package')}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

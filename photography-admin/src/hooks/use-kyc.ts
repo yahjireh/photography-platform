@@ -107,6 +107,8 @@ export interface PhotographerKYC {
     city?: string;
     region?: string;
     service_area?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
     contact_check_result?: CheckResult;
     contact_notes?: string;
   };
@@ -152,6 +154,7 @@ export interface PhotographerKYC {
 
   // Related Data
   documents: KYCDocument[];
+  packages?: any[];
   photographer: {
     id: string;
     display_name: string;

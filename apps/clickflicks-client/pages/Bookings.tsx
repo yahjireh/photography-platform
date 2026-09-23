@@ -490,6 +490,33 @@ const Bookings: React.FC<BookingsProps> = ({ onTabChange, onOpenChat }) => {
                           </div>
                         </div>
 
+                        {/* Photographer Emergency Contact (Safety on Location) */}
+                        {(booking.emergencyContactPhone || booking.emergencyContactName) && (
+                          <div className="mb-4 p-3.5 bg-teal-50/80 border border-teal-200/80 rounded-2xl flex items-center justify-between text-xs">
+                            <div className="flex items-center space-x-2.5">
+                              <div className="w-8 h-8 rounded-xl bg-teal-100 flex items-center justify-center text-teal-800 shrink-0">
+                                <Icons.ShieldCheck size={16} />
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black uppercase tracking-wider text-teal-800 block">
+                                  Photographer Emergency Contact
+                                </span>
+                                <span className="font-bold text-gray-900">
+                                  {booking.emergencyContactName || 'Guarantor on File'}
+                                </span>
+                              </div>
+                            </div>
+                            {booking.emergencyContactPhone && (
+                              <a
+                                href={`tel:${booking.emergencyContactPhone}`}
+                                className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-[10px] font-black flex items-center gap-1.5 shadow-xs transition-colors"
+                              >
+                                <Icons.Phone size={11} /> Call Emergency
+                              </a>
+                            )}
+                          </div>
+                        )}
+
                         {/* Work Deliverables Ready Alert & View Work Button */}
                         {isDelivered && (
                           <div className="mb-5 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3">

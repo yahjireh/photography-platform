@@ -8,6 +8,14 @@ import * as PackageController from '../controllers/package.controller';
 
 const router = express.Router();
 
+// Protected routes (Photographer only)
+router.get(
+  '/me',
+  authenticate,
+  authorize('PHOTOGRAPHER'),
+  PackageController.getMyPackages
+);
+
 // Public routes
 router.get('/photographer/:photographerId', PackageController.getPhotographerPackages);
 router.get('/:id', PackageController.getPackageById);

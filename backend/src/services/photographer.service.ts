@@ -30,6 +30,15 @@ interface UpdatePhotographerProfileData {
   dayRate?: number;
   portfolioWebsite?: string;
   instagramHandle?: string;
+  service_area?: string;
+  serviceArea?: string;
+  region?: string;
+  business_name?: string;
+  businessName?: string;
+  emergency_contact_name?: string;
+  emergencyContactName?: string;
+  emergency_contact_phone?: string;
+  emergencyContactPhone?: string;
 }
 
 /**
@@ -87,6 +96,19 @@ export async function updatePhotographerProfile(
   if (data.dayRate !== undefined) updateData.day_rate = data.dayRate;
   if (data.portfolioWebsite !== undefined) updateData.portfolio_website = data.portfolioWebsite;
   if (data.instagramHandle !== undefined) updateData.instagram_handle = data.instagramHandle;
+  if (data.service_area !== undefined || data.serviceArea !== undefined) {
+    updateData.service_area = data.service_area || data.serviceArea;
+  }
+  if (data.region !== undefined) updateData.region = data.region;
+  if (data.business_name !== undefined || data.businessName !== undefined) {
+    updateData.business_name = data.business_name || data.businessName;
+  }
+  if (data.emergency_contact_name !== undefined || data.emergencyContactName !== undefined) {
+    updateData.emergency_contact_name = data.emergency_contact_name || data.emergencyContactName;
+  }
+  if (data.emergency_contact_phone !== undefined || data.emergencyContactPhone !== undefined) {
+    updateData.emergency_contact_phone = data.emergency_contact_phone || data.emergencyContactPhone;
+  }
   
   /**
    * Update the photographer profile

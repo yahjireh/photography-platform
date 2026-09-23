@@ -810,13 +810,10 @@ export const getPendingVerifications = async (_req: Request, res: Response) => {
   try {
     const photographers = await prisma.photographers.findMany({
       where: {
-        verification_status: 'PENDING',
-        photographer_kyc: {
-          kyc_status: { in: ['SUBMITTED', 'IN_REVIEW'] }
-        }
+        verification_status: 'PENDING'
       },
       orderBy: {
-        created_at: 'asc' // Oldest first
+        created_at: 'desc'
       },
       include: {
         users: {
@@ -835,7 +832,23 @@ export const getPendingVerifications = async (_req: Request, res: Response) => {
             id: true,
             kyc_status: true,
             submitted_at: true,
-            id_number: true
+            id_number: true,
+            city: true,
+            region: true,
+            service_area: true,
+            emergency_contact_name: true,
+            emergency_contact_phone: true,
+            documents: {
+              where: { deleted_at: null }
+            }
+          }
+        },
+        packages: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            image_url: true
           }
         }
       }
@@ -3017,7 +3030,8 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         ]
       },
       include: {
-        users: true
+        users: true,
+        packages: true
       }
     });
 
@@ -3033,7 +3047,7 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
             bio: `${user.first_name} ${user.last_name} Photography`,
             verification_status: 'PENDING'
           },
-          include: { users: true }
+          include: { users: true, packages: true }
         });
       }
     }
@@ -3121,6 +3135,8 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
           city: photographer.users?.location_city || '',
           region: '',
           service_area: '',
+          emergency_contact_name: photographer.emergency_contact_name || null,
+          emergency_contact_phone: photographer.emergency_contact_phone || null,
           contact_check_result: null,
           contact_notes: ''
         },
@@ -3150,6 +3166,7 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
           can_receive_payouts: false,
           kyc_verified_badge: false
         },
+        packages: photographer.packages || [],
         decision_reason_code: null,
         decision_notes: '',
         request_info_items: [],
@@ -3159,7 +3176,9 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         photographer: {
           id: photographer.id,
           display_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Artisan',
-          business_name: photographer.bio || 'Studio Artisan'
+          business_name: photographer.bio || 'Studio Artisan',
+          emergency_contact_name: photographer.emergency_contact_name || null,
+          emergency_contact_phone: photographer.emergency_contact_phone || null
         },
         audit_timeline: []
       };
@@ -3206,6 +3225,8 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         city: kyc.city || photographer.users?.location_city || null,
         region: kyc.region || null,
         service_area: kyc.service_area || null,
+        emergency_contact_name: kyc.emergency_contact_name || photographer.emergency_contact_name || null,
+        emergency_contact_phone: kyc.emergency_contact_phone || photographer.emergency_contact_phone || null,
         contact_check_result: kyc.contact_check_result || null,
         contact_notes: kyc.contact_notes
       },
@@ -3235,6 +3256,7 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
         can_receive_payouts: kyc.can_receive_payouts ?? isApproved,
         kyc_verified_badge: kyc.kyc_verified_badge ?? (isApproved && photographer.verification_status === 'VERIFIED')
       },
+      packages: photographer.packages || [],
       decision_reason_code: kyc.decision_reason_code,
       decision_notes: kyc.decision_notes,
       request_info_items: kyc.request_info_items || [],
@@ -3244,7 +3266,9 @@ export const getPhotographerKYC = async (req: Request, res: Response) => {
       photographer: {
         id: photographer.id,
         display_name: `${photographer.users?.first_name || ''} ${photographer.users?.last_name || ''}`.trim() || 'Master Artisan',
-        business_name: photographer.bio || 'Studio Artisan'
+        business_name: photographer.bio || 'Studio Artisan',
+        emergency_contact_name: photographer.emergency_contact_name || kyc.emergency_contact_name || null,
+        emergency_contact_phone: photographer.emergency_contact_phone || kyc.emergency_contact_phone || null
       },
       audit_timeline: auditTimeline || []
     };
@@ -3469,6 +3493,11 @@ export const updateKYCReview = async (req: Request, res: Response) => {
     });
 
     // Create audit log entry
+    const adminUserId = adminUser?.user_id || adminUser?.id || kyc.user_id;
+    const adminName = adminUser?.email
+      ? `Admin (${adminUser.email})`
+      : (adminUser?.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Platform Administrator');
+
     await prisma.photographer_kyc_audit.create({
       data: {
         photographer_id: photographerId,
@@ -3477,8 +3506,8 @@ export const updateKYCReview = async (req: Request, res: Response) => {
         field_name: `${section}_check_result`,
         old_value: oldValues[`${section}_check_result`] || null,
         new_value: newValues[`${section}_check_result`] || null,
-        admin_user_id: adminUser.id,
-        admin_name: `${adminUser.first_name} ${adminUser.last_name}`,
+        admin_user_id: adminUserId,
+        admin_name: adminName,
         action_notes: notes
       }
     });
@@ -3711,16 +3740,21 @@ export const updateKYCAccessControls = async (req: Request, res: Response) => {
       const [field, values] = change.split(': ');
       const [oldVal, newVal] = values.split(' → ');
 
+      const adminUserId = adminUser?.user_id || adminUser?.id || kyc.user_id;
+      const adminName = adminUser?.email
+        ? `Admin (${adminUser.email})`
+        : (adminUser?.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Platform Administrator');
+
       await prisma.photographer_kyc_audit.create({
         data: {
           photographer_id: photographerId,
           kyc_id: kyc.id,
           event_type: 'access_control_change',
           field_name: field,
-          old_value: oldVal,
-          new_value: newVal,
-          admin_user_id: adminUser.id,
-          admin_name: `${adminUser.first_name} ${adminUser.last_name}`
+          old_value: String(oldVal ?? 'false'),
+          new_value: String(newVal ?? 'true'),
+          admin_user_id: adminUserId,
+          admin_name: adminName
         }
       });
     }
@@ -3771,9 +3805,14 @@ export const verifyKYCDocument = async (req: Request, res: Response) => {
       });
     }
 
+    const adminUserId = adminUser?.user_id || adminUser?.id || photographerId;
+    const adminName = adminUser?.email
+      ? `Admin (${adminUser.email})`
+      : (adminUser?.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Platform Administrator');
+
     const updateData: any = {
       is_verified: verified,
-      verified_by: adminUser.id,
+      verified_by: adminUserId,
       verified_at: new Date()
     };
 
@@ -3799,8 +3838,8 @@ export const verifyKYCDocument = async (req: Request, res: Response) => {
           event_type: 'document_reviewed',
           field_name: document.document_type,
           new_value: verified ? 'VERIFIED' : 'REJECTED',
-          admin_user_id: adminUser.id,
-          admin_name: `${adminUser.first_name} ${adminUser.last_name}`,
+          admin_user_id: adminUserId,
+          admin_name: adminName,
           action_notes: rejection_reason
         }
       });

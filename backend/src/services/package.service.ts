@@ -13,6 +13,7 @@ export interface CreatePackageData {
   price: number;
   deliveryDays?: number;
   features?: string[];
+  imageUrl?: string;
   isPopular?: boolean;
 }
 
@@ -23,6 +24,7 @@ export interface UpdatePackageData {
   price?: number;
   deliveryDays?: number;
   features?: string[];
+  imageUrl?: string;
   isPopular?: boolean;
 }
 
@@ -113,6 +115,7 @@ export async function createPackage(userId: string, data: CreatePackageData) {
       price: data.price,
       delivery_days: data.deliveryDays || 7,
       features: data.features || [],
+      image_url: data.imageUrl || null,
       is_popular: data.isPopular || false
     }
   });
@@ -149,6 +152,7 @@ export async function updatePackage(userId: string, packageId: string, data: Upd
       price: data.price !== undefined ? data.price : existing.price,
       delivery_days: data.deliveryDays !== undefined ? data.deliveryDays : existing.delivery_days,
       features: data.features !== undefined ? data.features : (existing.features as any),
+      image_url: data.imageUrl !== undefined ? data.imageUrl : existing.image_url,
       is_popular: data.isPopular !== undefined ? data.isPopular : existing.is_popular
     }
   });

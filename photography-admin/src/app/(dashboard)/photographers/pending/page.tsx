@@ -118,7 +118,17 @@ function VerificationCard({ photographer, onViewDetails }: VerificationCardProps
               <div className="flex items-center gap-3">
                 <MapPin className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {photographer.users?.location_city || "—"}
+                  {photographer.service_area || photographer.users?.location_city || "—"}{photographer.region ? `, ${photographer.region} Region` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-gray-800">
+                <span className="text-xs font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider">
+                  Emergency:
+                </span>
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {photographer.emergency_contact_name 
+                    ? `${photographer.emergency_contact_name} (${photographer.emergency_contact_phone || 'No phone'})` 
+                    : "Not provided"}
                 </span>
               </div>
             </div>
@@ -126,7 +136,7 @@ function VerificationCard({ photographer, onViewDetails }: VerificationCardProps
 
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">
-              Professional Info
+              Professional Info & Offerings
             </h4>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -137,9 +147,16 @@ function VerificationCard({ photographer, onViewDetails }: VerificationCardProps
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Business: {photographer.business_name || "—"}
+                  Business: <strong>{photographer.business_name || "—"}</strong>
                 </span>
               </div>
+              {Array.isArray(photographer.packages) && photographer.packages.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300">
+                    {photographer.packages.length} Packages Configured
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -112,6 +112,8 @@ export interface Booking {
   specialRequirements?: string;
   package?: PhotographerPackage | null;
   disputes?: any[];
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
 }
 
 export interface CreateBookingData {

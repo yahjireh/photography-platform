@@ -61,39 +61,63 @@ export async function sendEmailOtp(email: string, firstName?: string): Promise<{
 
   if (resendClient) {
     try {
-      await resendClient.emails.send({
-        from: process.env.EMAIL_FROM || 'ClickFlicks <noreply@clickflicks.com>',
+      const primaryFrom = process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'ClickFlicks <noreply@clickflicks.com>';
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #0f172a; font-size: 24px; font-weight: 800; margin: 0 0 6px 0;">ClickFlicks</h1>
+            <p style="color: #0d9488; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Account Verification</p>
+          </div>
+          
+          <p style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 12px;">Hello ${firstName || 'there'},</p>
+          <p style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">Thank you for joining ClickFlicks! You can verify your email instantly by clicking the button below, or by typing your 6-digit code in the app:</p>
+          
+          <div style="text-align: center; margin: 24px 0 28px 0;">
+            <a href="${verifyLink}" style="display: inline-block; background: linear-gradient(135deg, #0d9488, #0f766e); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);">
+              Verify Email Address
+            </a>
+          </div>
+
+          <div style="text-align: center; margin: 24px 0;">
+            <p style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">Or enter this code in the app</p>
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; background-color: #f0fdfa; color: #0d9488; padding: 12px 24px; border-radius: 10px; border: 1.5px dashed #0d9488; display: inline-block;">
+              ${code}
+            </span>
+          </div>
+          
+          <p style="color: #64748b; font-size: 12px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 28px;">
+            This code will expire in 10 minutes. If you did not create a ClickFlicks account, you can safely ignore this email.
+          </p>
+        </div>
+      `;
+
+      let sendResult = await resendClient.emails.send({
+        from: primaryFrom,
         to: cleanEmail,
         subject: `${code} is your ClickFlicks verification code`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 24px;">
-              <h1 style="color: #0f172a; font-size: 24px; font-weight: 800; margin: 0 0 6px 0;">ClickFlicks</h1>
-              <p style="color: #0d9488; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Account Verification</p>
-            </div>
-            
-            <p style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 12px;">Hello ${firstName || 'there'},</p>
-            <p style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">Thank you for joining ClickFlicks! You can verify your email instantly by clicking the button below, or by typing your 6-digit code in the app:</p>
-            
-            <div style="text-align: center; margin: 24px 0 28px 0;">
-              <a href="${verifyLink}" style="display: inline-block; background: linear-gradient(135deg, #0d9488, #0f766e); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);">
-                Verify Email Address
-              </a>
-            </div>
-
-            <div style="text-align: center; margin: 24px 0;">
-              <p style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">Or enter this code in the app</p>
-              <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; background-color: #f0fdfa; color: #0d9488; padding: 12px 24px; border-radius: 10px; border: 1.5px dashed #0d9488; display: inline-block;">
-                ${code}
-              </span>
-            </div>
-            
-            <p style="color: #64748b; font-size: 12px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 28px;">
-              This code will expire in 10 minutes. If you did not create a ClickFlicks account, you can safely ignore this email.
-            </p>
-          </div>
-        `
+        html: htmlBody
       });
+
+      // If custom domain failed (e.g. domain not yet verified in Resend dashboard), fallback to Resend's verified test domain
+      if (sendResult.error) {
+        console.warn('⚠️ Resend primary sender error:', sendResult.error.message);
+        if (primaryFrom !== 'ClickFlicks <onboarding@resend.dev>') {
+          console.log('🔄 Attempting fallback delivery via onboarding@resend.dev...');
+          sendResult = await resendClient.emails.send({
+            from: 'ClickFlicks <onboarding@resend.dev>',
+            to: cleanEmail,
+            subject: `${code} is your ClickFlicks verification code`,
+            html: htmlBody
+          });
+          if (sendResult.error) {
+            console.warn('⚠️ Resend fallback error:', sendResult.error.message);
+          } else {
+            console.log(`✅ [EMAIL DISPATCHED via fallback] ID: ${sendResult.data?.id}`);
+          }
+        }
+      } else {
+        console.log(`✅ [EMAIL DISPATCHED] ID: ${sendResult.data?.id}`);
+      }
     } catch (err: any) {
       console.warn('⚠️ Resend email delivery failed, falling back to console:', err.message);
     }

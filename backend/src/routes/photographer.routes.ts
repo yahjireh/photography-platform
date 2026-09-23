@@ -13,7 +13,8 @@ import {
   addPortfolio,
   updatePortfolio,
   deletePortfolio,
-  submitKYC
+  submitKYC,
+  getMyKYC
 } from '../controllers/photographer.controller';
 
 const router = express.Router();
@@ -53,6 +54,14 @@ router.get('/search', searchPhotographersController);
  * If /:id came first, '/me' would match as id='me' and call wrong handler
  */
 router.get('/me', authenticate, authorize('PHOTOGRAPHER'), getMyProfile);
+
+/**
+  * GET /api/photographers/kyc/me
+  * Get own KYC verification status, draft data, and documents for editing
+  * 
+  * PROTECTED: Must be logged in as photographer
+  */
+router.get('/kyc/me', authenticate, authorize('PHOTOGRAPHER'), getMyKYC);
 
 // ============================================
 // PUBLIC ROUTES (Dynamic - Must be last!)
