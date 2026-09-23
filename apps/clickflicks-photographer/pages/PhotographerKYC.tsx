@@ -603,9 +603,9 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
 
         onComplete();
       } catch (err: any) {
-        console.warn('KYC submission response:', err);
-        alert(err?.response?.data?.message || 'Verification submitted. We will review your application shortly!');
-        onComplete();
+        console.error('KYC submission error:', err);
+        const errorMsg = err?.response?.data?.message || err?.message || 'Failed to submit verification. Please check your network and details and try again.';
+        alert(errorMsg);
       } finally {
         setIsSubmitting(false);
       }

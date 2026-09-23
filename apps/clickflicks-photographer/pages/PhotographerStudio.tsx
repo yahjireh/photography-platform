@@ -262,11 +262,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
   const portfolioList = profile?.portfolio_items || [];
   const tierName = (profile as any)?.subscriptions?.tier || 'FREE';
-  const isKYCCompletedLocal = typeof window !== 'undefined' && (
-    (user?.id && (localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'submitted' || localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'verified'))
-  );
   const isVerified = (profile?.verification_status === 'VERIFIED' && ((profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || (profile as any)?.kyc_verified_at != null)) || kycStatus === 'verified';
-  const isKYCSubmitted = isVerified || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted' || isKYCCompletedLocal;
+  const isKYCSubmitted = isVerified || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted';
 
   useEffect(() => {
     if (profile?.hourly_rate != null) {
@@ -1239,9 +1236,23 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                     </p>
                   </div>
 
-                  <button onClick={() => setActiveModal(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
-                    Done
-                  </button>
+                  <div className="flex gap-3">
+                    {onNavigateKYC && !isVerified && (
+                      <button
+                        onClick={() => {
+                          setActiveModal(null);
+                          onNavigateKYC();
+                        }}
+                        className="flex-1 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <Icons.Edit3 size={14} />
+                        <span>Edit / Update KYC</span>
+                      </button>
+                    )}
+                    <button onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
+                      Done
+                    </button>
+                  </div>
                 </div>
               )}
 
