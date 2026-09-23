@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+
+// Notify Capgo that client app loaded successfully to confirm update
+CapacitorUpdater.notifyAppReady();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

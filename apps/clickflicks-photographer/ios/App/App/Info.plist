@@ -45,5 +45,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ClickFlicks requires camera access for biometric face verification and KYC identity document capture.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ClickFlicks requires microphone access during video identity verification.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ClickFlicks requires photo library access to upload Ghana card photos and portfolio flyers.</string>
 </dict>
 </plist>

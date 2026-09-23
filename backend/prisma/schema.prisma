@@ -205,6 +205,9 @@ model photographers {
   total_bookings       Int                   @default(0)
   emergency_contact_name   String?
   emergency_contact_phone  String?
+  service_area             String?
+  region                   String?
+  business_name            String?
   created_at           DateTime              @default(now())
   updated_at           DateTime              @updatedAt
   availability         availability[]
