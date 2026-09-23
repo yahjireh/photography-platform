@@ -648,6 +648,27 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
 
   const isApproved = verificationStatus === 'APPROVED' || verificationStatus === 'VERIFIED';
 
+  if (isApproved) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-6 text-center text-gray-900">
+        <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-3xl flex items-center justify-center mb-4 shadow-xs">
+          <Icons.ShieldCheck size={36} />
+        </div>
+        <h2 className="text-2xl font-serif font-black italic text-gray-900 mb-2">Artisan Credentials Approved</h2>
+        <p className="text-xs text-gray-500 max-w-sm mb-6 leading-relaxed">
+          Your Ghana Card, identity biometrics, and packages have been officially reviewed, approved, and verified by platform compliance. Verified credentials are locked and cannot be altered directly.
+        </p>
+        <button
+          type="button"
+          onClick={onSkip || onComplete}
+          className="px-6 py-3 bg-gray-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors cursor-pointer shadow-sm active:scale-95"
+        >
+          Back to Studio
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-between p-4 sm:p-6 pb-12 text-gray-900">
       <div>
@@ -682,18 +703,18 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
               }} 
               className="px-3 py-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 bg-white border border-gray-200 rounded-xl transition-colors cursor-pointer shadow-xs"
             >
-              Exit Studio
+              Back to Studio
             </button>
           ) : <div className="w-8" />}
         </div>
 
         {/* Status / Resumable Banner */}
-        {verificationStatus === 'PENDING' && (
+        {!isApproved && (
           <div className="mb-4 bg-teal-50 border border-teal-200 p-3 rounded-2xl flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-teal-600 animate-ping" />
               <p className="text-xs font-bold text-teal-950">
-                KYC Incomplete / Under Review • All steps remain freely editable
+                KYC In Review • Freely editable until admin fully approves
               </p>
             </div>
             <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-teal-200/80 text-teal-900 rounded-lg">

@@ -222,9 +222,10 @@ const AppContent: React.FC = () => {
     setTransitionState('closing');
     setTimeout(() => {
       setFlowState('app');
+      setCurrentView('studio');
       setTransitionState('opening');
-      setTimeout(() => setTransitionState('idle'), 900);
-    }, 900);
+      setTimeout(() => setTransitionState('idle'), 400);
+    }, 200);
   };
 
   const handleKYCComplete = () => {
@@ -242,25 +243,33 @@ const AppContent: React.FC = () => {
     setTransitionState('closing');
     setTimeout(() => {
       setFlowState('app');
+      setCurrentView('studio');
       setTransitionState('opening');
-      setTimeout(() => setTransitionState('idle'), 900);
-    }, 900);
+      setTimeout(() => setTransitionState('idle'), 400);
+    }, 200);
   };
 
   const handleNavigateKYC = () => {
     const current = getResolvedKYCStatus();
-    if (current !== 'pending') {
-      // 8-step KYC is already done! Directly navigate to studio where read-only KYC status & details are shown
+    if (current === 'verified') {
+      // Fully approved by admin: credentials are locked & non-editable
       setCurrentView('studio');
-    } else {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('clickflicks_photographer_kyc_skipped');
-        if (user?.id) {
-          localStorage.removeItem(`clickflicks_photographer_kyc_skipped_${user.id}`);
-        }
-      }
-      setFlowState('kyc');
+      return;
     }
+
+    // Until fully approved (pending, draft, submitted, under review), allow navigating to KYC to edit/resubmit
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clickflicks_photographer_kyc_skipped');
+      if (user?.id) {
+        localStorage.removeItem(`clickflicks_photographer_kyc_skipped_${user.id}`);
+      }
+    }
+    setTransitionState('closing');
+    setTimeout(() => {
+      setFlowState('kyc');
+      setTransitionState('opening');
+      setTimeout(() => setTransitionState('idle'), 400);
+    }, 200);
   };
 
   const handleLogout = () => {

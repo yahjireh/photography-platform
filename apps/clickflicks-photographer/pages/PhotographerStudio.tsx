@@ -646,11 +646,18 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 </div>
               ) : isKYCSubmitted ? (
                 <button 
-                  onClick={() => setActiveModal('kyc-view')}
-                  className="flex items-center space-x-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-[8px] font-black uppercase tracking-wider hover:bg-amber-200 transition-colors"
+                  onClick={() => {
+                    if (!isVerified && onNavigateKYC) {
+                      onNavigateKYC();
+                    } else {
+                      setActiveModal('kyc-view');
+                    }
+                  }}
+                  className="flex items-center space-x-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-[8px] font-black uppercase tracking-wider hover:bg-amber-200 transition-colors cursor-pointer"
+                  title="Review or edit your KYC submission"
                 >
                   <Icons.Clock size={10} />
-                  <span>KYC Submitted</span>
+                  <span>KYC Submitted • Tap to Edit</span>
                 </button>
               ) : (
                 <button 
@@ -881,7 +888,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm col-span-1 sm:col-span-2">
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Emergency Contact (Guarantor)</span>
-              {onNavigateKYC && (
+              {onNavigateKYC && !isVerified && (
                 <button
                   onClick={onNavigateKYC}
                   className="text-[9px] font-black uppercase tracking-widest text-brand-DEFAULT hover:underline cursor-pointer"
