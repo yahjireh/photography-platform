@@ -104,6 +104,7 @@ export const Icons = {
   Chrome,
   Music,
   Edit: Edit3,
+  Edit3: Edit3,
   XCircle,
   FileText,
   Upload,

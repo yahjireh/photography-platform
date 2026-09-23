@@ -265,6 +265,14 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const isVerified = (profile?.verification_status === 'VERIFIED' && ((profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || (profile as any)?.kyc_verified_at != null)) || kycStatus === 'verified';
   const isKYCSubmitted = isVerified || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted';
 
+  // Detect if user attempted KYC submission on device, but server never received it due to network error
+  const hasUnreceivedKYCSubmission = !isVerified && !isKYCSubmitted && typeof window !== 'undefined' && (
+    localStorage.getItem('clickflicks_photographer_kyc_completed') === 'true' ||
+    localStorage.getItem('clickflicks_photographer_kyc_status') === 'submitted' ||
+    Boolean(user?.id && localStorage.getItem(`clickflicks_photographer_kyc_${user.id}`) === 'submitted') ||
+    Boolean(localStorage.getItem('clickflicks_photographer_kyc_local_draft'))
+  );
+
   useEffect(() => {
     if (profile?.hourly_rate != null) {
       setHourlyRate(Number(profile.hourly_rate));
@@ -747,6 +755,33 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           </div>
         </div>
       </header>
+ 
+      {/* Network Error Alert for unreceived KYC submissions */}
+      {hasUnreceivedKYCSubmission && (
+        <div className="mx-6 mt-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-sm flex items-start space-x-3">
+          <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0 mt-0.5 shadow-xs">
+            <Icons.AlertTriangle size={20} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              <h3 className="font-bold text-sm text-gray-900">KYC Verification Not Received</h3>
+            </div>
+            <p className="text-xs text-gray-700 mt-1 leading-relaxed">
+              Your previous KYC application was not received on our servers due to a connection or network error. Don't worry — your completed details are preserved in your phone's memory.
+            </p>
+            {onNavigateKYC && (
+              <button
+                onClick={onNavigateKYC}
+                className="mt-3 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center space-x-2 cursor-pointer shadow-sm active:scale-95"
+              >
+                <span>Review & Resubmit Application</span>
+                <Icons.ArrowRight size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Profile & Contact Details Section */}
       <div className="px-6 pt-6 space-y-4">
@@ -1067,13 +1102,13 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           {/* Identity & KYC Verification Row */}
           <button 
             onClick={() => {
-              if (isKYCSubmitted || isVerified) {
-                setActiveModal('kyc-view');
-              } else if (onNavigateKYC) {
+              if (onNavigateKYC && !isVerified) {
                 onNavigateKYC();
+              } else {
+                setActiveModal('kyc-view');
               }
             }} 
-            className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <div className="flex items-center space-x-3">
               <div className={`p-2.5 rounded-xl ${isVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
@@ -1237,19 +1272,19 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                   </div>
 
                   <div className="flex gap-3">
-                    {onNavigateKYC && !isVerified && (
+                    {onNavigateKYC && (
                       <button
                         onClick={() => {
                           setActiveModal(null);
                           onNavigateKYC();
                         }}
-                        className="flex-1 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center space-x-2"
+                        className="flex-1 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                       >
-                        <Icons.Edit3 size={14} />
+                        <Icons.Edit size={14} />
                         <span>Edit / Update KYC</span>
                       </button>
                     )}
-                    <button onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
+                    <button onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest cursor-pointer">
                       Done
                     </button>
                   </div>

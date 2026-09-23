@@ -206,9 +206,24 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
     { title: 'Artisan Charter & Agreement', desc: 'Platform ethics & final verification submission' }
   ];
 
-  // 1. Fetch existing KYC details on mount to enable seamless editing & resuming
   useEffect(() => {
     let isMounted = true;
+
+    // 0. Immediately restore local storage draft so user never loses inputs (even offline or on network failure)
+    if (typeof window !== 'undefined') {
+      try {
+        const localDraft = localStorage.getItem('clickflicks_photographer_kyc_local_draft');
+        if (localDraft) {
+          const parsed = JSON.parse(localDraft);
+          if (parsed && typeof parsed === 'object') {
+            setFormData(prev => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read local KYC draft', e);
+      }
+    }
+
     async function loadExistingKYC() {
       try {
         setIsLoadingExisting(true);
@@ -517,6 +532,13 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
 
   // Progressive background auto-save so user never loses progress
   const autoSaveDraft = async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('clickflicks_photographer_kyc_local_draft', JSON.stringify(formData));
+      } catch (e) {
+        // quota exceeded
+      }
+    }
     try {
       setAutoSaveMsg('Saving...');
       await apiClient.post('/photographers/kyc', {
@@ -599,6 +621,7 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
         if (typeof window !== 'undefined') {
           localStorage.setItem('clickflicks_photographer_kyc_completed', 'true');
           localStorage.setItem('clickflicks_photographer_kyc_status', 'submitted');
+          localStorage.removeItem('clickflicks_photographer_kyc_local_draft');
         }
 
         onComplete();
