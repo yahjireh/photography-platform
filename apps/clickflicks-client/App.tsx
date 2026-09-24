@@ -79,12 +79,14 @@ const AppContent: React.FC = () => {
       const messages = customEvent.detail || [];
       if (messages.length > 0) {
         const unread = messages.find(m => {
-          const dismissed = localStorage.getItem(`clickflicks_msg_dismissed_${m.id}`);
-          return !dismissed;
+          const dismissed = localStorage.getItem(`clickflicks_msg_dismissed_${m.id}`) === 'true';
+          const viewed = localStorage.getItem(`clickflicks_msg_viewed_${m.id}`) === 'true';
+          return !dismissed && !viewed;
         });
         if (unread) {
           setActiveInAppMessage(unread);
-          // Telemetry: record view on mobile
+          // Persist viewed state immediately so reopening the app never re-triggers the modal
+          localStorage.setItem(`clickflicks_msg_viewed_${unread.id}`, 'true');
           apiClient.post(`/mobile/in-app-messages/${unread.id}/view`).catch(() => {});
         }
       }
@@ -93,15 +95,25 @@ const AppContent: React.FC = () => {
     const handleSoftUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VersionCheckInfo>;
       const update = customEvent.detail;
-      const dismissed = localStorage.getItem(`clickflicks_update_dismissed_${update.latestVersion}`);
-      if (!dismissed) {
+      const isDismissed = localStorage.getItem(`clickflicks_update_dismissed_${update.latestVersion}`) === 'true' ||
+                          localStorage.getItem(`clickflicks_update_viewed_${update.latestVersion}`) === 'true' ||
+                          localStorage.getItem('clickflicks_update_dismissed') === 'true';
+      if (!isDismissed) {
         setUpdateNotice(update);
+        localStorage.setItem(`clickflicks_update_viewed_${update.latestVersion}`, 'true');
       }
     };
 
     const handleForceUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VersionCheckInfo>;
-      setUpdateNotice(customEvent.detail);
+      const update = customEvent.detail;
+      const isDismissed = localStorage.getItem(`clickflicks_update_dismissed_${update.latestVersion}`) === 'true' ||
+                          localStorage.getItem(`clickflicks_update_viewed_${update.latestVersion}`) === 'true' ||
+                          localStorage.getItem('clickflicks_update_dismissed') === 'true';
+      if (!isDismissed) {
+        setUpdateNotice(update);
+        localStorage.setItem(`clickflicks_update_viewed_${update.latestVersion}`, 'true');
+      }
     };
 
     window.addEventListener('clickflicks:in-app-messages', handleInAppMessages);
@@ -117,6 +129,7 @@ const AppContent: React.FC = () => {
 
   const handleInAppAction = (msg: InAppMessageItem) => {
     localStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_msg_viewed_${msg.id}`, 'true');
     // Telemetry: record CTA click on mobile
     apiClient.post(`/mobile/in-app-messages/${msg.id}/click`).catch(() => {});
     setActiveInAppMessage(null);
@@ -137,6 +150,7 @@ const AppContent: React.FC = () => {
 
   const handleDismissMessage = (msg: InAppMessageItem) => {
     localStorage.setItem(`clickflicks_msg_dismissed_${msg.id}`, 'true');
+    localStorage.setItem(`clickflicks_msg_viewed_${msg.id}`, 'true');
     setActiveInAppMessage(null);
   };
 
@@ -638,6 +652,8 @@ const AppContent: React.FC = () => {
                 <button
                   onClick={() => {
                     localStorage.setItem(`clickflicks_update_dismissed_${updateNotice.latestVersion}`, 'true');
+                    localStorage.setItem(`clickflicks_update_viewed_${updateNotice.latestVersion}`, 'true');
+                    localStorage.setItem('clickflicks_update_dismissed', 'true');
                     setUpdateNotice(null);
                   }}
                   className="w-full py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-sm transition-all active:scale-95"

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './ui/icons';
 
 // Increment this version string whenever releasing updates to notify photographers once
-export const CURRENT_PHOTOGRAPHER_APP_VERSION = '1.2.1';
+export const CURRENT_PHOTOGRAPHER_APP_VERSION = '1.2.3';
 const STORAGE_KEY = 'clickflicks_photographer_last_version';
 
 interface ReleaseFeature {
@@ -17,9 +17,14 @@ const RELEASE_NOTES: { version: string; title: string; highlights: ReleaseFeatur
   title: "What's New in ClickFlicks Studio",
   highlights: [
     {
-      title: "Package Flyer Uploads",
-      description: "Attach high-resolution promotional flyers and posters directly to your custom packages for clients to preview.",
-      badge: "Packages"
+      title: "Direct Rate Controls",
+      description: "Quickly set custom hourly and daily rates with instant numeric entry boxes and local backup persistence.",
+      badge: "Rates"
+    },
+    {
+      title: "Optimized Profile Photo Uploads",
+      description: "Fast on-device image processing ensures quick and reliable profile picture updates.",
+      badge: "Profile"
     },
     {
       title: "Interactive Face Liveness",
@@ -30,11 +35,6 @@ const RELEASE_NOTES: { version: string; title: string; highlights: ReleaseFeatur
       title: "Ghana Telecom MoMo Guard",
       description: "Automatic network prefix validation prevents failed payouts by verifying MTN, Telecel, and AT numbers accurately.",
       badge: "Payouts"
-    },
-    {
-      title: "Ghana 16-Region Smart Selector",
-      description: "Smart city-to-region auto-detector helps you configure your coverage territory and emergency guarantor swiftly.",
-      badge: "Profile"
     }
   ]
 };
@@ -46,13 +46,20 @@ export const AppUpdateModal: React.FC = () => {
   useEffect(() => {
     try {
       const lastVersion = localStorage.getItem(STORAGE_KEY);
+      const isAlreadySeen = localStorage.getItem(`clickflicks_pro_modal_viewed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`) === 'true' ||
+                            localStorage.getItem(`clickflicks_pro_modal_dismissed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`) === 'true';
+
       if (!lastVersion) {
         // Initial first install / launch: register current version without popping update modal
         localStorage.setItem(STORAGE_KEY, CURRENT_PHOTOGRAPHER_APP_VERSION);
-      } else if (lastVersion !== CURRENT_PHOTOGRAPHER_APP_VERSION) {
+        localStorage.setItem(`clickflicks_pro_modal_viewed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`, 'true');
+      } else if (lastVersion !== CURRENT_PHOTOGRAPHER_APP_VERSION && !isAlreadySeen) {
         // App was silently updated in the background - show once
         setPreviousVersion(lastVersion);
         setIsOpen(true);
+        // Persist viewed state immediately so closing app or reopening doesn't re-trigger it
+        localStorage.setItem(`clickflicks_pro_modal_viewed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`, 'true');
+        localStorage.setItem(STORAGE_KEY, CURRENT_PHOTOGRAPHER_APP_VERSION);
       }
     } catch {
       // LocalStorage restricted
@@ -62,6 +69,8 @@ export const AppUpdateModal: React.FC = () => {
   const handleDismiss = () => {
     try {
       localStorage.setItem(STORAGE_KEY, CURRENT_PHOTOGRAPHER_APP_VERSION);
+      localStorage.setItem(`clickflicks_pro_modal_dismissed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`, 'true');
+      localStorage.setItem(`clickflicks_pro_modal_viewed_${CURRENT_PHOTOGRAPHER_APP_VERSION}`, 'true');
     } catch {
       // Ignore
     }

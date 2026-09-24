@@ -99,7 +99,7 @@ async function main() {
       releaseDate: new Date().toISOString().split('T')[0],
       users: 0,
       forceUpdate: false,
-      softUpdate: true,
+      softUpdate: false,
       releaseNotes,
       storeUrl: targetApp === 'client' 
         ? 'https://play.google.com/store/apps/details?id=com.clickflicks.app'

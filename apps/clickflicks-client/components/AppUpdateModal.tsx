@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './ui/icons';
 
 // Increment this version string whenever releasing updates to notify users once
-export const CURRENT_CLIENT_APP_VERSION = '1.2.1';
+export const CURRENT_CLIENT_APP_VERSION = '1.2.3';
 const STORAGE_KEY = 'clickflicks_client_last_version';
 
 interface ReleaseFeature {
@@ -46,13 +46,20 @@ export const AppUpdateModal: React.FC = () => {
   useEffect(() => {
     try {
       const lastVersion = localStorage.getItem(STORAGE_KEY);
+      const isAlreadySeen = localStorage.getItem(`clickflicks_client_modal_viewed_${CURRENT_CLIENT_APP_VERSION}`) === 'true' ||
+                            localStorage.getItem(`clickflicks_client_modal_dismissed_${CURRENT_CLIENT_APP_VERSION}`) === 'true';
+
       if (!lastVersion) {
         // Initial first install / launch: register current version without popping update modal
         localStorage.setItem(STORAGE_KEY, CURRENT_CLIENT_APP_VERSION);
-      } else if (lastVersion !== CURRENT_CLIENT_APP_VERSION) {
+        localStorage.setItem(`clickflicks_client_modal_viewed_${CURRENT_CLIENT_APP_VERSION}`, 'true');
+      } else if (lastVersion !== CURRENT_CLIENT_APP_VERSION && !isAlreadySeen) {
         // App was silently updated in the background - show once
         setPreviousVersion(lastVersion);
         setIsOpen(true);
+        // Persist viewed state immediately so closing app or reopening doesn't re-trigger it
+        localStorage.setItem(`clickflicks_client_modal_viewed_${CURRENT_CLIENT_APP_VERSION}`, 'true');
+        localStorage.setItem(STORAGE_KEY, CURRENT_CLIENT_APP_VERSION);
       }
     } catch {
       // LocalStorage access restricted (e.g. incognito)
@@ -62,6 +69,8 @@ export const AppUpdateModal: React.FC = () => {
   const handleDismiss = () => {
     try {
       localStorage.setItem(STORAGE_KEY, CURRENT_CLIENT_APP_VERSION);
+      localStorage.setItem(`clickflicks_client_modal_dismissed_${CURRENT_CLIENT_APP_VERSION}`, 'true');
+      localStorage.setItem(`clickflicks_client_modal_viewed_${CURRENT_CLIENT_APP_VERSION}`, 'true');
     } catch {
       // Ignore
     }

@@ -961,6 +961,30 @@ export const getMobilePublicConfig = async (req: Request, res: Response) => {
       return true;
     });
 
+    // Helper to compare semantic versions: returns true if v1 < v2
+    const isVersionLessThan = (v1: string, v2: string): boolean => {
+      try {
+        const p1 = (v1 || '0').split('.').map(x => parseInt(x, 10) || 0);
+        const p2 = (v2 || '0').split('.').map(x => parseInt(x, 10) || 0);
+        const len = Math.max(p1.length, p2.length);
+        for (let i = 0; i < len; i++) {
+          const num1 = p1[i] || 0;
+          const num2 = p2[i] || 0;
+          if (num1 < num2) return true;
+          if (num1 > num2) return false;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    };
+
+    const hasNewerVersion = isVersionLessThan(clientVersion, matchedVersion.version);
+    const belowMinRequired = isVersionLessThan(clientVersion, matchedVersion.minRequired);
+
+    const shouldForceUpdate = hasNewerVersion && Boolean(matchedVersion.forceUpdate) && belowMinRequired;
+    const shouldSoftUpdate = hasNewerVersion && !shouldForceUpdate && Boolean(matchedVersion.softUpdate);
+
     return res.json({
       success: true,
       data: {
@@ -969,8 +993,8 @@ export const getMobilePublicConfig = async (req: Request, res: Response) => {
           currentVersion: clientVersion,
           latestVersion: matchedVersion.version,
           minRequired: matchedVersion.minRequired,
-          forceUpdate: matchedVersion.forceUpdate,
-          softUpdate: matchedVersion.softUpdate,
+          forceUpdate: shouldForceUpdate,
+          softUpdate: shouldSoftUpdate,
           releaseNotes: matchedVersion.releaseNotes,
           storeUrl: matchedVersion.storeUrl || 'https://clickflicks.com/download'
         },
