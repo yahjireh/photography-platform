@@ -49,9 +49,6 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       bio,
       services,
       equipmentList,
-      yearsExperience,
-      hourlyRate,
-      dayRate,
       portfolioWebsite,
       instagramHandle,
       service_area,
@@ -64,6 +61,15 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       emergency_contact_phone,
       emergencyContactPhone
     } = req.body;
+
+    const rawHourly = req.body.hourlyRate !== undefined ? req.body.hourlyRate : req.body.hourly_rate;
+    const hourlyRate = rawHourly !== undefined && rawHourly !== null && rawHourly !== '' ? Number(rawHourly) : undefined;
+
+    const rawDay = req.body.dayRate !== undefined ? req.body.dayRate : req.body.day_rate;
+    const dayRate = rawDay !== undefined && rawDay !== null && rawDay !== '' ? Number(rawDay) : undefined;
+
+    const rawYears = req.body.yearsExperience !== undefined ? req.body.yearsExperience : req.body.years_experience;
+    const yearsExperience = rawYears !== undefined && rawYears !== null && rawYears !== '' ? Number(rawYears) : undefined;
     
     // Validate services array if provided
     if (services && !Array.isArray(services)) {
@@ -84,7 +90,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
     }
     
     // Validate numeric fields
-    if (yearsExperience !== undefined && (yearsExperience < 0 || yearsExperience > 100)) {
+    if (yearsExperience !== undefined && (isNaN(yearsExperience) || yearsExperience < 0 || yearsExperience > 100)) {
       res.status(400).json({
         success: false,
         message: 'Years of experience must be between 0 and 100'
@@ -92,7 +98,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       return;
     }
     
-    if (hourlyRate !== undefined && hourlyRate < 0) {
+    if (hourlyRate !== undefined && (isNaN(hourlyRate) || hourlyRate < 0)) {
       res.status(400).json({
         success: false,
         message: 'Hourly rate cannot be negative'
@@ -100,7 +106,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       return;
     }
     
-    if (dayRate !== undefined && dayRate < 0) {
+    if (dayRate !== undefined && (isNaN(dayRate) || dayRate < 0)) {
       res.status(400).json({
         success: false,
         message: 'Day rate cannot be negative'

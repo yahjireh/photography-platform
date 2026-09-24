@@ -1,7 +1,5 @@
-/**
- * Storage Configuration
- * Handles both local storage (development) and Cloudflare R2 (production)
- */
+import dotenv from 'dotenv';
+dotenv.config();
 
 export const STORAGE_CONFIG = {
   // Storage mode: 'local' or 'r2'
@@ -12,7 +10,9 @@ export const STORAGE_CONFIG = {
     uploadsDir: process.env.UPLOADS_DIR || './uploads',
     photosDir: process.env.PHOTOS_DIR || './uploads/photos',
     thumbnailsDir: process.env.THUMBNAILS_DIR || './uploads/thumbnails',
-    baseUrl: process.env.LOCAL_STORAGE_URL || 'http://localhost:3000/uploads'
+    baseUrl: (process.env.NODE_ENV === 'production' && process.env.LOCAL_STORAGE_URL?.includes('localhost'))
+      ? (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/uploads` : 'https://clickflicks-api.onrender.com/uploads')
+      : (process.env.LOCAL_STORAGE_URL || (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/uploads` : 'https://clickflicks-api.onrender.com/uploads'))
   },
   
   // Cloudflare R2 settings (S3-compatible)

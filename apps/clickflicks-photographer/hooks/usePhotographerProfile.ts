@@ -165,6 +165,7 @@ export const usePhotographerProfile = () => {
     fetchProfile,
     updateProfile,
     updateUserProfile,
+    updateUser,
     addPortfolio,
     deletePortfolio
   };

@@ -634,25 +634,16 @@ const AppContent: React.FC = () => {
               )}
 
               <div className="flex flex-col gap-2">
+                {/* Note: Update Now button hidden until app is published to Play Store / App Store */}
                 <button
                   onClick={() => {
-                    window.open(updateNotice.storeUrl || 'https://clickflicks.com', '_blank');
+                    localStorage.setItem(`clickflicks_update_dismissed_${updateNotice.latestVersion}`, 'true');
+                    setUpdateNotice(null);
                   }}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold text-sm shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                  className="w-full py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-sm transition-all active:scale-95"
                 >
-                  Update Now
+                  Dismiss
                 </button>
-                {!updateNotice.forceUpdate && (
-                  <button
-                    onClick={() => {
-                      localStorage.setItem(`clickflicks_update_dismissed_${updateNotice.latestVersion}`, 'true');
-                      setUpdateNotice(null);
-                    }}
-                    className="w-full py-2 text-xs text-neutral-400 hover:text-neutral-200"
-                  >
-                    Remind Me Later
-                  </button>
-                )}
               </div>
             </motion.div>
           </motion.div>

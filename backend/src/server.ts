@@ -233,11 +233,10 @@ try {
  * 
  * This only works in local mode. In production with R2, files are served from Cloudflare.
  */
-if (process.env.STORAGE_MODE === 'local') {
-  const uploadsPath = path.join(__dirname, '..', process.env.UPLOADS_DIR || 'uploads');
-  app.use('/uploads', express.static(uploadsPath));
-  console.log(`📁 Serving static files from: ${uploadsPath}`);
-}
+// Always serve static uploads so local files and graceful fallback files are immediately accessible
+const uploadsPath = path.join(__dirname, '..', process.env.UPLOADS_DIR || 'uploads');
+app.use('/uploads', express.static(uploadsPath));
+console.log(`📁 Serving static files from: ${uploadsPath}`);
 
 try {
   validateEmailConfig();

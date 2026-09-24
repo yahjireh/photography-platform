@@ -94,16 +94,72 @@ const CITY_TO_REGION_MAP: Record<string, string> = {
   atebubu: 'Bono East',
   goaso: 'Ahafo',
   mim: 'Ahafo',
-  kenyasi: 'Ahafo'
+};
+
+const compressImage = (file: File, maxWidth: number = 500, maxHeight: number = 500, quality: number = 0.85): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(reader.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 };
 
 const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNavigateKYC, kycStatus }) => {
-  const { profile, updateProfile, updateUserProfile, addPortfolio, deletePortfolio, user } = usePhotographerProfile();
+  const { profile, updateProfile, updateUserProfile, updateUser, addPortfolio, deletePortfolio, user } = usePhotographerProfile();
   
-  // Rates state
-  const [hourlyRate, setHourlyRate] = useState<number>(profile?.hourly_rate ? Number(profile.hourly_rate) : 350);
-  const [dayRate, setDayRate] = useState<number>(profile?.day_rate ? Number(profile.day_rate) : 2500);
+  // Rates state with localStorage cache fallback
+  const [hourlyRate, setHourlyRate] = useState<number>(() => {
+    if (profile?.hourly_rate != null) return Number(profile.hourly_rate);
+    try {
+      const uId = user?.id || (typeof window !== 'undefined' ? localStorage.getItem('clickflicks_photographer_user_id') : null);
+      const stored = uId ? localStorage.getItem(`clickflicks_rates_${uId}`) : null;
+      if (stored) return JSON.parse(stored).hourlyRate ?? 350;
+    } catch (_) {}
+    return 350;
+  });
+  const [dayRate, setDayRate] = useState<number>(() => {
+    if (profile?.day_rate != null) return Number(profile.day_rate);
+    try {
+      const uId = user?.id || (typeof window !== 'undefined' ? localStorage.getItem('clickflicks_photographer_user_id') : null);
+      const stored = uId ? localStorage.getItem(`clickflicks_rates_${uId}`) : null;
+      if (stored) return JSON.parse(stored).dayRate ?? 2500;
+    } catch (_) {}
+    return 2500;
+  });
   const [isEditingRate, setIsEditingRate] = useState(false);
+  const [rateSavedToast, setRateSavedToast] = useState(false);
 
   // Bio & Vision state
   const [bioText, setBioText] = useState<string>(profile?.bio || '');
@@ -276,10 +332,24 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
   useEffect(() => {
     if (profile?.hourly_rate != null) {
-      setHourlyRate(Number(profile.hourly_rate));
+      const hRate = Number(profile.hourly_rate);
+      setHourlyRate(hRate);
+      if (user?.id) {
+        try {
+          const current = JSON.parse(localStorage.getItem(`clickflicks_rates_${user.id}`) || '{}');
+          localStorage.setItem(`clickflicks_rates_${user.id}`, JSON.stringify({ ...current, hourlyRate: hRate }));
+        } catch (_) {}
+      }
     }
     if (profile?.day_rate != null) {
-      setDayRate(Number(profile.day_rate));
+      const dRate = Number(profile.day_rate);
+      setDayRate(dRate);
+      if (user?.id) {
+        try {
+          const current = JSON.parse(localStorage.getItem(`clickflicks_rates_${user.id}`) || '{}');
+          localStorage.setItem(`clickflicks_rates_${user.id}`, JSON.stringify({ ...current, dayRate: dRate }));
+        } catch (_) {}
+      }
     }
     if (profile?.bio) {
       setBioText(profile.bio);
@@ -386,9 +456,18 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const handleSaveRate = async () => {
     if (isEditingRate) {
       try {
-        await updateProfile({ hourlyRate, dayRate });
-      } catch (err) {
+        if (user?.id) {
+          localStorage.setItem(`clickflicks_rates_${user.id}`, JSON.stringify({
+            hourlyRate: Number(hourlyRate),
+            dayRate: Number(dayRate)
+          }));
+        }
+        await updateProfile({ hourlyRate: Number(hourlyRate), dayRate: Number(dayRate) });
+        setRateSavedToast(true);
+        setTimeout(() => setRateSavedToast(false), 3000);
+      } catch (err: any) {
         console.error('Rate update error:', err);
+        alert(err?.response?.data?.message || err?.message || 'Failed to update rates on server. Rates saved locally on your device.');
       }
       setIsEditingRate(false);
     } else {
@@ -547,20 +626,20 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUpdatingAvatar(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      if (typeof reader.result === 'string') {
-        try {
-          await updateUserProfile({ profileImageUrl: reader.result });
-        } catch (err) {
-          console.error('Error uploading profile photo:', err);
-        } finally {
-          setIsUpdatingAvatar(false);
-        }
+    try {
+      setIsUpdatingAvatar(true);
+      const compressedDataUrl = await compressImage(file, 500, 500, 0.85);
+      if (updateUser) {
+        updateUser({ profile_image_url: compressedDataUrl });
       }
-    };
-    reader.readAsDataURL(file);
+      await updateUserProfile({ profileImageUrl: compressedDataUrl });
+    } catch (err: any) {
+      console.error('Error uploading profile photo:', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to update profile photo. Please try again.');
+    } finally {
+      setIsUpdatingAvatar(false);
+      e.target.value = '';
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -686,8 +765,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 <span>{userInitials}</span>
               )}
             </div>
-            <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-DEFAULT text-black rounded-full flex items-center justify-center cursor-pointer shadow-md active:scale-95 transition-all">
-              <Icons.Camera size={12} strokeWidth={2.5} />
+            <label className="absolute -bottom-1 -right-1 z-20 w-7 h-7 bg-brand-DEFAULT text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-white active:scale-95 transition-all">
+              <Icons.Camera size={13} strokeWidth={2.5} />
               <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
             </label>
           </div>
@@ -695,6 +774,17 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
         {/* Dynamic Hourly & Daily Pricing Controls */}
         <div className="bg-gray-50 rounded-3xl p-5 border border-gray-100 space-y-4">
+          {rateSavedToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-700 text-xs font-bold flex items-center gap-2"
+            >
+              <Icons.Check size={14} className="text-emerald-600" />
+              <span>Rates updated and saved successfully!</span>
+            </motion.div>
+          )}
+
           <div className="flex justify-between items-center">
             <div>
               <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Hourly Rate</span>
@@ -705,7 +795,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             </div>
             <button 
               onClick={handleSaveRate}
-              className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-900 shadow-sm hover:bg-gray-50 active:scale-95 transition-all"
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm active:scale-95 transition-all ${
+                isEditingRate 
+                  ? 'bg-brand-DEFAULT text-black hover:opacity-90' 
+                  : 'bg-white border border-gray-200 text-gray-900 hover:bg-gray-50'
+              }`}
             >
               {isEditingRate ? 'Save Rates' : 'Edit Rates'}
             </button>
@@ -715,8 +809,22 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 pt-1">
               <div>
                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-                  <span>Hourly Rate Slider</span>
+                  <span>Hourly Rate</span>
                   <span>₵{hourlyRate}/hr</span>
+                </div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">₵</span>
+                    <input 
+                      type="number" 
+                      min="50"
+                      max="10000"
+                      value={hourlyRate || ''} 
+                      onChange={(e) => setHourlyRate(Number(e.target.value) || 0)}
+                      className="w-full bg-white border border-gray-200 rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-gray-900 outline-none focus:border-brand-DEFAULT"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">/ hour</span>
                 </div>
                 <input 
                   type="range" 
@@ -744,10 +852,24 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             </div>
 
             {isEditingRate && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 space-y-2">
                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-                  <span>Daily Rate Slider</span>
+                  <span>Daily Rate</span>
                   <span>₵{dayRate}/day</span>
+                </div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">₵</span>
+                    <input 
+                      type="number" 
+                      min="200"
+                      max="50000"
+                      value={dayRate || ''} 
+                      onChange={(e) => setDayRate(Number(e.target.value) || 0)}
+                      className="w-full bg-white border border-gray-200 rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-gray-900 outline-none focus:border-brand-DEFAULT"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">/ day</span>
                 </div>
                 <input 
                   type="range" 

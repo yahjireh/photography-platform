@@ -55,6 +55,7 @@ interface AuthContextType {
   logout: () => void;
   fetchProfile: () => Promise<void>;
   updatePhotographerProfile: (data: Partial<PhotographerProfile>) => void;
+  updateUser: (data: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -200,6 +201,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPhotographerProfile(prev => prev ? { ...prev, ...data } : null);
   };
 
+  const updateUser = (data: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...data };
+      tokenManager.setUser(updated);
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -212,7 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signup,
         logout,
         fetchProfile,
-        updatePhotographerProfile
+        updatePhotographerProfile,
+        updateUser
       }}
     >
       {children}

@@ -29,86 +29,94 @@ if (STORAGE_CONFIG.mode === 'r2') {
  * Ensure local directories exist
  */
 function ensureLocalDirectories(): void {
-  if (STORAGE_CONFIG.mode === 'local') {
-    [
-      STORAGE_CONFIG.local.uploadsDir,
-      STORAGE_CONFIG.local.photosDir,
-      STORAGE_CONFIG.local.thumbnailsDir
-    ].forEach(dir => {
-      if (!fs.existsSync(dir)) {
+  const dirs = [
+    STORAGE_CONFIG.local.uploadsDir,
+    STORAGE_CONFIG.local.photosDir,
+    STORAGE_CONFIG.local.thumbnailsDir,
+    path.join(STORAGE_CONFIG.local.uploadsDir, 'avatars'),
+    path.join(STORAGE_CONFIG.local.uploadsDir, 'kyc')
+  ];
+
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      try {
         fs.mkdirSync(dir, { recursive: true });
         console.log(`📁 Created directory: ${dir}`);
+      } catch (err: any) {
+        console.warn(`Could not create directory ${dir}:`, err.message);
       }
-    });
-  }
+    }
+  });
 }
 
 // Initialize directories on startup
 ensureLocalDirectories();
 
 /**
+ * Save file locally to disk
+ */
+function saveToLocalDisk(file: Buffer, filename: string, folder: string): string {
+  const folderPath = folder === 'photos' 
+    ? STORAGE_CONFIG.local.photosDir 
+    : folder === 'thumbnails'
+    ? STORAGE_CONFIG.local.thumbnailsDir
+    : path.join(STORAGE_CONFIG.local.uploadsDir, folder);
+  
+  if (!fs.existsSync(folderPath)) {
+    fs.mkdirSync(folderPath, { recursive: true });
+  }
+
+  const filePath = path.join(folderPath, filename);
+  fs.writeFileSync(filePath, file);
+
+  const publicUrl = `${STORAGE_CONFIG.local.baseUrl}/${folder}/${filename}`;
+  console.log(`💾 Saved locally: ${filePath} (${publicUrl})`);
+  return publicUrl;
+}
+
+/**
  * Upload file to storage
  * 
  * @param file - File buffer
  * @param filename - Target filename
- * @param folder - Subfolder ('photos' or 'thumbnails')
+ * @param folder - Subfolder ('photos', 'thumbnails', 'avatars', or 'kyc')
  * @returns Public URL of uploaded file
  */
 export async function uploadFile(
   file: Buffer,
   filename: string,
-  folder: 'photos' | 'thumbnails' | 'avatars' = 'photos'
+  folder: 'photos' | 'thumbnails' | 'avatars' | 'kyc' = 'photos'
 ): Promise<string> {
-  
-  if (STORAGE_CONFIG.mode === 'local') {
-    // LOCAL STORAGE
-    const folderPath = folder === 'photos' 
-      ? STORAGE_CONFIG.local.photosDir 
-      : folder === 'thumbnails'
-      ? STORAGE_CONFIG.local.thumbnailsDir
-      : path.join(STORAGE_CONFIG.local.uploadsDir, 'avatars');
-    
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-
-    const filePath = path.join(folderPath, filename);
-    
-    // Write file to disk
-    fs.writeFileSync(filePath, file);
-    
-    // Return public URL
-    const publicUrl = `${STORAGE_CONFIG.local.baseUrl}/${folder}/${filename}`;
-    
-    console.log(`💾 Saved locally: ${filePath}`);
-    
-    return publicUrl;
-    
+  if (STORAGE_CONFIG.mode === 'local' || !s3Client) {
+    return saveToLocalDisk(file, filename, folder);
   } else {
-    // CLOUDFLARE R2 STORAGE
-    const key = `${folder}/${filename}`;
-    
-    let contentType = 'image/jpeg';
-    const lower = filename.toLowerCase();
-    if (lower.endsWith('.png')) contentType = 'image/png';
-    else if (lower.endsWith('.webp')) contentType = 'image/webp';
-    else if (lower.endsWith('.gif')) contentType = 'image/gif';
+    // CLOUDFLARE R2 STORAGE with graceful fallback
+    try {
+      const key = `${folder}/${filename}`;
+      
+      let contentType = 'image/jpeg';
+      const lower = filename.toLowerCase();
+      if (lower.endsWith('.png')) contentType = 'image/png';
+      else if (lower.endsWith('.webp')) contentType = 'image/webp';
+      else if (lower.endsWith('.gif')) contentType = 'image/gif';
 
-    const command = new PutObjectCommand({
-      Bucket: STORAGE_CONFIG.r2.bucket,
-      Key: key,
-      Body: file,
-      ContentType: contentType
-    });
-    
-    await s3Client!.send(command);
-    
-    // Return public URL
-    const publicUrl = `${STORAGE_CONFIG.r2.publicUrl}/${key}`;
-    
-    console.log(`☁️  Uploaded to R2: ${key}`);
-    
-    return publicUrl;
+      const command = new PutObjectCommand({
+        Bucket: STORAGE_CONFIG.r2.bucket,
+        Key: key,
+        Body: file,
+        ContentType: contentType
+      });
+      
+      await s3Client.send(command);
+      
+      // Return public URL
+      const publicUrl = `${STORAGE_CONFIG.r2.publicUrl}/${key}`;
+      console.log(`☁️  Uploaded to R2: ${key}`);
+      return publicUrl;
+    } catch (r2Err: any) {
+      console.warn(`⚠️ R2 upload failed (${r2Err.message}), falling back to local disk storage...`);
+      return saveToLocalDisk(file, filename, folder);
+    }
   }
 }
 

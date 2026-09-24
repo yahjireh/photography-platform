@@ -72,12 +72,24 @@ export async function updatePhotographerProfile(
    */
   
   // First, find the photographer by userId
-  const photographer = await prisma.photographers.findUnique({
+  let photographer = await prisma.photographers.findUnique({
     where: { user_id: userId }
   });
   
   if (!photographer) {
-    throw new Error('Photographer profile not found');
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    photographer = await prisma.photographers.create({
+      data: {
+        user_id: userId,
+        bio: data.bio || '',
+        services: data.services || [],
+        hourly_rate: data.hourlyRate !== undefined ? Number(data.hourlyRate) : 350,
+        day_rate: data.dayRate !== undefined ? Number(data.dayRate) : 2500
+      }
+    });
   }
   
   /**
@@ -92,8 +104,8 @@ export async function updatePhotographerProfile(
   if (data.services !== undefined) updateData.services = data.services;
   if (data.equipmentList !== undefined) updateData.equipment_list = data.equipmentList;
   if (data.yearsExperience !== undefined) updateData.years_experience = data.yearsExperience;
-  if (data.hourlyRate !== undefined) updateData.hourly_rate = data.hourlyRate;
-  if (data.dayRate !== undefined) updateData.day_rate = data.dayRate;
+  if (data.hourlyRate !== undefined) updateData.hourly_rate = Number(data.hourlyRate);
+  if (data.dayRate !== undefined) updateData.day_rate = Number(data.dayRate);
   if (data.portfolioWebsite !== undefined) updateData.portfolio_website = data.portfolioWebsite;
   if (data.instagramHandle !== undefined) updateData.instagram_handle = data.instagramHandle;
   if (data.service_area !== undefined || data.serviceArea !== undefined) {
@@ -150,7 +162,7 @@ export async function updatePhotographerProfile(
  * @returns Photographer profile with full details
  */
 export async function getOwnPhotographerProfile(userId: string) {
-  const photographer = await prisma.photographers.findUnique({
+  let photographer = await prisma.photographers.findUnique({
     where: { user_id: userId },
     include: {
       users: {
@@ -181,7 +193,46 @@ export async function getOwnPhotographerProfile(userId: string) {
   });
   
   if (!photographer) {
-    throw new Error('Photographer profile not found');
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (user && user.user_type === 'PHOTOGRAPHER') {
+      photographer = await prisma.photographers.create({
+        data: {
+          user_id: userId,
+          bio: '',
+          services: [],
+          hourly_rate: 350,
+          day_rate: 2500
+        },
+        include: {
+          users: {
+            select: {
+              id: true,
+              email: true,
+              first_name: true,
+              last_name: true,
+              phone_number: true,
+              profile_image_url: true,
+              location_city: true,
+              location_country: true,
+              is_verified: true,
+              created_at: true
+            }
+          },
+          subscriptions: true,
+          portfolio_items: {
+            orderBy: [
+              { is_featured: 'desc' },
+              { display_order: 'asc' },
+              { created_at: 'desc' }
+            ]
+          },
+          paystack_subaccounts: true,
+          photographer_kyc: true
+        }
+      });
+    } else {
+      throw new Error('Photographer profile not found');
+    }
   }
   
   return photographer;
