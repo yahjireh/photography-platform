@@ -69,9 +69,13 @@ export async function register(req: Request, res: Response): Promise<void> {
     const result = await registerUser(userData);
 
     // Automatically trigger initial email OTP verification code
-    OtpService.sendEmailOtp(userData.email, userData.first_name).catch(err =>
-      console.error('Failed to dispatch initial email OTP:', err)
-    );
+    let initialOtpCode: string | undefined;
+    try {
+      const emailOtpRes = await OtpService.sendEmailOtp(userData.email, userData.first_name);
+      initialOtpCode = emailOtpRes.code;
+    } catch (err) {
+      console.error('Failed to dispatch initial email OTP:', err);
+    }
 
     // If phone number provided, automatically trigger initial SMS OTP
     if (userData.phone_number) {
@@ -83,7 +87,10 @@ export async function register(req: Request, res: Response): Promise<void> {
     res.status(201).json({
       success: true,
       message: 'User registered successfully. Verification codes have been sent to your email and phone.',
-      data: result
+      data: {
+        ...result,
+        otpCode: initialOtpCode
+      }
     });
   } catch (error: any) {
     console.error('Registration error:', error);

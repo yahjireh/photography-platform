@@ -9,6 +9,16 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+
+// Ensure environment variables from backend/.env are loaded for Prisma
+try {
+  require(path.join(__dirname, '..', 'backend', 'node_modules', 'dotenv')).config({
+    path: path.join(__dirname, '..', 'backend', '.env')
+  });
+} catch {
+  // Ignore if dotenv cannot be loaded
+}
+
 const { PrismaClient } = require(path.join(__dirname, '..', 'backend', 'node_modules', '@prisma', 'client'));
 
 const prisma = new PrismaClient();
@@ -63,52 +73,56 @@ async function main() {
 
   // 4. Register with Admin Dashboard under Mobile App Management
   console.log(`\n📊 [4/4] Syncing version with Admin Dashboard database...`);
-  const row = await prisma.system_settings.findUnique({
-    where: { key: 'mobile_app_versions' }
-  });
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'mobile_app_versions' }
+    });
 
-  let currentList = [];
-  if (row && Array.isArray(row.value)) {
-    currentList = row.value;
+    let currentList = [];
+    if (row && Array.isArray(row.value)) {
+      currentList = row.value;
+    }
+
+    const existingIdx = currentList.findIndex(
+      v => (v.platform || '').toLowerCase() === platform.toLowerCase() && v.appId === appId
+    );
+
+    const versionRecord = {
+      id: `${targetApp}_${platform.toLowerCase()}_${Date.now()}`,
+      appId,
+      appName: targetApp === 'client' ? 'ClickFlicks Client' : 'ClickFlicks Photographer',
+      platform: platform === 'iOS' ? 'iOS' : 'Android',
+      version: versionToDeploy,
+      buildNumber: `${Date.now()}`.slice(-4),
+      minRequired: versionToDeploy,
+      status: 'live',
+      releaseDate: new Date().toISOString().split('T')[0],
+      users: 0,
+      forceUpdate: false,
+      softUpdate: true,
+      releaseNotes,
+      storeUrl: targetApp === 'client' 
+        ? 'https://play.google.com/store/apps/details?id=com.clickflicks.app'
+        : 'https://play.google.com/store/apps/details?id=com.clickflicks.photographer'
+    };
+
+    if (existingIdx >= 0) {
+      currentList[existingIdx] = { ...currentList[existingIdx], ...versionRecord };
+    } else {
+      currentList.unshift(versionRecord);
+    }
+
+    await prisma.system_settings.upsert({
+      where: { key: 'mobile_app_versions' },
+      update: { value: currentList },
+      create: { key: 'mobile_app_versions', value: currentList }
+    });
+
+    console.log(`\n🎉 Release v${versionToDeploy} successfully registered in Admin Dashboard!`);
+    console.log(`View live at: Photography Admin -> Mobile App Management -> Versions`);
+  } catch (err) {
+    console.warn(`⚠️ Warning: Could not sync version to database:`, err.message);
   }
-
-  const existingIdx = currentList.findIndex(
-    v => (v.platform || '').toLowerCase() === platform.toLowerCase() && v.appId === appId
-  );
-
-  const versionRecord = {
-    id: `${targetApp}_${platform.toLowerCase()}_${Date.now()}`,
-    appId,
-    appName: targetApp === 'client' ? 'ClickFlicks Client' : 'ClickFlicks Photographer',
-    platform: platform === 'iOS' ? 'iOS' : 'Android',
-    version: versionToDeploy,
-    buildNumber: `${Date.now()}`.slice(-4),
-    minRequired: versionToDeploy,
-    status: 'live',
-    releaseDate: new Date().toISOString().split('T')[0],
-    users: 0,
-    forceUpdate: false,
-    softUpdate: true,
-    releaseNotes,
-    storeUrl: targetApp === 'client' 
-      ? 'https://play.google.com/store/apps/details?id=com.clickflicks.app'
-      : 'https://play.google.com/store/apps/details?id=com.clickflicks.photographer'
-  };
-
-  if (existingIdx >= 0) {
-    currentList[existingIdx] = { ...currentList[existingIdx], ...versionRecord };
-  } else {
-    currentList.unshift(versionRecord);
-  }
-
-  await prisma.system_settings.upsert({
-    where: { key: 'mobile_app_versions' },
-    update: { value: currentList },
-    create: { key: 'mobile_app_versions', value: currentList }
-  });
-
-  console.log(`\n🎉 Release v${versionToDeploy} successfully registered in Admin Dashboard!`);
-  console.log(`View live at: Photography Admin -> Mobile App Management -> Versions`);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

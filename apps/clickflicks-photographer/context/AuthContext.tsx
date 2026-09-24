@@ -174,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tokenManager.setToken(authToken);
         tokenManager.setUser(authUser);
         await fetchProfile();
+        return res.data;
       } else {
         throw new Error(res.data?.message || 'Registration failed');
       }

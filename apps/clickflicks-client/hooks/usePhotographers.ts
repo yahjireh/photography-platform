@@ -34,8 +34,16 @@ export const mapBackendToPhotographer = (item: any): Photographer => {
   const user = item.users || {};
   const portfolio = (item.portfolio_items || []).map((p: any) => p.image_url || p.url || p.thumbnail_url).filter(Boolean);
   const featuredImage = portfolio[0] || user.profile_image_url || null;
-  const hourly = item.hourly_rate != null && !isNaN(Number(item.hourly_rate)) && Number(item.hourly_rate) > 0 ? Number(item.hourly_rate) : null;
+  const rawPackages = Array.isArray(item.packages) ? item.packages : [];
+  const packagePrices = rawPackages
+    .map((p: any) => Number(p.price))
+    .filter((n: number) => !isNaN(n) && n > 0);
+  const minPackagePrice = packagePrices.length > 0 ? Math.min(...packagePrices) : null;
+
+  const rawHourly = item.hourly_rate != null && !isNaN(Number(item.hourly_rate)) && Number(item.hourly_rate) > 0 ? Number(item.hourly_rate) : null;
   const dayRate = item.day_rate != null && !isNaN(Number(item.day_rate)) && Number(item.day_rate) > 0 ? Number(item.day_rate) : null;
+  const hourly = rawHourly || minPackagePrice || null;
+  const startingPrice = minPackagePrice || hourly || dayRate || null;
 
   const rawServices = Array.isArray(item.services) ? item.services : [];
   const primaryCategory = rawServices.length > 0 
@@ -57,7 +65,7 @@ export const mapBackendToPhotographer = (item: any): Photographer => {
     reviewCount: totalBookings,
     reviewsCount: totalBookings,
     hourlyRate: hourly,
-    startingPrice: hourly,
+    startingPrice: startingPrice,
     dayRate: dayRate,
     priceUnit: 'hr',
     location: user.location_city ? `${user.location_city}, ${user.location_country || 'Ghana'}` : (user.location_country || 'Ghana'),
@@ -70,8 +78,10 @@ export const mapBackendToPhotographer = (item: any): Photographer => {
     about: bioText || null,
     bio: bioText || null,
     tags: rawServices.length > 0 ? rawServices.map((s: string) => s.replace('_', ' ')) : [],
+    services: rawServices,
     portfolio: portfolio,
-    gear: Array.isArray(item.equipment_list) && item.equipment_list.length > 0 ? item.equipment_list : []
+    gear: Array.isArray(item.equipment_list) && item.equipment_list.length > 0 ? item.equipment_list : [],
+    packages: rawPackages
   };
 };
 

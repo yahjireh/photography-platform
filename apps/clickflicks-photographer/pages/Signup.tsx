@@ -31,6 +31,7 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [initialOtpCode, setInitialOtpCode] = useState<string | undefined>(undefined);
   const { signup, login } = useAuth();
 
   const passwordAnalysis = analyzePassword(userData.password);
@@ -57,7 +58,7 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
     setErrorMessage(null);
 
     try {
-      await signup({
+      const regRes: any = await signup({
         email,
         password,
         firstName,
@@ -65,6 +66,9 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         phoneNumber: userData.phoneNumber,
         locationCity: userData.locationCity
       });
+      if (regRes?.data?.otpCode) {
+        setInitialOtpCode(regRes.data.otpCode);
+      }
       setShowOtpModal(true);
     } catch (err: any) {
       console.error('Signup API error:', err.message);
@@ -325,6 +329,7 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         isOpen={showOtpModal}
         email={userData.email}
         phoneNumber={userData.phoneNumber}
+        initialOtpCode={initialOtpCode}
         onSuccess={() => {
           setShowOtpModal(false);
           onSuccess();

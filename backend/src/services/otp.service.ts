@@ -91,8 +91,12 @@ export async function sendEmailOtp(email: string, firstName?: string): Promise<{
         </div>
       `;
 
+      // If sending to the registered Resend account owner, route via onboarding@resend.dev directly
+      const isOwnerAccount = cleanEmail.toLowerCase() === 'kwadwodee@outlook.com';
+      const initialFrom = isOwnerAccount ? 'ClickFlicks <onboarding@resend.dev>' : primaryFrom;
+
       let sendResult = await resendClient.emails.send({
-        from: primaryFrom,
+        from: initialFrom,
         to: cleanEmail,
         subject: `${code} is your ClickFlicks verification code`,
         html: htmlBody
@@ -101,7 +105,7 @@ export async function sendEmailOtp(email: string, firstName?: string): Promise<{
       // If custom domain failed (e.g. domain not yet verified in Resend dashboard), fallback to Resend's verified test domain
       if (sendResult.error) {
         console.warn('⚠️ Resend primary sender error:', sendResult.error.message);
-        if (primaryFrom !== 'ClickFlicks <onboarding@resend.dev>') {
+        if (initialFrom !== 'ClickFlicks <onboarding@resend.dev>') {
           console.log('🔄 Attempting fallback delivery via onboarding@resend.dev...');
           sendResult = await resendClient.emails.send({
             from: 'ClickFlicks <onboarding@resend.dev>',
@@ -110,7 +114,12 @@ export async function sendEmailOtp(email: string, firstName?: string): Promise<{
             html: htmlBody
           });
           if (sendResult.error) {
-            console.warn('⚠️ Resend fallback error:', sendResult.error.message);
+            console.warn('⚠️ Resend delivery failed (domain verification pending):', sendResult.error.message);
+            console.log(`\n======================================================`);
+            console.log(`📢 [LOCAL/SANDBOX OTP CODE]: ${code}`);
+            console.log(`📧 Recipient: ${cleanEmail}`);
+            console.log(`ℹ️ Add & verify domain clickflicks.com at https://resend.com/domains`);
+            console.log(`======================================================\n`);
           } else {
             console.log(`✅ [EMAIL DISPATCHED via fallback] ID: ${sendResult.data?.id}`);
           }

@@ -3674,6 +3674,72 @@ export const makeKYCDecision = async (req: Request, res: Response) => {
       }
     });
 
+    // 1. Dispatch real in-app notification directly to photographer
+    const decisionTitles: Record<string, string> = {
+      approve: '🎉 Verification Approved',
+      reject: '⚠️ Verification Update',
+      request_more_info: '📋 Additional Info Required for KYC',
+      suspend: '⛔ Account Verification Suspended'
+    };
+    const notificationTitle = decisionTitles[action] || 'KYC Verification Update';
+    const notificationMessage = decision_notes?.trim()
+      ? decision_notes.trim()
+      : (action === 'approve'
+          ? 'Your KYC documents have been reviewed and approved. Your studio is now fully verified!'
+          : action === 'reject'
+          ? 'Your KYC submission was reviewed and rejected. Please update your details and re-submit.'
+          : 'Please update your verification details according to curator review.');
+
+    if (photographer.user_id) {
+      try {
+        await prisma.notifications.create({
+          data: {
+            user_id: photographer.user_id,
+            type: 'MESSAGE_RECEIVED',
+            title: notificationTitle,
+            message: notificationMessage,
+            data: {
+              type: 'KYC_DECISION',
+              action,
+              decision_notes: decision_notes || null,
+              reviewed_at: now.toISOString()
+            }
+          }
+        });
+      } catch (notifErr) {
+        console.warn('Could not persist KYC notification:', notifErr);
+      }
+    }
+
+    // 2. Dispatch targeted mobile in-app message for instant popup/banner on photographer app open
+    try {
+      const inAppRow = await prisma.system_settings.findUnique({
+        where: { key: 'mobile_in_app_messages' }
+      });
+      const inAppList = inAppRow && Array.isArray(inAppRow.value) ? (inAppRow.value as any[]) : [];
+      inAppList.unshift({
+        id: `kyc_notice_${photographer.id}_${Date.now()}`,
+        title: notificationTitle,
+        body: notificationMessage,
+        type: action === 'approve' ? 'Modal' : 'Banner',
+        trigger: 'On App Open',
+        active: true,
+        target: 'photographers',
+        userId: photographer.user_id,
+        createdAt: now.toISOString().split('T')[0],
+        views: 0,
+        clicks: 0,
+        deepLink: action === 'approve' ? 'clickflicks://studio' : 'clickflicks://kyc'
+      });
+      await prisma.system_settings.upsert({
+        where: { key: 'mobile_in_app_messages' },
+        update: { value: inAppList },
+        create: { key: 'mobile_in_app_messages', value: inAppList }
+      });
+    } catch (inAppErr) {
+      console.warn('Could not register KYC in-app message:', inAppErr);
+    }
+
     return res.json({
       success: true,
       data: updatedKYC,
@@ -4304,6 +4370,38 @@ export const sendCommunicationMessage = async (req: Request, res: Response) => {
           data: { broadcast: true, channels }
         }))
       });
+    }
+
+    // 2. Also register into mobile_in_app_messages so it immediately triggers on mobile app open
+    const isInAppSelected = channels.length === 0 || channels.some((c: string) => c.toLowerCase().includes('in-app') || c.toLowerCase() === 'all');
+    if (isInAppSelected) {
+      try {
+        const inAppRow = await prisma.system_settings.findUnique({
+          where: { key: 'mobile_in_app_messages' }
+        });
+        const inAppList = inAppRow && Array.isArray(inAppRow.value) ? (inAppRow.value as any[]) : [];
+        inAppList.unshift({
+          id: `broadcast_${Date.now()}`,
+          title: subject,
+          body: message,
+          type: 'Modal',
+          trigger: 'On App Open',
+          target: target, // 'all' | 'photographers' | 'clients'
+          userId: userId || undefined,
+          active: true,
+          createdAt: new Date().toISOString().split('T')[0],
+          views: 0,
+          clicks: 0,
+          deepLink: target === 'photographers' ? 'clickflicks://studio' : 'clickflicks://explore'
+        });
+        await prisma.system_settings.upsert({
+          where: { key: 'mobile_in_app_messages' },
+          update: { value: inAppList },
+          create: { key: 'mobile_in_app_messages', value: inAppList }
+        });
+      } catch (inAppErr) {
+        console.warn('Could not register announcement in mobile_in_app_messages:', inAppErr);
+      }
     }
 
     // 2. If SMS channel selected, dispatch via Arkesel SMS Gateway

@@ -7,6 +7,7 @@ interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
   phoneNumber?: string;
+  initialOtpCode?: string;
   onSuccess: () => void;
   onClose?: () => void;
 }
@@ -15,6 +16,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   isOpen,
   email,
   phoneNumber,
+  initialOtpCode,
   onSuccess,
   onClose
 }) => {
@@ -25,6 +27,13 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [isResending, setIsResending] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(initialOtpCode || null);
+
+  useEffect(() => {
+    if (initialOtpCode) {
+      setDevCode(initialOtpCode);
+    }
+  }, [initialOtpCode]);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -142,9 +151,15 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
     try {
       if (activeTab === 'email') {
-        await apiClient.post('/auth/otp/send-email', { email });
+        const res = await apiClient.post('/auth/otp/send-email', { email });
+        if (res.data?.code) {
+          setDevCode(res.data.code);
+        }
       } else if (phoneNumber) {
-        await apiClient.post('/auth/otp/send-phone', { phone: phoneNumber });
+        const res = await apiClient.post('/auth/otp/send-phone', { phone: phoneNumber });
+        if (res.data?.code) {
+          setDevCode(res.data.code);
+        }
       }
       setCountdown(60);
       setCode(['', '', '', '', '', '']);
@@ -261,6 +276,22 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   />
                 ))}
               </div>
+
+              {/* Dev / Sandbox Auto-Fill Helper */}
+              {devCode && (
+                <div
+                  onClick={() => {
+                    const digits = devCode.slice(0, 6).split('');
+                    setCode(digits);
+                    setErrorMessage(null);
+                  }}
+                  className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700/50 text-teal-800 dark:text-teal-200 text-[11px] font-bold cursor-pointer hover:bg-teal-100 transition-colors shadow-xs"
+                  title="Click to auto-fill verification code"
+                >
+                  <Icons.Sparkles size={12} className="text-teal-600 dark:text-teal-400" />
+                  <span>Test Code: <strong className="underline tracking-widest">{devCode}</strong> (Tap to fill)</span>
+                </div>
+              )}
 
               {/* Error Message */}
               {errorMessage && (

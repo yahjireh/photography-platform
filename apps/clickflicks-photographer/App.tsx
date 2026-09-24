@@ -22,7 +22,7 @@ import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
 import { apiClient, tokenManager } from './lib/api-client';
 
-const CURRENT_APP_VERSION = '2.4.2';
+const CURRENT_APP_VERSION = '2.5.0';
 
 type FlowState = 'onboarding' | 'auth' | 'kyc' | 'app';
 type AuthMode = 'login' | 'signup';
@@ -565,7 +565,7 @@ const AppContent: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    sessionStorage.setItem(`clickflicks_pro_update_dismissed_${updateNotice.latestVersion}`, 'true');
+                    localStorage.setItem(`clickflicks_pro_update_dismissed_${updateNotice.latestVersion}`, 'true');
                     setUpdateNotice(null);
                   }}
                   className="w-full py-2.5 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
@@ -593,6 +593,19 @@ const AppContent: React.FC = () => {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-sm bg-neutral-900 border border-amber-500/40 rounded-3xl p-6 shadow-2xl text-center"
             >
+              {/* Close X Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('clickflicks_photographer_last_seen_version', CURRENT_APP_VERSION);
+                  setShowNewReleaseModal(false);
+                }}
+                className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                aria-label="Close"
+              >
+                <Icons.X size={18} />
+              </button>
+
               {/* Kente Gold Accent Header */}
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-400/10 border border-amber-500/40 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-lg shadow-amber-500/10">
                 <Icons.Sparkles className="w-8 h-8 animate-pulse" />
@@ -604,50 +617,50 @@ const AppContent: React.FC = () => {
               </div>
 
               <h3 className="text-xl font-bold text-white mb-1.5">
-                What's New in ClickFlicks
+                What's New in ClickFlicks Studio
               </h3>
               <p className="text-xs text-neutral-400 mb-4">
-                Your session is active! Here are the latest updates in this release:
+                Here are the latest tools and upgrades available in your studio:
               </p>
 
-              <div className="p-3.5 bg-neutral-800/80 rounded-2xl border border-neutral-700/60 text-xs text-neutral-300 text-left space-y-2.5 mb-5">
+              <div className="p-3.5 bg-neutral-800/80 rounded-2xl border border-neutral-700/60 text-xs text-neutral-300 text-left space-y-2.5 mb-5 max-h-[260px] overflow-y-auto">
                 <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
                     <Icons.Check className="w-3 h-3" />
                   </div>
                   <div>
-                    <span className="font-bold text-white block">Studio Stability</span>
-                    <span className="text-[11px] text-neutral-400">Fixed studio menu crash and improved tier and profile performance.</span>
+                    <span className="font-bold text-white block">Custom Packages & Flyers</span>
+                    <span className="text-[11px] text-neutral-400">Upload promotional flyers to packages for client preview and easy booking.</span>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
                     <Icons.Check className="w-3 h-3" />
                   </div>
                   <div>
-                    <span className="font-bold text-white block">Continuous Sessions</span>
-                    <span className="text-[11px] text-neutral-400">Applying updates preserves your login session seamlessly.</span>
+                    <span className="font-bold text-white block">Biometric Face Liveness</span>
+                    <span className="text-[11px] text-neutral-400">Interactive 4-step head rotation camera check for expedited admin approval.</span>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
                     <Icons.Check className="w-3 h-3" />
                   </div>
                   <div>
-                    <span className="font-bold text-white block">Admin KYC Processing</span>
-                    <span className="text-[11px] text-neutral-400">Ghana Card verification status syncs instantly with administrators.</span>
+                    <span className="font-bold text-white block">Ghana Telecom MoMo Guard</span>
+                    <span className="text-[11px] text-neutral-400">Network prefix validator ensures MTN, Telecel, and AT payouts pair correctly.</span>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5">
+                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
                     <Icons.Check className="w-3 h-3" />
                   </div>
                   <div>
-                    <span className="font-bold text-white block">Account Privacy Controls</span>
-                    <span className="text-[11px] text-neutral-400">Self-service permanent account deletion with exit feedback.</span>
+                    <span className="font-bold text-white block">16 Regions & Emergency Contact</span>
+                    <span className="text-[11px] text-neutral-400">Select coverage territory and guarantor details for rapid emergency coordination.</span>
                   </div>
                 </div>
               </div>
@@ -659,7 +672,7 @@ const AppContent: React.FC = () => {
                 }}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-sm shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2"
               >
-                <span>Awesome, Continue</span>
+                <span>Explore Studio</span>
                 <Icons.ArrowRight className="w-4 h-4" />
               </button>
             </motion.div>

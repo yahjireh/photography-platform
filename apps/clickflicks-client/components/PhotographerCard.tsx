@@ -137,6 +137,21 @@ const PhotographerCard: React.FC<PhotographerCardProps> = ({
                   <span className="text-[10px] font-sans font-medium text-gray-500 ml-0.5">/hr</span>
                 </p>
              </div>
+          ) : hasStartingPrice ? (
+             <div className="flex flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Starting From</span>
+                <p className="text-gray-900 font-serif font-black text-lg leading-none">
+                  ₵{data.startingPrice}
+                </p>
+             </div>
+          ) : hasDayRate ? (
+             <div className="flex flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Day Rate</span>
+                <p className="text-gray-900 font-serif font-black text-lg leading-none">
+                  ₵{data.dayRate}
+                  <span className="text-[10px] font-sans font-medium text-gray-500 ml-0.5">/day</span>
+                </p>
+             </div>
           ) : (
              <div className="flex flex-col">
                 <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Rate</span>

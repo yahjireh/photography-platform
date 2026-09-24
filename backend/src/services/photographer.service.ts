@@ -342,6 +342,14 @@ export async function searchPhotographers(filters: {
           tier: true,
           featured_listing_weight: true
         }
+      },
+      packages: {
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          occasion_type: true
+        }
       }
     },
     orderBy: [

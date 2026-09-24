@@ -47,7 +47,7 @@ export class MobileConfigService {
 
     try {
       // 1. Fetch live config from backend
-      const res = await apiClient.get<any>(`/mobile/config?platform=${platform.toLowerCase()}&version=${appVersion}`);
+      const res = await apiClient.get<any>(`/mobile/config?platform=${platform.toLowerCase()}&version=${appVersion}&app=photographer&appId=com.clickflicks.photographer`);
       if (res.data?.success && res.data?.data) {
         this.config = res.data.data;
         localStorage.setItem('clickflicks_photographer_mobile_flags', JSON.stringify(this.config.featureFlags || {}));

@@ -117,9 +117,11 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
   const totalSteps = 7;
   const [verificationStatus, setVerificationStatus] = useState<string>('PENDING');
   const [isLoadingExisting, setIsLoadingExisting] = useState(true);
+  const [curatorNotes, setCuratorNotes] = useState<string | null>(null);
+  const [kycStatusBadge, setKycStatusBadge] = useState<string | null>(null);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const defaultFormData = {
     businessName: '',
     businessType: 'Solo Independent Freelancer',
     registeredCity: 'Accra',
@@ -161,6 +163,21 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
     emergencyContactRelation: 'Guarantor / Next of Kin',
 
     agreedToTerms: false
+  };
+
+  const [formData, setFormData] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const localDraft = localStorage.getItem('clickflicks_photographer_kyc_local_draft');
+        if (localDraft) {
+          const parsed = JSON.parse(localDraft);
+          if (parsed && typeof parsed === 'object') {
+            return { ...defaultFormData, ...parsed };
+          }
+        }
+      } catch (e) {}
+    }
+    return defaultFormData;
   });
 
   // Package Modal Preview State
@@ -229,9 +246,14 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
         setIsLoadingExisting(true);
         const res = await apiClient.get('/photographers/kyc/me');
         if (res.data?.success && res.data?.data && isMounted) {
-          const { photographer, kyc, packages, documents } = res.data.data;
+          const { photographer, kyc, packages } = res.data.data;
+          const documents = Array.isArray(res.data.data.documents)
+            ? res.data.data.documents
+            : (Array.isArray(kyc?.documents) ? kyc.documents : []);
           
           setVerificationStatus(photographer?.verification_status || 'PENDING');
+          setCuratorNotes(kyc?.decision_notes || null);
+          setKycStatusBadge(kyc?.kyc_status || photographer?.verification_status || null);
 
           let frontDoc: string | null = null;
           let backDoc: string | null = null;
@@ -241,50 +263,105 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
             const front = documents.find((d: any) => d.document_type === 'GHANA_CARD_FRONT');
             const back = documents.find((d: any) => d.document_type === 'GHANA_CARD_BACK');
             const video = documents.find((d: any) => d.document_type === 'FACE_VERIFICATION_VIDEO');
-            if (front) frontDoc = front.document_url;
-            if (back) backDoc = back.document_url;
-            if (video) videoDoc = video.document_url;
+            if (front) frontDoc = front.file_url || front.document_url || null;
+            if (back) backDoc = back.file_url || back.document_url || null;
+            if (video) videoDoc = video.file_url || video.document_url || null;
           }
 
-          setFormData(prev => ({
-            ...prev,
-            businessName: photographer?.business_name || prev.businessName,
-            businessType: kyc?.business_type || prev.businessType,
-            registeredCity: photographer?.service_area || photographer?.user?.location_city || prev.registeredCity,
-            region: photographer?.region || prev.region,
-            categories: Array.isArray(photographer?.specialties) && photographer.specialties.length > 0 
-              ? photographer.specialties 
-              : prev.categories,
-            
-            ghanaCardNumber: kyc?.ghana_card_number || prev.ghanaCardNumber,
-            dateOfBirth: kyc?.date_of_birth ? new Date(kyc.date_of_birth).toISOString().split('T')[0] : prev.dateOfBirth,
-            ghanaCardFront: frontDoc || prev.ghanaCardFront,
-            ghanaCardBack: backDoc || prev.ghanaCardBack,
-            faceVerificationVideo: videoDoc || prev.faceVerificationVideo,
+          // Format Date of Birth safely
+          let formattedDob = '';
+          if (kyc?.date_of_birth) {
+            try {
+              const d = new Date(kyc.date_of_birth);
+              if (!isNaN(d.getTime())) {
+                formattedDob = d.toISOString().split('T')[0];
+              }
+            } catch (e) {}
+          }
 
-            packages: Array.isArray(packages) && packages.length > 0
-              ? packages.map((p: any) => ({
-                  id: p.id,
-                  name: p.name,
-                  price: Number(p.price),
-                  deliveryDays: p.delivery_days || 3,
-                  occasionType: p.occasion_type || 'PORTRAIT',
-                  description: p.description || '',
-                  features: Array.isArray(p.features) ? p.features : [],
-                  imageUrl: p.image_url || ''
-                }))
-              : prev.packages,
+          // Format Categories
+          const loadedCategories = (Array.isArray(kyc?.categories) && kyc.categories.length > 0)
+            ? kyc.categories
+            : ((Array.isArray(photographer?.services) && photographer.services.length > 0)
+              ? photographer.services
+              : ((Array.isArray(photographer?.specialties) && photographer.specialties.length > 0)
+                ? photographer.specialties
+                : null));
 
-            yearsExperience: photographer?.years_experience ? `${photographer.years_experience} years` : prev.yearsExperience,
-            portfolioLinks: photographer?.portfolio_website || prev.portfolioLinks,
+          // Format Bank / Payout Method
+          let loadedBank: string | null = null;
+          let loadedAccount: string | null = null;
+          if (kyc?.payout_method === 'MOMO') {
+            if (kyc.momo_network === 'VODAFONE') loadedBank = 'Telecel (Vodafone Cash)';
+            else if (kyc.momo_network === 'AIRTELTIGO') loadedBank = 'AT Money (AirtelTigo)';
+            else loadedBank = 'MTN Mobile Money';
+            loadedAccount = kyc.momo_number || null;
+          } else if (kyc?.payout_method === 'BANK') {
+            loadedBank = kyc.bank_name || 'GCB Bank';
+            loadedAccount = kyc.bank_account_number || null;
+          }
 
-            preferredBank: kyc?.preferred_bank || prev.preferredBank,
-            accountNumber: kyc?.account_number || prev.accountNumber,
-            accountName: kyc?.account_name || prev.accountName,
+          // Format Experience
+          let loadedExperience = photographer?.years_experience ? `${photographer.years_experience} years` : null;
+          if (kyc?.years_experience) {
+            if (kyc.years_experience === 'ZERO_ONE') loadedExperience = '0-1 year';
+            else if (kyc.years_experience === 'TWO_FOUR') loadedExperience = '2-4 years';
+            else if (kyc.years_experience === 'FIVE_NINE') loadedExperience = '3-5 years';
+            else if (kyc.years_experience === 'TEN_PLUS') loadedExperience = '10+ years';
+          }
 
-            emergencyContactName: photographer?.emergency_contact_name || kyc?.emergency_contact_name || prev.emergencyContactName,
-            emergencyContactPhone: photographer?.emergency_contact_phone || kyc?.emergency_contact_phone || prev.emergencyContactPhone
-          }));
+          // Packages
+          const loadedPackages = (Array.isArray(packages) && packages.length > 0)
+            ? packages
+            : (Array.isArray(photographer?.packages) && photographer.packages.length > 0 ? photographer.packages : null);
+
+          setFormData(prev => {
+            const updated = {
+              ...prev,
+              businessName: photographer?.business_name || kyc?.legal_name || prev.businessName,
+              businessType: kyc?.business_type || prev.businessType,
+              registeredCity: kyc?.city || photographer?.service_area || photographer?.user?.location_city || prev.registeredCity,
+              region: kyc?.region || photographer?.region || prev.region,
+              categories: loadedCategories || prev.categories,
+              
+              ghanaCardNumber: kyc?.id_number || kyc?.ghana_card_number || prev.ghanaCardNumber,
+              dateOfBirth: formattedDob || prev.dateOfBirth,
+              ghanaCardFront: frontDoc || prev.ghanaCardFront,
+              ghanaCardBack: backDoc || prev.ghanaCardBack,
+              faceVerificationVideo: videoDoc || prev.faceVerificationVideo,
+
+              packages: loadedPackages
+                ? loadedPackages.map((p: any) => ({
+                    id: p.id,
+                    name: p.name,
+                    price: Number(p.price),
+                    deliveryDays: p.delivery_days || 3,
+                    occasionType: p.occasion_type || 'PORTRAIT',
+                    description: p.description || '',
+                    features: Array.isArray(p.features) ? p.features : [],
+                    imageUrl: p.image_url || ''
+                  }))
+                : prev.packages,
+
+              yearsExperience: loadedExperience || prev.yearsExperience,
+              portfolioLinks: kyc?.portfolio_link || photographer?.portfolio_website || prev.portfolioLinks,
+
+              preferredBank: loadedBank || kyc?.preferred_bank || prev.preferredBank,
+              accountNumber: loadedAccount || kyc?.account_number || prev.accountNumber,
+              accountName: kyc?.account_holder_name || kyc?.account_name || prev.accountName,
+
+              emergencyContactName: kyc?.emergency_contact_name || photographer?.emergency_contact_name || prev.emergencyContactName,
+              emergencyContactPhone: kyc?.emergency_contact_phone || photographer?.emergency_contact_phone || prev.emergencyContactPhone
+            };
+
+            // Immediately persist loaded draft into local storage so offline/future visits have it
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('clickflicks_photographer_kyc_local_draft', JSON.stringify(updated));
+              } catch (e) {}
+            }
+            return updated;
+          });
         }
       } catch (err) {
         console.warn('Could not load existing KYC draft:', err);
@@ -299,6 +376,15 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
       stopCameraStream();
     };
   }, []);
+
+  // Synchronize any form changes to local storage draft so no inputs are ever lost
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isLoadingExisting) {
+      try {
+        localStorage.setItem('clickflicks_photographer_kyc_local_draft', JSON.stringify(formData));
+      } catch (e) {}
+    }
+  }, [formData, isLoadingExisting]);
 
   // Smart City to Region auto-detector
   const handleCityChange = (city: string) => {
@@ -615,13 +701,15 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
           services: formData.categories,
           service_area: formData.registeredCity,
           region: formData.region,
-          portfolioWebsite: formData.portfolioLinks
+          portfolioWebsite: formData.portfolioLinks,
+          emergency_contact_name: formData.emergencyContactName,
+          emergency_contact_phone: formData.emergencyContactPhone
         });
 
         if (typeof window !== 'undefined') {
           localStorage.setItem('clickflicks_photographer_kyc_completed', 'true');
           localStorage.setItem('clickflicks_photographer_kyc_status', 'submitted');
-          localStorage.removeItem('clickflicks_photographer_kyc_local_draft');
+          localStorage.setItem('clickflicks_photographer_kyc_local_draft', JSON.stringify(formData));
         }
 
         onComplete();
@@ -761,6 +849,39 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
             transition={{ duration: 0.3 }}
           />
         </div>
+
+        {/* Admin Curator Review Notes Banner */}
+        {curatorNotes && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200/80 shadow-sm"
+          >
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                <Icons.AlertCircle size={18} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                    Admin Curator Feedback
+                  </span>
+                  {kycStatusBadge && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+                      • {kycStatusBadge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-amber-950 font-medium mt-1.5 leading-relaxed bg-white/70 p-2.5 rounded-xl border border-amber-200/60">
+                  "{curatorNotes}"
+                </p>
+                <p className="text-[10px] text-amber-800/80 font-normal mt-1.5">
+                  Please review the feedback above and update your verification documents or details accordingly.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Title Header */}
         <motion.div 

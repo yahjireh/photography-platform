@@ -588,6 +588,7 @@ export async function getMyKYC(req: Request, res: Response): Promise<void> {
         photographer,
         kyc: photographer.photographer_kyc,
         packages: photographer.packages,
+        documents: photographer.photographer_kyc?.documents || [],
         user: photographer.users
       }
     });
@@ -618,6 +619,7 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       portfolioLinks,
       preferredBank,
       accountNumber,
+      accountName,
       emergencyContactName,
       emergencyContactPhone,
       categories,
@@ -635,6 +637,9 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       photographer = await prisma.photographers.create({
         data: {
           user_id: userId,
+          business_name: businessName || null,
+          service_area: serviceArea || registeredCity || 'Accra',
+          region: region || 'Greater Accra',
           bio: `${businessName || 'Artisan Studio'} • ${businessType || 'Solo Independent'}`,
           verification_status: 'PENDING',
           portfolio_website: portfolioLinks || '',
@@ -648,6 +653,9 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
       photographer = await prisma.photographers.update({
         where: { id: photographer.id },
         data: {
+          business_name: businessName || photographer.business_name,
+          service_area: serviceArea || registeredCity || photographer.service_area,
+          region: region || photographer.region,
           bio: businessName ? `${businessName} • ${businessType || 'Solo Independent'}` : photographer.bio,
           portfolio_website: portfolioLinks || photographer.portfolio_website,
           emergency_contact_name: emergencyContactName || photographer.emergency_contact_name,
@@ -748,6 +756,8 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
         emergency_contact_phone: emergencyContactPhone || undefined,
         portfolio_link: portfolioLinks || undefined,
         categories: (categories && categories.length > 0) ? categories : undefined,
+        legal_name: businessName || undefined,
+        account_holder_name: accountName || undefined,
         payout_method: payoutMethod,
         bank_name: isMomo ? null : preferredBank,
         bank_account_number: isMomo ? null : accountNumber,
@@ -829,6 +839,18 @@ export async function submitKYC(req: Request, res: Response): Promise<void> {
             });
           }
         }
+      }
+
+      // If photographer has packages and no hourly_rate, set hourly_rate to lowest package rate
+      const validPackagePrices = packages
+        .map(p => Number(p.price))
+        .filter(pr => !isNaN(pr) && pr > 0);
+      if (validPackagePrices.length > 0 && (!photographer.hourly_rate || Number(photographer.hourly_rate) <= 0)) {
+        const minPackagePrice = Math.min(...validPackagePrices);
+        await prisma.photographers.update({
+          where: { id: photographer.id },
+          data: { hourly_rate: minPackagePrice }
+        }).catch(() => null);
       }
     }
 

@@ -27,6 +27,7 @@ export interface MobileAppVersion {
   softUpdate: boolean;
   releaseNotes?: string;
   storeUrl?: string;
+  appId?: string;
 }
 
 export const defaultAppVersions: MobileAppVersion[] = [
@@ -931,7 +932,19 @@ export const getMobilePublicConfig = async (req: Request, res: Response) => {
     const messages: MobileInAppMessage[] = messagesRow && Array.isArray(messagesRow.value) ? (messagesRow.value as any) : defaultInAppMessages;
     const abTests: MobileAbTest[] = abTestsRow && Array.isArray(abTestsRow.value) ? (abTestsRow.value as any) : defaultMobileAbTests;
 
-    const matchedVersion = versions.find(v => v.platform.toLowerCase() === clientPlatform.toLowerCase() && v.status === 'live') || versions[0];
+    const clientAppId = (req.query.appId as string) || (req.query.app as string) || '';
+
+    let matchedVersion = versions.find(v => {
+      const matchPlatform = v.platform.toLowerCase() === clientPlatform.toLowerCase();
+      const matchApp = clientAppId 
+        ? (v.appId?.toLowerCase() === clientAppId.toLowerCase() || v.id?.toLowerCase().includes(clientAppId.toLowerCase()))
+        : true;
+      return matchPlatform && matchApp && v.status === 'live';
+    });
+
+    if (!matchedVersion) {
+      matchedVersion = versions.find(v => v.platform.toLowerCase() === clientPlatform.toLowerCase() && v.status === 'live') || versions[0];
+    }
 
     // Convert flags to key-boolean map
     const flagsMap: Record<string, boolean> = {};
@@ -939,8 +952,14 @@ export const getMobilePublicConfig = async (req: Request, res: Response) => {
       flagsMap[f.id] = f.enabled;
     });
 
-    // Active in-app messages only
-    const activeMessages = messages.filter(m => m.active);
+    // Active in-app messages filtered by target audience
+    const isPhotographerApp = clientAppId.toLowerCase().includes('photographer');
+    const activeMessages = messages.filter((m: any) => {
+      if (!m.active) return false;
+      if (m.target === 'photographers' && !isPhotographerApp) return false;
+      if (m.target === 'clients' && isPhotographerApp) return false;
+      return true;
+    });
 
     return res.json({
       success: true,

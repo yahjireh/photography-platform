@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Photographer, OccasionType, CreateBookingData, PhotographerPackage } from '../types';
 import { Icons } from '../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +6,28 @@ import { useBookings } from '../hooks/useBookings';
 import { useReviews } from '../hooks/useReviews';
 import { usePackages } from '../hooks/usePackages';
 import apiClient from '../lib/api-client';
+
+interface CategoryDefinition {
+  value: string;
+  label: string;
+  keys: string[];
+}
+
+const ALL_CATEGORY_OPTIONS: CategoryDefinition[] = [
+  { value: 'Portrait', label: 'Portrait & Headshot', keys: ['PORTRAIT', 'HEADSHOT', 'STUDIO'] },
+  { value: 'Mobile', label: 'Mobile Photography', keys: ['MOBILE', 'MOBILE_PHOTOGRAPHY', 'IPHONE', 'SMARTPHONE'] },
+  { value: 'Wedding', label: 'Wedding & Nuptials', keys: ['WEDDING', 'NUPTIALS', 'BRIDAL'] },
+  { value: 'Corporate', label: 'Corporate & Gala', keys: ['CORPORATE', 'CORPORATE_EVENT', 'GALA'] },
+  { value: 'Conference', label: 'Conference & Summit', keys: ['CONFERENCE', 'SUMMIT'] },
+  { value: 'Product', label: 'Product & Commercial', keys: ['PRODUCT', 'PRODUCT_SHOOT', 'COMMERCIAL'] },
+  { value: 'Fashion', label: 'Fashion & Editorial', keys: ['FASHION', 'EDITORIAL', 'MODEL'] },
+  { value: 'Family', label: 'Family & Lifestyle', keys: ['FAMILY', 'FAMILY_SHOOT', 'LIFESTYLE', 'MATERNITY'] },
+  { value: 'Photojournalism', label: 'Photojournalism & Press', keys: ['PHOTOJOURNALISM', 'PRESS', 'DOCUMENTARY'] },
+  { value: 'Videography', label: 'Videography & Film', keys: ['VIDEOGRAPHY', 'FILM', 'CINEMATOGRAPHY', 'VIDEO'] },
+  { value: 'RealEstate', label: 'Real Estate & Architecture', keys: ['REAL_ESTATE', 'ARCHITECTURE', 'INTERIOR'] },
+  { value: 'Sports', label: 'Sports & Action', keys: ['SPORTS', 'ACTION', 'ATHLETICS'] },
+  { value: 'Graduation', label: 'Graduation & Convocation', keys: ['GRADUATION', 'CONVOCATION'] }
+];
 
 interface PhotographerDetailProps {
   photographer: Photographer;
@@ -40,6 +62,45 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityResult, setAvailabilityResult] = useState<{ isAvailable: boolean; reason?: string } | null>(null);
 
+  // Derive ONLY the session categories the photographer has genuine mastery in
+  const photographerMasteryCategories = useMemo(() => {
+    const masterySignals = new Set<string>();
+
+    if (Array.isArray(photographer.services)) {
+      photographer.services.forEach(s => s && masterySignals.add(s.toUpperCase().replace(/\s+/g, '_')));
+    }
+    if (Array.isArray(photographer.tags)) {
+      photographer.tags.forEach(t => t && masterySignals.add(t.toUpperCase().replace(/\s+/g, '_')));
+    }
+    if (photographer.category) {
+      masterySignals.add(photographer.category.toUpperCase().replace(/\s+/g, '_'));
+    }
+    if (Array.isArray(photographer.packages)) {
+      photographer.packages.forEach((pkg: any) => {
+        if (pkg.occasion_type) {
+          masterySignals.add(pkg.occasion_type.toUpperCase().replace(/\s+/g, '_'));
+        }
+      });
+    }
+
+    const matched = ALL_CATEGORY_OPTIONS.filter(cat => {
+      const directMatch = cat.keys.some(k => {
+        for (const sig of masterySignals) {
+          if (sig.includes(k) || k.includes(sig)) return true;
+        }
+        return false;
+      });
+      return directMatch || masterySignals.has(cat.value.toUpperCase());
+    });
+
+    if (matched.length > 0) return matched;
+
+    const fallbackCat = ALL_CATEGORY_OPTIONS.find(c => 
+      c.keys.some(k => (photographer.category || '').toUpperCase().includes(k))
+    );
+    return fallbackCat ? [fallbackCat] : [ALL_CATEGORY_OPTIONS[0]];
+  }, [photographer]);
+
   const [formData, setFormData] = useState<{
     occasionType: string;
     eventLocation: string;
@@ -50,7 +111,7 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
     customBudget: number;
     specialRequirements: string;
   }>({
-    occasionType: 'Portrait',
+    occasionType: photographerMasteryCategories[0]?.value || 'Portrait',
     eventLocation: 'Accra Central, Ghana',
     eventDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
     eventStartTime: '10:00',
@@ -59,6 +120,17 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
     customBudget: 500,
     specialRequirements: ''
   });
+
+  // Ensure formData.occasionType stays strictly within photographer's mastery list
+  useEffect(() => {
+    if (photographerMasteryCategories.length > 0) {
+      const isValid = photographerMasteryCategories.some(c => c.value === formData.occasionType);
+      if (!isValid) {
+        setFormData(prev => ({ ...prev, occasionType: photographerMasteryCategories[0].value }));
+        setSelectedPackage(null);
+      }
+    }
+  }, [photographerMasteryCategories]);
 
   // Fetch real packages for this photographer & selected category
   const { packages: categoryPackages, isLoading: isPackagesLoading } = usePackages(
@@ -542,7 +614,12 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
 
                   {/* Category Selector */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Session Category</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Session Category</label>
+                      <span className="text-[9px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Mastery Specialties ({photographerMasteryCategories.length})
+                      </span>
+                    </div>
                     <select 
                       value={formData.occasionType}
                       onChange={(e) => {
@@ -551,16 +628,11 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
                       }}
                       className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-brand-DEFAULT/20"
                     >
-                      <option value="Portrait">Portrait & Headshot</option>
-                      <option value="Wedding">Wedding & Nuptials</option>
-                      <option value="Corporate">Corporate & Gala</option>
-                      <option value="Conference">Conference & Summit</option>
-                      <option value="Product">Product & Commercial</option>
-                      <option value="Fashion">Fashion & Editorial</option>
-                      <option value="Family">Family & Lifestyle</option>
-                      <option value="Mobile">Mobile Photography</option>
-                      <option value="Photojournalism">Photojournalism & Press</option>
-                      <option value="Videography">Videography & Film</option>
+                      {photographerMasteryCategories.map(cat => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

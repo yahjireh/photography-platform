@@ -315,7 +315,16 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
               {/* Info Message */}
               {infoMessage && !errorMessage && (
-                <div className="mt-3 p-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-teal-600 dark:text-teal-400 text-xs font-medium">
+                <div 
+                  onClick={() => {
+                    const match = infoMessage.match(/\b\d{6}\b/);
+                    if (match) {
+                      setCode(match[0].split(''));
+                    }
+                  }}
+                  className="mt-3 p-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-teal-600 dark:text-teal-400 text-xs font-medium cursor-pointer hover:bg-teal-500/15 transition-colors"
+                  title="Tap to auto-fill"
+                >
                   {infoMessage}
                 </div>
               )}

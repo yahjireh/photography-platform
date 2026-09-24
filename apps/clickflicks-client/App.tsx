@@ -24,6 +24,7 @@ import { cacheGet, cacheSet } from './lib/cache';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './components/ui/icons';
 import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './services/MobileConfigService';
+import { AppUpdateModal } from './components/AppUpdateModal';
 
 type AppState = 'ONBOARDING' | 'AUTH' | 'MAIN';
 type AuthState = 'LOGIN' | 'SIGNUP';
@@ -257,8 +258,15 @@ const AppContent: React.FC = () => {
         const u = item.users || {};
         const portfolio = (item.portfolio_items || []).map((p: any) => p.image_url || p.url || p.thumbnail_url).filter(Boolean);
         const featuredImage = portfolio[0] || u.profile_image_url || null;
-        const hourly = item.hourly_rate != null && Number(item.hourly_rate) > 0 ? Number(item.hourly_rate) : null;
+        const rawPackages = Array.isArray(item.packages) ? item.packages : [];
+        const packagePrices = rawPackages
+          .map((p: any) => Number(p.price))
+          .filter((n: number) => !isNaN(n) && n > 0);
+        const minPackagePrice = packagePrices.length > 0 ? Math.min(...packagePrices) : null;
+
+        const hourly = item.hourly_rate != null && Number(item.hourly_rate) > 0 ? Number(item.hourly_rate) : (minPackagePrice || null);
         const dayRate = item.day_rate != null && Number(item.day_rate) > 0 ? Number(item.day_rate) : null;
+        const startingPrice = minPackagePrice || hourly || dayRate || null;
         const rawServices = Array.isArray(item.services) ? item.services : [];
         const primaryCategory = rawServices.length > 0 
           ? (rawServices[0].charAt(0) + rawServices[0].slice(1).toLowerCase().replace('_', ' ')) 
@@ -273,7 +281,7 @@ const AppContent: React.FC = () => {
           reviewCount: Number(item.total_bookings) || 0,
           reviewsCount: Number(item.total_bookings) || 0,
           hourlyRate: hourly,
-          startingPrice: hourly,
+          startingPrice: startingPrice,
           dayRate: dayRate,
           priceUnit: 'hr',
           location: u.location_city ? `${u.location_city}, ${u.location_country || 'Ghana'}` : 'Ghana',
@@ -285,8 +293,10 @@ const AppContent: React.FC = () => {
           about: item.bio || null,
           bio: item.bio || null,
           tags: rawServices.map((s: string) => s.replace('_', ' ')),
+          services: rawServices,
           portfolio: portfolio,
-          gear: Array.isArray(item.equipment_list) && item.equipment_list.length > 0 ? item.equipment_list : []
+          gear: Array.isArray(item.equipment_list) && item.equipment_list.length > 0 ? item.equipment_list : [],
+          packages: rawPackages
         });
       }
     } catch (err) {
@@ -630,7 +640,7 @@ const AppContent: React.FC = () => {
                 {!updateNotice.forceUpdate && (
                   <button
                     onClick={() => {
-                      sessionStorage.setItem(`clickflicks_update_dismissed_${updateNotice.latestVersion}`, 'true');
+                      localStorage.setItem(`clickflicks_update_dismissed_${updateNotice.latestVersion}`, 'true');
                       setUpdateNotice(null);
                     }}
                     className="w-full py-2 text-xs text-neutral-400 hover:text-neutral-200"
@@ -643,6 +653,7 @@ const AppContent: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      <AppUpdateModal />
     </Layout>
   );
 };

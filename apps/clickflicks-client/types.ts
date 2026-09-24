@@ -58,6 +58,7 @@ export interface Photographer {
   about?: string | null;
   bio?: string | null;
   tags: string[];
+  services?: string[];
   gear?: string[];
   pricingPackages?: PricingPackage[];
   packages?: PhotographerPackage[];

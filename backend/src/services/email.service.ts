@@ -74,15 +74,38 @@ export async function sendEmail(data: EmailData): Promise<boolean> {
     try {
       console.log(`📧 Sending email to ${data.to}: ${data.subject}`);
       
-      const result = await resendClient.emails.send({
-        from: EMAIL_CONFIG.resend.fromEmail,
+      const isOwnerAccount = data.to.toLowerCase() === 'kwadwodee@outlook.com';
+      const initialFrom = isOwnerAccount ? 'ClickFlicks <onboarding@resend.dev>' : EMAIL_CONFIG.resend.fromEmail;
+
+      let result = await resendClient.emails.send({
+        from: initialFrom,
         to: data.to,
         subject: data.subject,
         html: data.html,
         text: data.text
       });
+
+      if (result.error) {
+        console.warn('⚠️ Resend primary email delivery error:', result.error.message);
+        if (initialFrom !== 'ClickFlicks <onboarding@resend.dev>') {
+          console.log('🔄 Attempting fallback via onboarding@resend.dev...');
+          result = await resendClient.emails.send({
+            from: 'ClickFlicks <onboarding@resend.dev>',
+            to: data.to,
+            subject: data.subject,
+            html: data.html,
+            text: data.text
+          });
+        }
+      }
+
+      if (result.error) {
+        console.warn('⚠️ Resend email delivery failed (domain verification pending):', result.error.message);
+        console.log(`📝 [FALLBACK LOGGED EMAIL CONTENT]: To: ${data.to} | Subject: ${data.subject}`);
+        return false;
+      }
       
-      console.log(`✅ Email sent successfully! ID: ${result.id}`);
+      console.log(`✅ Email sent successfully! ID: ${result.data?.id}`);
       return true;
       
     } catch (error: any) {

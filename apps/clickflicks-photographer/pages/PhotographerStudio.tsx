@@ -264,6 +264,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const tierName = (profile as any)?.subscriptions?.tier || 'FREE';
   const isVerified = (profile?.verification_status === 'VERIFIED' && ((profile as any)?.photographer_kyc?.kyc_status === 'APPROVED' || (profile as any)?.kyc_verified_at != null)) || kycStatus === 'verified';
   const isKYCSubmitted = isVerified || (profile as any)?.photographer_kyc?.kyc_status === 'SUBMITTED' || (profile as any)?.photographer_kyc?.kyc_status === 'IN_REVIEW' || kycStatus === 'submitted';
+  const curatorNotes = ((profile as any)?.photographer_kyc?.decision_notes || '').trim();
 
   // Detect if user attempted KYC submission on device, but server never received it due to network error
   const hasUnreceivedKYCSubmission = !isVerified && !isKYCSubmitted && typeof window !== 'undefined' && (
@@ -1126,6 +1127,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 <p className="text-[10px] text-gray-400 font-medium">
                   {isVerified ? 'Verified Master Artisan (Read Only)' : isKYCSubmitted ? 'Submitted • Under Review' : 'Action Required • Verify Identity'}
                 </p>
+                {curatorNotes && (
+                  <p className="text-[10px] text-amber-800 font-semibold mt-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200/60 leading-tight">
+                    💬 Curator Feedback: "{curatorNotes}"
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-1.5">
