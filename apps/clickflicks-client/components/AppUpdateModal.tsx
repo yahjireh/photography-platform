@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './ui/icons';
 
 // Increment this version string whenever releasing updates to notify users once
-export const CURRENT_CLIENT_APP_VERSION = '1.2.0';
+export const CURRENT_CLIENT_APP_VERSION = '1.2.1';
 const STORAGE_KEY = 'clickflicks_client_last_version';
 
 interface ReleaseFeature {

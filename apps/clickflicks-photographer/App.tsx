@@ -21,8 +21,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
 import { apiClient, tokenManager } from './lib/api-client';
+import { AppUpdateModal, CURRENT_PHOTOGRAPHER_APP_VERSION } from './components/AppUpdateModal';
+import { CapgoUpdateService } from './services/CapgoUpdateService';
 
-const CURRENT_APP_VERSION = '2.5.0';
+const CURRENT_APP_VERSION = CURRENT_PHOTOGRAPHER_APP_VERSION;
 
 type FlowState = 'onboarding' | 'auth' | 'kyc' | 'app';
 type AuthMode = 'login' | 'signup';
@@ -50,11 +52,8 @@ const AppContent: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeInAppMessage, setActiveInAppMessage] = useState<InAppMessageItem | null>(null);
   const [updateNotice, setUpdateNotice] = useState<VersionCheckInfo | null>(null);
-  const [showNewReleaseModal, setShowNewReleaseModal] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const lastSeen = localStorage.getItem('clickflicks_photographer_last_seen_version');
-    return lastSeen !== CURRENT_APP_VERSION;
-  });
+  const [updateReadyVersion, setUpdateReadyVersion] = useState<string | null>(null);
+  const [showNewReleaseModal, setShowNewReleaseModal] = useState<boolean>(false);
 
   // Dynamic notification counts from live database
   const pendingRequestsCount = bookings.filter(b => b.status === 'pending' || (b.status as any) === 'PENDING').length;
@@ -86,6 +85,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     initPushNotifications();
     MobileConfigService.init();
+    CapgoUpdateService.init((ver) => {
+      setUpdateReadyVersion(ver);
+    });
 
     const handleInAppMessages = (e: Event) => {
       const customEvent = e as CustomEvent<InAppMessageItem[]>;
@@ -578,107 +580,37 @@ const AppContent: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* What's New in New Release Pop-up */}
+      {/* Live OTA Update Pill when new bundle downloaded */}
       <AnimatePresence>
-        {showNewReleaseModal && (
+        {updateReadyVersion && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-4 right-4 z-[9999] mx-auto max-w-sm bg-gray-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-teal-500/40"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-neutral-900 border border-amber-500/40 rounded-3xl p-6 shadow-2xl text-center"
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+                <Icons.Sparkles className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-white">Update v{updateReadyVersion} Ready</p>
+                <p className="text-[10px] text-gray-400">Restart now to apply changes</p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => CapgoUpdateService.applyUpdateNow()}
+              className="bg-teal-500 hover:bg-teal-400 text-gray-950 text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95 shrink-0"
             >
-              {/* Close X Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('clickflicks_photographer_last_seen_version', CURRENT_APP_VERSION);
-                  setShowNewReleaseModal(false);
-                }}
-                className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
-                aria-label="Close"
-              >
-                <Icons.X size={18} />
-              </button>
-
-              {/* Kente Gold Accent Header */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-400/10 border border-amber-500/40 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-lg shadow-amber-500/10">
-                <Icons.Sparkles className="w-8 h-8 animate-pulse" />
-              </div>
-
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-3">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                Updated to v{CURRENT_APP_VERSION}
-              </div>
-
-              <h3 className="text-xl font-bold text-white mb-1.5">
-                What's New in ClickFlicks Studio
-              </h3>
-              <p className="text-xs text-neutral-400 mb-4">
-                Here are the latest tools and upgrades available in your studio:
-              </p>
-
-              <div className="p-3.5 bg-neutral-800/80 rounded-2xl border border-neutral-700/60 text-xs text-neutral-300 text-left space-y-2.5 mb-5 max-h-[260px] overflow-y-auto">
-                <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
-                    <Icons.Check className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-white block">Custom Packages & Flyers</span>
-                    <span className="text-[11px] text-neutral-400">Upload promotional flyers to packages for client preview and easy booking.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
-                    <Icons.Check className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-white block">Biometric Face Liveness</span>
-                    <span className="text-[11px] text-neutral-400">Interactive 4-step head rotation camera check for expedited admin approval.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
-                    <Icons.Check className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-white block">Ghana Telecom MoMo Guard</span>
-                    <span className="text-[11px] text-neutral-400">Network prefix validator ensures MTN, Telecel, and AT payouts pair correctly.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-2.5">
-                  <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 mt-0.5 shrink-0">
-                    <Icons.Check className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-white block">16 Regions & Emergency Contact</span>
-                    <span className="text-[11px] text-neutral-400">Select coverage territory and guarantor details for rapid emergency coordination.</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  localStorage.setItem('clickflicks_photographer_last_seen_version', CURRENT_APP_VERSION);
-                  setShowNewReleaseModal(false);
-                }}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-sm shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Explore Studio</span>
-                <Icons.ArrowRight className="w-4 h-4" />
-              </button>
-            </motion.div>
+              Restart
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* App Update Announcement Modal (shows once after restart) */}
+      <AppUpdateModal />
     </Layout>
   );
 };

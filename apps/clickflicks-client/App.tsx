@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './components/ui/icons';
 import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './services/MobileConfigService';
 import { AppUpdateModal } from './components/AppUpdateModal';
+import { CapgoUpdateService } from './services/CapgoUpdateService';
 
 type AppState = 'ONBOARDING' | 'AUTH' | 'MAIN';
 type AuthState = 'LOGIN' | 'SIGNUP';
@@ -55,6 +56,7 @@ const AppContent: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeInAppMessage, setActiveInAppMessage] = useState<InAppMessageItem | null>(null);
   const [updateNotice, setUpdateNotice] = useState<VersionCheckInfo | null>(null);
+  const [updateReadyVersion, setUpdateReadyVersion] = useState<string | null>(null);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -68,6 +70,9 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     MobileConfigService.init();
+    CapgoUpdateService.init((ver) => {
+      setUpdateReadyVersion(ver);
+    });
 
     const handleInAppMessages = (e: Event) => {
       const customEvent = e as CustomEvent<InAppMessageItem[]>;
@@ -653,6 +658,35 @@ const AppContent: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Live OTA Update Pill when new bundle downloaded */}
+      <AnimatePresence>
+        {updateReadyVersion && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-4 right-4 z-[9999] mx-auto max-w-sm bg-gray-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-teal-500/40"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+                <Icons.Sparkles className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-white">Update v{updateReadyVersion} Ready</p>
+                <p className="text-[10px] text-gray-400">Restart now to apply new features</p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => CapgoUpdateService.applyUpdateNow()}
+              className="bg-teal-500 hover:bg-teal-400 text-gray-950 text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95 shrink-0"
+            >
+              Restart
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AppUpdateModal />
     </Layout>
   );

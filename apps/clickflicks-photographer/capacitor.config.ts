@@ -9,7 +9,9 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert']
     },
     CapacitorUpdater: {
-      autoUpdate: true
+      autoUpdate: 'atBackground',
+      defaultChannel: 'production',
+      allowSetDefaultChannel: true
     }
   }
 };
