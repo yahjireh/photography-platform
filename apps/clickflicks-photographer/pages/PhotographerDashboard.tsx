@@ -21,8 +21,33 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const { user, profile } = usePhotographerProfile();
   const { bookings } = usePhotographerBookings();
   const [selectedLedgerItem, setSelectedLedgerItem] = useState<any | null>(null);
-  const [kycData, setKycData] = useState<any>(null);
-  const [isNoteDismissed, setIsNoteDismissed] = useState(false);
+  const getIsVerificationDismissed = () => {
+    if (typeof window === 'undefined') return false;
+    const userKey = user?.id ? `clickflicks_pro_studio_verification_dismissed_${user.id}` : null;
+    return (
+      (userKey ? localStorage.getItem(userKey) === 'true' : false) ||
+      localStorage.getItem('clickflicks_pro_studio_verification_dismissed') === 'true'
+    );
+  };
+
+  const [isNoteDismissed, setIsNoteDismissed] = useState<boolean>(getIsVerificationDismissed);
+
+  useEffect(() => {
+    if (getIsVerificationDismissed()) {
+      setIsNoteDismissed(true);
+    }
+  }, [user?.id]);
+
+  const handleDismissVerificationNotice = (e?: React.MouseEvent) => {
+    e?.stopPropagation?.();
+    setIsNoteDismissed(true);
+    if (typeof window !== 'undefined') {
+      if (user?.id) {
+        localStorage.setItem(`clickflicks_pro_studio_verification_dismissed_${user.id}`, 'true');
+      }
+      localStorage.setItem('clickflicks_pro_studio_verification_dismissed', 'true');
+    }
+  };
 
   useEffect(() => {
     apiClient.get('/photographers/kyc/me').then(res => {
@@ -127,156 +152,194 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
         </div>
         
         {/* Verification Status & Curator Feedback Banner */}
-        {isRejected ? (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            onClick={onNavigateKYC}
-            className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-rose-100/70 transition-colors shadow-sm"
-          >
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
-                <Icons.AlertCircle size={18} />
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200/80 text-rose-800">
-                    Verification Update Required
-                  </span>
-                </div>
-                <p className="text-xs font-bold text-gray-900 mt-1">Application Reviewed • Action Needed</p>
-                {decisionNotes ? (
-                  <p className="text-[11px] text-rose-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-rose-200/60">
-                    💬 Curator Feedback: "{decisionNotes}"
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-rose-800 font-medium leading-tight mt-0.5">
-                    Your verification was not approved. Tap to review curator feedback and update your documents.
-                  </p>
-                )}
-              </div>
-            </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
-              className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-rose-700 transition-colors shrink-0 ml-2 shadow-sm"
+        {!isNoteDismissed && (
+          isRejected ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={onNavigateKYC}
+              className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-rose-100/70 transition-colors shadow-sm"
             >
-              Update
-            </button>
-          </motion.div>
-        ) : isNeedsMoreInfo ? (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            onClick={onNavigateKYC}
-            className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-amber-100/70 transition-colors shadow-sm"
-          >
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-amber-100 text-amber-600 rounded-xl shrink-0 mt-0.5">
-                <Icons.AlertCircle size={18} />
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
-                    More Info Requested
-                  </span>
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
+                  <Icons.AlertCircle size={18} />
                 </div>
-                <p className="text-xs font-bold text-gray-900 mt-1">Curator Action Needed</p>
-                {decisionNotes ? (
-                  <p className="text-[11px] text-amber-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-amber-200/60">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200/80 text-rose-800">
+                      Verification Update Required
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-gray-900 mt-1">Application Reviewed • Action Needed</p>
+                  {decisionNotes ? (
+                    <p className="text-[11px] text-rose-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-rose-200/60">
+                      💬 Curator Feedback: "{decisionNotes}"
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-rose-800 font-medium leading-tight mt-0.5">
+                      Your verification was not approved. Tap to review curator feedback and update your documents.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
+                  className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-rose-700 transition-colors shrink-0 shadow-sm"
+                >
+                  Update
+                </button>
+                <button
+                  onClick={handleDismissVerificationNotice}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-rose-100 rounded-lg transition-colors"
+                  title="Dismiss notice"
+                >
+                  <Icons.X size={16} />
+                </button>
+              </div>
+            </motion.div>
+          ) : isNeedsMoreInfo ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={onNavigateKYC}
+              className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-amber-100/70 transition-colors shadow-sm"
+            >
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-amber-100 text-amber-600 rounded-xl shrink-0 mt-0.5">
+                  <Icons.AlertCircle size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                      More Info Requested
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-gray-900 mt-1">Curator Action Needed</p>
+                  {decisionNotes ? (
+                    <p className="text-[11px] text-amber-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-amber-200/60">
+                      💬 Curator Note: "{decisionNotes}"
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-amber-800 font-medium leading-tight mt-0.5">
+                      The curator team requested further verification details. Tap to update your application.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
+                  className="px-3 py-1.5 bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
+                >
+                  Provide
+                </button>
+                <button
+                  onClick={handleDismissVerificationNotice}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Dismiss notice"
+                >
+                  <Icons.X size={16} />
+                </button>
+              </div>
+            </motion.div>
+          ) : isVerifiedUser && decisionNotes ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-start justify-between shadow-sm"
+            >
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0 mt-0.5">
+                  <Icons.ShieldCheck size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
+                      Verified Master Artisan
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-gray-900 mt-1">Studio Verification Approved</p>
+                  <p className="text-[11px] text-emerald-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-emerald-200/60">
                     💬 Curator Note: "{decisionNotes}"
                   </p>
-                ) : (
-                  <p className="text-[10px] text-amber-800 font-medium leading-tight mt-0.5">
-                    The curator team requested further verification details. Tap to update your application.
-                  </p>
-                )}
-              </div>
-            </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
-              className="px-3 py-1.5 bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-amber-700 transition-colors shrink-0 ml-2 shadow-sm"
-            >
-              Provide
-            </button>
-          </motion.div>
-        ) : isVerifiedUser && decisionNotes && !isNoteDismissed ? (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-start justify-between shadow-sm"
-          >
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0 mt-0.5">
-                <Icons.ShieldCheck size={18} />
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
-                    Verified Master Artisan
-                  </span>
                 </div>
-                <p className="text-xs font-bold text-gray-900 mt-1">Studio Verification Approved</p>
-                <p className="text-[11px] text-emerald-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-emerald-200/60">
-                  💬 Curator Note: "{decisionNotes}"
-                </p>
               </div>
-            </div>
-            <button 
-              onClick={() => setIsNoteDismissed(true)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-emerald-100 rounded-lg transition-colors ml-2"
-              title="Dismiss"
+              <button 
+                onClick={handleDismissVerificationNotice}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-emerald-100 rounded-lg transition-colors ml-2"
+                title="Dismiss"
+              >
+                <Icons.X size={16} />
+              </button>
+            </motion.div>
+          ) : !isKYCAlreadyDone ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={onNavigateKYC}
+              className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
             >
-              <Icons.X size={16} />
-            </button>
-          </motion.div>
-        ) : !isKYCAlreadyDone ? (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            onClick={onNavigateKYC}
-            className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-amber-500/20 text-amber-500 rounded-xl">
-                <Icons.AlertCircle size={18} />
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-amber-500/20 text-amber-500 rounded-xl">
+                  <Icons.AlertCircle size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900">Action Required • Complete KYC</p>
+                  <p className="text-[10px] text-amber-800 font-medium leading-tight mt-0.5">Complete your verification to publish your studio.</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Action Required • Complete KYC</p>
-                <p className="text-[10px] text-amber-800 font-medium leading-tight mt-0.5">Complete your verification to publish your studio.</p>
+              <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
+                  className="px-3 py-1.5 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-colors shrink-0 shadow-sm"
+                >
+                  Start
+                </button>
+                <button
+                  onClick={handleDismissVerificationNotice}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Dismiss notice"
+                >
+                  <Icons.X size={16} />
+                </button>
               </div>
-            </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
-              className="px-3 py-1.5 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-colors shrink-0 ml-2 shadow-sm"
+            </motion.div>
+          ) : !isVerifiedUser ? (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={onNavigateKYC}
+              className="mb-6 p-4 bg-sky-50 border border-sky-100 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-sky-100/70 transition-colors"
             >
-              Start
-            </button>
-          </motion.div>
-        ) : !isVerifiedUser ? (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            onClick={onNavigateKYC}
-            className="mb-6 p-4 bg-sky-50 border border-sky-100 rounded-2xl flex items-start justify-between cursor-pointer hover:bg-sky-100/70 transition-colors"
-          >
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-sky-100 text-sky-600 rounded-xl shrink-0 mt-0.5">
-                <Icons.Clock size={16} />
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-sky-100 text-sky-600 rounded-xl shrink-0 mt-0.5">
+                  <Icons.Clock size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900">Verification Pending</p>
+                  {decisionNotes ? (
+                    <p className="text-[11px] text-sky-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-sky-200/60">
+                      💬 Curator Note: "{decisionNotes}"
+                    </p>
+                  ) : (
+                    <p className="text-[9px] text-gray-500 font-medium leading-tight mt-0.5">Application under review • Tap to review or edit details anytime.</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Verification Pending</p>
-                {decisionNotes ? (
-                  <p className="text-[11px] text-sky-950 font-medium leading-relaxed mt-1 bg-white/80 p-2 rounded-xl border border-sky-200/60">
-                    💬 Curator Note: "{decisionNotes}"
-                  </p>
-                ) : (
-                  <p className="text-[9px] text-gray-500 font-medium leading-tight mt-0.5">Application under review • Tap to review or edit details anytime.</p>
-                )}
+              <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
+                  className="px-3 py-1.5 bg-sky-600 text-white text-[10px] font-bold rounded-xl hover:bg-sky-700 transition-colors shrink-0"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleDismissVerificationNotice}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-sky-100 rounded-lg transition-colors"
+                  title="Dismiss notice"
+                >
+                  <Icons.X size={16} />
+                </button>
               </div>
-            </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onNavigateKYC?.(); }}
-              className="px-3 py-1.5 bg-sky-600 text-white text-[10px] font-bold rounded-xl hover:bg-sky-700 transition-colors shrink-0 ml-2"
-            >
-              Edit
-            </button>
-          </motion.div>
-        ) : null}
+            </motion.div>
+          ) : null
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">

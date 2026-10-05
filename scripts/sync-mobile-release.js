@@ -51,7 +51,9 @@ async function main() {
 
   // 1. Build Web Assets
   console.log(`📦 [1/4] Building web bundle in ${appDir}...`);
-  execSync('npm run build', { cwd: appDir, stdio: 'inherit' });
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  execSync(`${npmCmd} run build`, { cwd: appDir, stdio: 'inherit' });
 
   // 2. Determine or bump version if not supplied
   const pkgPath = path.join(appDir, 'package.json');
@@ -62,7 +64,7 @@ async function main() {
   // 3. Upload to Capgo Cloud Live Updates (production channel)
   console.log(`\n☁️ [3/4] Uploading live bundle to Capgo Cloud...`);
   try {
-    execSync(`npx @capgo/cli bundle upload ${appId} -c production -b ${versionToDeploy} --comment "${releaseNotes}"`, {
+    execSync(`${npxCmd} @capgo/cli bundle upload ${appId} -c production -b ${versionToDeploy} --comment "${releaseNotes}"`, {
       cwd: appDir,
       stdio: 'inherit'
     });

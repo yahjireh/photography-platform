@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiClient, { tokenManager } from '../lib/api-client';
 
 export interface User {
@@ -66,7 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => tokenManager.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchProfile = async () => {
+  const logout = useCallback(() => {
+    setUser(null);
+    setPhotographerProfile(null);
+    setToken(null);
+    tokenManager.removeToken();
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await apiClient.get('/users/me');
       if (res.data?.success && res.data?.data) {
@@ -84,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout();
       }
     }
-  };
+  }, [logout]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -190,25 +197,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setPhotographerProfile(null);
-    setToken(null);
-    tokenManager.removeToken();
-  };
-
-  const updatePhotographerProfile = (data: Partial<PhotographerProfile>) => {
+  const updatePhotographerProfile = useCallback((data: Partial<PhotographerProfile>) => {
     setPhotographerProfile(prev => prev ? { ...prev, ...data } : null);
-  };
+  }, []);
 
-  const updateUser = (data: Partial<User>) => {
+  const updateUser = useCallback((data: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
       const updated = { ...prev, ...data };
       tokenManager.setUser(updated);
       return updated;
     });
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

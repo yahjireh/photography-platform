@@ -213,7 +213,7 @@ export const otpVerifyLimiter = rateLimit({
  */
 export const generalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Kept as recommended
+  max: 2500, // Generous limit for mobile apps with polling and SWR caching
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
@@ -221,7 +221,13 @@ export const generalApiLimiter = rateLimit({
   skip: (req) => {
     return req.path.startsWith('/api/webhooks') || req.path === '/health';
   },
-  handler: createLimitHandler('API requests')
+  handler: (_req: Request, res: Response) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many API requests. Please wait a moment before trying again.',
+      retryAfterSeconds: 60
+    });
+  }
 });
 
 /**

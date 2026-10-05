@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api-client';
 import { useAuth, PhotographerProfile } from './useAuth';
 import { cacheGet, cacheSet, swrFetch } from '../lib/cache';
@@ -12,8 +12,11 @@ export const usePhotographerProfile = () => {
     return !photographerProfile && !cacheGet<PhotographerProfile>('photographer_profile_data');
   });
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   const fetchProfile = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setError(null);
     try {
       const fetcher = async () => {
@@ -50,6 +53,7 @@ export const usePhotographerProfile = () => {
       setError(err.message);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [updatePhotographerProfile, updateUser]);
 
@@ -99,7 +103,7 @@ export const usePhotographerProfile = () => {
       const res = await apiClient.patch('/users/me', data);
       if (res.data?.success && res.data?.data) {
         updateUser(res.data.data);
-        await fetchProfile();
+        setProfile(prev => prev ? { ...prev, users: { ...(prev as any).users, ...res.data.data } } : prev);
         return res.data.data;
       }
     } catch (err: any) {

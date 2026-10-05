@@ -221,6 +221,36 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
   const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | 'support' | 'delete-account' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const getIsVerificationDismissed = () => {
+    if (typeof window === 'undefined') return false;
+    const userKey = user?.id ? `clickflicks_pro_studio_verification_dismissed_${user.id}` : null;
+    return (
+      (userKey ? localStorage.getItem(userKey) === 'true' : false) ||
+      localStorage.getItem('clickflicks_pro_studio_verification_dismissed') === 'true'
+    );
+  };
+
+  const [isVerificationNoticeDismissed, setIsVerificationNoticeDismissed] = useState<boolean>(getIsVerificationDismissed);
+
+  useEffect(() => {
+    if (getIsVerificationDismissed()) {
+      setIsVerificationNoticeDismissed(true);
+    }
+  }, [user?.id]);
+
+  const handleDismissStudioVerification = (e?: React.MouseEvent) => {
+    e?.stopPropagation?.();
+    setIsVerificationNoticeDismissed(true);
+    if (typeof window !== 'undefined') {
+      if (user?.id) {
+        localStorage.setItem(`clickflicks_pro_studio_verification_dismissed_${user.id}`, 'true');
+      }
+      localStorage.setItem('clickflicks_pro_studio_verification_dismissed', 'true');
+    }
+  };
+
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [selectedPhotoTitle, setSelectedPhotoTitle] = useState('');
   const [selectedOccasionType, setSelectedOccasionType] = useState<string>('PORTRAIT');
@@ -629,12 +659,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
     try {
       setIsUpdatingAvatar(true);
       const compressedDataUrl = await compressImage(file, 500, 500, 0.85);
-      if (updateUser) {
-        updateUser({ profile_image_url: compressedDataUrl });
-      }
+      setAvatarPreview(compressedDataUrl);
       await updateUserProfile({ profileImageUrl: compressedDataUrl });
     } catch (err: any) {
       console.error('Error uploading profile photo:', err);
+      setAvatarPreview(null);
       alert(err?.response?.data?.message || err?.message || 'Failed to update profile photo. Please try again.');
     } finally {
       setIsUpdatingAvatar(false);
@@ -759,8 +788,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-gray-100 shadow-sm bg-gray-900 text-brand-light flex items-center justify-center font-serif font-black italic text-xl">
               {isUpdatingAvatar ? (
                 <Icons.Loader2 className="animate-spin text-brand-light" size={20} />
-              ) : user?.profile_image_url ? (
-                <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (avatarPreview || user?.profile_image_url) ? (
+                <img src={avatarPreview || user?.profile_image_url || ''} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span>{userInitials}</span>
               )}
@@ -887,7 +916,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
       </header>
  
       {/* Network Error Alert for unreceived KYC submissions */}
-      {hasUnreceivedKYCSubmission && (
+      {!isVerificationNoticeDismissed && hasUnreceivedKYCSubmission && (
         <div className="mx-6 mt-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-sm flex items-start space-x-3">
           <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0 mt-0.5 shadow-xs">
             <Icons.AlertTriangle size={20} />
@@ -910,6 +939,13 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
               </button>
             )}
           </div>
+          <button
+            onClick={handleDismissStudioVerification}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-amber-100 rounded-lg transition-colors ml-2"
+            title="Dismiss notice"
+          >
+            <Icons.X size={16} />
+          </button>
         </div>
       )}
 
@@ -1229,42 +1265,57 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
         {/* Master Controls Section */}
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Business Core</h2>
         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-          {/* Identity & KYC Verification Row */}
-          <button 
-            onClick={() => {
-              if (onNavigateKYC && !isVerified) {
-                onNavigateKYC();
-              } else {
-                setActiveModal('kyc-view');
-              }
-            }} 
-            className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center space-x-3">
-              <div className={`p-2.5 rounded-xl ${isVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                {isVerified ? <Icons.ShieldCheck size={18} /> : <Icons.AlertTriangle size={18} />}
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-bold text-gray-900">Identity & KYC Verification</p>
-                <p className="text-[10px] text-gray-400 font-medium">
-                  {isVerified ? 'Verified Master Artisan (Read Only)' : isKYCSubmitted ? 'Submitted • Under Review' : 'Action Required • Verify Identity'}
-                </p>
-                {curatorNotes && (
-                  <p className="text-[10px] text-amber-800 font-semibold mt-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200/60 leading-tight">
-                    💬 Curator Feedback: "{curatorNotes}"
+          {/* Identity & KYC Verification Row - Hidden when dismissed */}
+          {!isVerificationNoticeDismissed && (
+            <div className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <button 
+                onClick={() => {
+                  if (onNavigateKYC && !isVerified) {
+                    onNavigateKYC();
+                  } else {
+                    setActiveModal('kyc-view');
+                  }
+                }} 
+                className="flex-1 flex items-center space-x-3 text-left cursor-pointer"
+              >
+                <div className={`p-2.5 rounded-xl ${isVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                  {isVerified ? <Icons.ShieldCheck size={18} /> : <Icons.AlertTriangle size={18} />}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900">Identity & KYC Verification</p>
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    {isVerified ? 'Verified Master Artisan (Read Only)' : isKYCSubmitted ? 'Submitted • Under Review' : 'Action Required • Verify Identity'}
                   </p>
-                )}
+                  {curatorNotes && (
+                    <p className="text-[10px] text-amber-800 font-semibold mt-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200/60 leading-tight">
+                      💬 Curator Feedback: "{curatorNotes}"
+                    </p>
+                  )}
+                </div>
+              </button>
+              <div className="flex items-center space-x-2 shrink-0 ml-2">
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                  isVerified ? 'bg-emerald-100 text-emerald-800' : isKYCSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
+                }`}>
+                  {isVerified ? 'Verified' : isKYCSubmitted ? 'Submitted' : 'Incomplete'}
+                </span>
+                <Icons.ChevronRight size={16} className="text-gray-400 cursor-pointer" onClick={() => {
+                  if (onNavigateKYC && !isVerified) {
+                    onNavigateKYC();
+                  } else {
+                    setActiveModal('kyc-view');
+                  }
+                }} />
+                <button
+                  onClick={handleDismissStudioVerification}
+                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors ml-1"
+                  title="Dismiss verification notice"
+                >
+                  <Icons.X size={15} />
+                </button>
               </div>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                isVerified ? 'bg-emerald-100 text-emerald-800' : isKYCSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
-              }`}>
-                {isVerified ? 'Verified' : isKYCSubmitted ? 'Submitted' : 'Incomplete'}
-              </span>
-              <Icons.ChevronRight size={16} className="text-gray-400" />
-            </div>
-          </button>
+          )}
 
           <button onClick={() => setActiveModal('tier')} className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center space-x-3">

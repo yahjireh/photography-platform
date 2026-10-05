@@ -15,3 +15,8 @@ Whenever a modal, alert prompt, announcement, update notice, or popup banner is 
 
 4. **Version Check Alignment**:
    - Always compare the client's current version against the target version (e.g. using semantic versioning). Never prompt the user with an update modal if their installed version is already equal to or higher than the target release.
+
+5. **Verification & Status Notices Dismissal**:
+   - Any verification notice, KYC reminder, banner alert, or in-menu status row (such as the Studio Verification Notice on the Photographer Dashboard or in the Studio menu under Business Core) that is dismissed by the user must **never** be shown again across app restarts or screen transitions.
+   - Persist dismissal in `localStorage` keyed both by user ID (e.g. `clickflicks_pro_studio_verification_dismissed_${user.id}`) and fallback (`clickflicks_pro_studio_verification_dismissed`).
+   - Every verification alert or status prompt must provide a dismiss button `(X)` and once dismissed, suppress all related notices across all menus and dashboards.
