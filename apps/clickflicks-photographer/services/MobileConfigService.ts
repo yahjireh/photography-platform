@@ -43,7 +43,7 @@ export class MobileConfigService {
     if (this.isInitialized) return this.config;
 
     const platform = Capacitor.getPlatform() === 'ios' ? 'iOS' : 'Android';
-    const appVersion = '1.2.4';
+    const appVersion = '1.2.5';
 
     try {
       // 1. Fetch live config from backend
@@ -100,7 +100,7 @@ export class MobileConfigService {
       await apiClient.post('/mobile/crashes', {
         title: error?.message || (typeof error === 'string' ? error : 'Unhandled mobile exception'),
         platform,
-        version: '1.2.4',
+        version: '1.2.5',
         stackTrace: `${context ? `[Context: ${context}]\n` : ''}${error?.stack || String(error)}`
       });
     } catch (_) {

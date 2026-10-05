@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const apiUrl = env.VITE_API_URL || 'https://clickflicks-api.onrender.com/api';
   return {
+    base: './',
     server: {
       port: 3002,
       host: '0.0.0.0',
