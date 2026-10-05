@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './ui/icons';
 
 // Increment this version string whenever releasing updates to notify photographers once
-export const CURRENT_PHOTOGRAPHER_APP_VERSION = '1.2.5';
+export const CURRENT_PHOTOGRAPHER_APP_VERSION = '1.2.6';
 const STORAGE_KEY = 'clickflicks_photographer_last_version';
 
 interface ReleaseFeature {

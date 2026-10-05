@@ -21,6 +21,7 @@ const PhotographerDashboard: React.FC<PhotographerDashboardProps> = ({
   const { user, profile } = usePhotographerProfile();
   const { bookings } = usePhotographerBookings();
   const [selectedLedgerItem, setSelectedLedgerItem] = useState<any | null>(null);
+  const [kycData, setKycData] = useState<any>(null);
   const getIsVerificationDismissed = () => {
     if (typeof window === 'undefined') return false;
     const userKey = user?.id ? `clickflicks_pro_studio_verification_dismissed_${user.id}` : null;
