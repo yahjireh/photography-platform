@@ -50,3 +50,9 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# Budget & Financial Documentation
+*budget*
+*BUDGET*
+*Budget*
+*.docx
