@@ -6,6 +6,7 @@
 import prisma from '../config/database';
 import * as NotificationTrigger from './notification-trigger.service';
 import { generateBookingNumber } from '../config/constants';
+import { isUserOnline } from '../middleware/auth.middleware';
 
 /**
  * TEACHING MOMENT: Messaging Architecture
@@ -305,10 +306,15 @@ export async function getConversationMessages(
   
   console.log(`✅ Retrieved ${messages.length} messages (total: ${totalCount})`);
   
+  const partnerId = booking.client_id === userId ? booking.photographer_id : booking.client_id;
+  const isOnline = isUserOnline(partnerId);
+
   return {
     messages,
     totalCount,
-    hasMore: offset + messages.length < totalCount
+    hasMore: offset + messages.length < totalCount,
+    partnerId,
+    isOnline
   };
 }
 
@@ -505,8 +511,10 @@ export async function getUserConversations(userId: string) {
         otherUser: {
           id: otherUser.id,
           name: `${otherUser.first_name} ${otherUser.last_name}`,
-          profileImageUrl: otherUser.profile_image_url
+          profileImageUrl: otherUser.profile_image_url,
+          isOnline: isUserOnline(otherUser.id)
         },
+        isOnline: isUserOnline(otherUser.id),
         lastMessage: {
           id: lastMessage.id,
           text: lastMessage.message_text,

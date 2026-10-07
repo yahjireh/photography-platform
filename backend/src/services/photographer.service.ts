@@ -253,10 +253,16 @@ export async function getPhotographerPublicProfile(photographerId: string) {
    * - Include: bio, portfolio, ratings, services, pricing
    * - Exclude: email, phone, subscription details, payment info
    */
-  const photographer = await prisma.photographers.findUnique({
-    where: { id: photographerId },
+  const photographer = await prisma.photographers.findFirst({
+    where: {
+      OR: [
+        { id: photographerId },
+        { user_id: photographerId }
+      ]
+    },
     select: {
       id: true,
+      user_id: true,
       bio: true,
       services: true,
       equipment_list: true,

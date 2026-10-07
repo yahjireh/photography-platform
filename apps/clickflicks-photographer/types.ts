@@ -106,6 +106,8 @@ export interface Booking {
 export interface ChatMessage {
   id: string;
   sender: 'photographer' | 'user' | 'client';
+  isSender?: boolean;
+  role?: 'user' | 'model';
   text: string;
   time?: string;
   timestamp?: number;

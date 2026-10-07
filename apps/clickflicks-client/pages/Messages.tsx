@@ -61,8 +61,8 @@ const Messages: React.FC<MessagesProps> = ({ onConversationClick }) => {
                     </div>
                   )}
                   {conv.unreadCount > 0 && (
-                    <div className="absolute -top-1 -right-1 bg-brand-DEFAULT w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
-                      <span className="text-[8px] font-black text-white">{conv.unreadCount}</span>
+                    <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white font-bold min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[9px] border-2 border-white shadow-sm leading-none">
+                      <span>{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>
                     </div>
                   )}
                 </div>

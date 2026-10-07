@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
@@ -41,6 +42,7 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState('home');
   const [selectedPhotographer, setSelectedPhotographer] = useState<Photographer | null>(null);
   const [isFetchingPhotographer, setIsFetchingPhotographer] = useState(false);
+  const [openBookingOnDetail, setOpenBookingOnDetail] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeChatPartner, setActiveChatPartner] = useState<ChatPartnerInfo | null>(null);
   const [exploreFilter, setExploreFilter] = useState('All');
@@ -170,6 +172,59 @@ const AppContent: React.FC = () => {
       setFavorites([]);
     }
   }, [user?.id]);
+
+  const navStateRef = useRef({
+    appState,
+    currentView,
+    selectedConversationId,
+    selectedPhotographer,
+    hasModal: Boolean(activeInAppMessage || updateNotice)
+  });
+
+  useEffect(() => {
+    navStateRef.current = {
+      appState,
+      currentView,
+      selectedConversationId,
+      selectedPhotographer,
+      hasModal: Boolean(activeInAppMessage || updateNotice)
+    };
+  }, [appState, currentView, selectedConversationId, selectedPhotographer, activeInAppMessage, updateNotice]);
+
+  useEffect(() => {
+    let sub: any;
+    try {
+      sub = CapacitorApp.addListener('backButton', () => {
+        const s = navStateRef.current;
+        if (s.hasModal) {
+          setActiveInAppMessage(null);
+          setUpdateNotice(null);
+          return;
+        }
+        if (s.selectedConversationId) {
+          setSelectedConversationId(null);
+          setActiveChatPartner(null);
+          return;
+        }
+        if (s.selectedPhotographer) {
+          setSelectedPhotographer(null);
+          setOpenBookingOnDetail(false);
+          return;
+        }
+        if (s.appState === 'MAIN' && s.currentView !== 'home') {
+          setCurrentView('home');
+          return;
+        }
+        CapacitorApp.exitApp();
+      });
+    } catch (_) {}
+
+    return () => {
+      if (sub && typeof sub.then === 'function') {
+        sub.then((h: any) => h?.remove?.()).catch(() => {});
+      }
+    };
+  }, []);
 
   const [showAppTour, setShowAppTour] = useState(false);
 
@@ -330,7 +385,77 @@ const AppContent: React.FC = () => {
 
   const handleBack = () => {
     setSelectedPhotographer(null);
+    setOpenBookingOnDetail(false);
     scrollToTop();
+  };
+
+  const handleOpenProfileFromChat = async (photographerId: string, openBooking: boolean = false) => {
+    setOpenBookingOnDetail(openBooking);
+    const existing = photographers.find(p => p.id === photographerId || p.userId === photographerId || (p as any).userId === photographerId);
+    if (existing) {
+      setSelectedPhotographer(existing);
+      setSelectedConversationId(null);
+      setActiveChatPartner(null);
+      scrollToTop();
+      return;
+    }
+    setIsFetchingPhotographer(true);
+    try {
+      const res = await apiClient.get(`/photographers/${photographerId}`);
+      if (res.data?.success && res.data?.data) {
+        const item = res.data.data;
+        const u = item.users || {};
+        const portfolio = (item.portfolio_items || []).map((p: any) => p.image_url || p.url || p.thumbnail_url).filter(Boolean);
+        const featuredImage = portfolio[0] || u.profile_image_url || null;
+        const rawPackages = Array.isArray(item.packages) ? item.packages : [];
+        const packagePrices = rawPackages
+          .map((p: any) => Number(p.price))
+          .filter((n: number) => !isNaN(n) && n > 0);
+        const minPackagePrice = packagePrices.length > 0 ? Math.min(...packagePrices) : null;
+
+        const hourly = item.hourly_rate != null && Number(item.hourly_rate) > 0 ? Number(item.hourly_rate) : (minPackagePrice || null);
+        const dayRate = item.day_rate != null && Number(item.day_rate) > 0 ? Number(item.day_rate) : null;
+        const startingPrice = minPackagePrice || hourly || dayRate || null;
+        const rawServices = Array.isArray(item.services) ? item.services : [];
+        const primaryCategory = rawServices.length > 0 
+          ? (rawServices[0].charAt(0) + rawServices[0].slice(1).toLowerCase().replace('_', ' ')) 
+          : 'Portrait';
+
+        setSelectedPhotographer({
+          id: item.id,
+          name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : (item.name || 'Artisan Photographer'),
+          title: item.bio || '',
+          category: primaryCategory,
+          rating: Number(item.average_rating) || 0,
+          reviewCount: Number(item.total_bookings) || 0,
+          reviewsCount: Number(item.total_bookings) || 0,
+          hourlyRate: hourly,
+          startingPrice: startingPrice,
+          dayRate: dayRate,
+          priceUnit: 'hr',
+          location: u.location_city ? `${u.location_city}, ${u.location_country || 'Ghana'}` : 'Ghana',
+          imageUrl: featuredImage,
+          coverImage: featuredImage,
+          avatar: u.profile_image_url || null,
+          verified: item.verification_status === 'VERIFIED' || item.is_verified === true || u.is_verified === true || (item.verification_status !== 'UNVERIFIED' && item.verification_status !== 'REJECTED'),
+          tier: (item.subscriptions?.tier || 'FREE') as any,
+          about: item.bio || null,
+          bio: item.bio || null,
+          tags: rawServices.map((s: string) => s.replace('_', ' ')),
+          services: rawServices,
+          portfolio: portfolio,
+          gear: Array.isArray(item.equipment_list) && item.equipment_list.length > 0 ? item.equipment_list : [],
+          packages: rawPackages
+        });
+        setSelectedConversationId(null);
+        setActiveChatPartner(null);
+      }
+    } catch (err) {
+      console.error('Error opening photographer profile from chat:', err);
+    } finally {
+      setIsFetchingPhotographer(false);
+      scrollToTop();
+    }
   };
 
   const handleOpenChat = (conversationId: string) => {
@@ -401,12 +526,13 @@ const AppContent: React.FC = () => {
 
   return (
     <Layout 
-      fullScreen={appState === 'ONBOARDING' || appState === 'AUTH'} 
+      fullScreen={appState === 'ONBOARDING' || appState === 'AUTH' || Boolean(selectedConversationId) || Boolean(selectedPhotographer)} 
       scrollTrigger={[currentView, selectedPhotographer?.id, selectedConversationId, appState]}
       onHome={() => {
         setSelectedPhotographer(null);
         setSelectedConversationId(null);
         setActiveChatPartner(null);
+        setOpenBookingOnDetail(false);
         setCurrentView('home');
         scrollToTop();
       }}
@@ -460,6 +586,7 @@ const AppContent: React.FC = () => {
             ) : selectedPhotographer ? (
                 <PhotographerDetail 
                   photographer={selectedPhotographer} 
+                  initialOpenBooking={openBookingOnDetail}
                   onBack={handleBack} 
                   onOpenChat={(photographerObj) => handleOpenChatByPhotographer(photographerObj || selectedPhotographer)}
                   isFavorite={favorites.includes(selectedPhotographer.id)}
@@ -480,9 +607,10 @@ const AppContent: React.FC = () => {
                         }, 900);
                     }} 
                     onViewProfile={(photographerId) => {
-                      setSelectedConversationId(null);
-                      setActiveChatPartner(null);
-                      handlePhotographerClick(photographerId);
+                      handleOpenProfileFromChat(photographerId, false);
+                    }}
+                    onBookSession={(photographerId) => {
+                      handleOpenProfileFromChat(photographerId, true);
                     }}
                 />
             ) : (

@@ -92,6 +92,8 @@ export async function getConversation(req: Request, res: Response): Promise<void
     res.status(200).json({
       success: true,
       data: result.messages,
+      isOnline: result.isOnline,
+      partnerId: result.partnerId,
       pagination: {
         total: result.totalCount,
         limit,

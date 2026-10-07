@@ -71,8 +71,8 @@ const BottomNav: React.FC<BottomNavProps> = ({
                     strokeWidth={isActive ? 2.5 : 2} 
                   />
                   {tab.badge ? (
-                    <div className="absolute -top-1 -right-1 bg-brand-DEFAULT text-[8px] font-black text-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                      {tab.badge}
+                    <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[9px] border-2 border-white shadow-sm leading-none">
+                      <span className="tracking-tighter">{tab.badge > 99 ? '99+' : tab.badge}</span>
                     </div>
                   ) : null}
                 </motion.div>

@@ -2118,8 +2118,65 @@ To deliver instant updates and bug fixes directly to users' devices without requ
      - Added active polling in `useMessages.ts` (2.5s for active conversation threads, 6s for conversation lists).
      - Added `POST_NOTIFICATIONS` and `VIBRATE` permissions to `AndroidManifest.xml` in both Android projects.
      - Configured `org.gradle.vfs.watch=false` in `gradle.properties` to eliminate Windows file locking during dex building.
+     - Configured `org.gradle.vfs.watch=false` in `gradle.properties` to eliminate Windows file locking during dex building.
      - Verified clean debug APK compilation (`gradlew.bat assembleDebug`) for both applications.
      - Deployed live OTA bundle `v1.2.7` to Capgo Cloud production channel for both client and photographer apps.
+
+---
+
+### **13. Chat Experience Overhaul, Gesture Back Navigation, Inquiry Bookings Isolation & Real Online Presence (v1.2.8)**
+- **Root Cause Investigation**:
+  1. *Photographer Chat Bubble Alignment & White Color*:
+     - In `apps/clickflicks-photographer/hooks/useMessages.ts`, line 97 was `sender: m.is_sender ? 'photographer' : 'user'`. The backend Prisma model stores `sender_id`, never `is_sender`. Because `m.is_sender` was undefined, all messages were labeled `sender: 'user'`, causing `ChatDetail.tsx` to treat every message as incoming and align it to the left with a white background.
+  2. *Large Bottom Space on Chat Screens*:
+     - In `Layout.tsx`, `<main>` had `${fullScreen ? '' : 'pb-20'}` (80px padding for the bottom navigation bar). In `App.tsx` of both apps, `fullScreen` was only true during onboarding or auth. When inside `selectedConversationId` (chat), `<BottomNav>` was hidden, but `<main>` still kept `pb-20`, creating an 80px empty void below the input console. Additionally, `ChatDetail.tsx` in the client app had extra `pb-10` padding.
+  3. *Transparent Hollow Badges*:
+     - Both apps used `bg-brand-DEFAULT text-black`. In Tailwind CSS, defining `colors: { brand: { DEFAULT: '#...' } }` creates the utility class `bg-brand`, NOT `bg-brand-DEFAULT`. Because `bg-brand-DEFAULT` does not exist, Tailwind generated no background color, leaving `border-2 border-white` to render as a transparent hollow circle.
+  4. *Physical Device Back Button Exiting App*:
+     - When users tapped the physical back button or used Android swipe back gestures while in subpages, modals, or chat screens, Android OS exited the application immediately because no native back button handler was registered.
+  5. *Inquiry Threads Showing as Real Bookings*:
+     - When clients texted photographers without a booking, an auto-generated inquiry thread with location `'Studio Inquiry & Direct Message'` was created to satisfy foreign keys, but this record also appeared in the client's bookings list and photographer's requests list as an unconfirmed booking.
+  6. *Chat Options Menu Issues & Missing Photographer Menu*:
+     - "View Studio Profile": `ChatDetail` passed `partner?.id` (which was `users.id`) to `onViewProfile`. In `App.tsx`, `handlePhotographerClick` called `apiClient.get('/photographers/' + id)` which queried `photographers.id` only and returned 404, silently dropping the user back to the conversations list.
+     - "Session Contracts": `handleDownloadContract` only set a timer and toggled a boolean without creating or downloading any file.
+     - "Write Artistic Review": Review submissions for non-completed bookings were rejected by backend validation without helpful user guidance.
+     - The photographer app lacked the options menu entirely.
+  7. *Permanent Hardcoded "Active Now" Online Status*:
+     - Both `useMessages.ts` mappers hardcoded `online: true` on all conversations, causing users who had closed the app to permanently display a pulsing green "Active Now" indicator.
+- **Comprehensive Solution**:
+  1. *Photographer Chat Bubble Alignment & Colors*:
+     - Updated `apps/clickflicks-photographer/hooks/useMessages.ts` to retrieve `currentUser` via `tokenManager.getUser()` and compare `sender_id === currentUser.id`.
+     - In `apps/clickflicks-photographer/pages/ChatDetail.tsx`, matched own messages to `justify-end` with dark bubbles (`bg-gray-900 text-gray-100 rounded-br-none`) and client messages to `justify-start` with white bordered bubbles (`bg-white text-gray-900 border border-gray-200/90 rounded-bl-none`).
+  2. *Chat Bottom Gap Rectification*:
+     - In both apps, updated `App.tsx` to pass `fullScreen={Boolean(selectedConversationId) || Boolean(selectedPhotographer)}` to `<Layout>`.
+     - In `ChatDetail.tsx`, replaced absolute pinned containers with clean flex layouts, removing redundant bottom padding.
+  3. *Vibrant Solid Badges*:
+     - Replaced all invalid `bg-brand-DEFAULT` badge classes in `BottomNav.tsx` and `Messages.tsx` with solid vibrant red badges (`bg-red-500 text-white font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[9px] border-2 border-white shadow-sm`).
+  4. *Native Hardware/Gesture Back Button*:
+     - Installed `@capacitor/app@^7.0.0` and linked in both Android projects.
+     - Implemented `CapacitorApp.addListener('backButton')` with a state ref in both `App.tsx` files:
+       - Closes modals first (`activeInAppMessage`, `updateNotice`).
+       - Closes chat screens (`selectedConversationId -> null`).
+       - Closes detail views (`selectedPhotographer -> null`).
+       - Navigates back to the root tab (`home` or `dashboard`).
+       - Exits the application only when pressed from the root tab.
+  5. *Inquiry Bookings Filtered*:
+     - Updated `backend/src/services/booking.service.ts` in `getClientBookings` and `getPhotographerBookings` with `NOT: { event_location: 'Studio Inquiry & Direct Message' }`. Inquiry threads never appear as bookings.
+     - Added a prominent "Book Studio" button in the client chat header and a "Book Studio Session" option in the chat menu that transitions directly to the photographer's booking modal (`initialOpenBooking={true}`).
+  6. *Options Menu Fixes & Photographer Menu Added*:
+     - Updated backend `getPhotographerPublicProfile` to resolve both `photographers.id` and `users.id` (`findFirst({ where: { OR: [{ id }, { user_id }] } })`).
+     - Added `handleOpenProfileFromChat` in client `App.tsx` to smoothly transition to studio profiles without dropping to messages.
+     - Implemented authentic HTML document generation and download for session contracts (Ghana Artisan Service Agreement & IP License) with digital platform seals.
+     - Added booking completion check in "Write Artistic Review" with informative studio notices.
+     - Built the complete options drawer and contracts modal for the photographer chat page.
+  7. *Real Online Presence*:
+     - Added `userPresenceMap` in `backend/src/middleware/auth.middleware.ts` tracking user activity (active within 3 minutes).
+     - Computed dynamic `isOnline` in `message.service.ts` and returned it in `/messages/conversation/:bookingId` and `/messages/conversations`.
+     - Updated frontend mappers and chat headers to show green pulse + `Active Now` when online and gray dot + `Offline` when away.
+  8. *Native Android APK Rebuild & OTA Deployment*:
+     - Freshly compiled debug APKs for both applications via Gradle (`gradlew.bat assembleDebug`).
+     - Copied output APKs to `apks/clickflicks-client.apk` and `apks/clickflicks-photographer.apk`.
+     - Deployed live OTA updates `v1.2.8` to Capgo Cloud production channel for both applications.
 
 ---
 
@@ -2135,6 +2192,7 @@ To deliver instant updates and bug fixes directly to users' devices without requ
 | **v1.2.5** | Both | Blank screen on restart fix (`base: './'`), CDN importmap cleanup, `GlobalErrorBoundary` recovery UI | Deployed ✅ |
 | **v1.2.6** | Photographer | Command dashboard crash fix (`kycData` state restoration), TypeScript validation, native asset sync | Deployed ✅ |
 | **v1.2.7** | Both | Cross-app real-time messaging, inquiry thread creation, physical device push notifications (Android 13+ & local banners) | Deployed ✅ |
+| **v1.2.8** | Both | Chat bubble alignment & dark/light colors, bottom gap elimination, hardware back gesture navigation, solid red badges, direct "Book Studio" in chat, contract downloads, real online presence | Deployed ✅ |
 
 ---
 

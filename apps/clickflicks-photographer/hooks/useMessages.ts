@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import apiClient from '../lib/api-client';
+import apiClient, { tokenManager } from '../lib/api-client';
 import { Conversation, ChatMessage } from '../types';
 import { cacheGet, cacheSet, swrFetch } from '../lib/cache';
 
@@ -18,15 +18,20 @@ const mapBackendToConversation = (c: any): Conversation => {
     ? new Date(rawDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Recently';
 
+  const isOnline = Boolean(c.isOnline ?? otherUser.isOnline ?? c.online ?? false);
+
   return {
     id: c.bookingId || c.booking_id || c.id,
     photographerId: otherUser.id || c.participant_id || c.participantId || c.clientId || 'client-id',
     photographerName: participantName,
     photographerAvatar: otherUser.profileImageUrl || otherUser.profile_image_url || null,
+    participantId: otherUser.id || c.participant_id || c.participantId || c.clientId || 'client-id',
+    participantName: participantName,
+    participantImage: otherUser.profileImageUrl || otherUser.profile_image_url || null,
     lastMessage: lastMsgText,
     lastMessageTime: timeFormatted,
     unreadCount: c.unreadCount || c.unread_count || 0,
-    online: true,
+    online: isOnline,
     bookingDetails: {
       service: c.occasion_type ? c.occasion_type.replace('_', ' ') : (c.service || 'Portrait Shoot'),
       date: c.eventDate || c.event_date ? new Date(c.eventDate || c.event_date).toLocaleDateString() : 'Upcoming',
@@ -80,10 +85,20 @@ export const useMessages = (initialBookingId?: string | null) => {
   }, []);
 
   const fetchMessagesForBooking = useCallback(async (bookingId: string) => {
+    const currentUser = tokenManager.getUser();
+    const currentUserId = currentUser?.id;
+
     try {
       const fetcher = async () => {
         const res = await apiClient.get(`/messages/conversation/${bookingId}`);
         if (res.data?.success && Array.isArray(res.data?.data)) {
+          // If response contains live online presence, update conversations list cached status
+          if (res.data.isOnline !== undefined) {
+            setConversations(prev => prev.map(c => 
+              c.id === bookingId ? { ...c, online: res.data.isOnline } : c
+            ));
+          }
+
           return res.data.data.map((m: any) => {
             let parsedAttachments: string[] = [];
             if (Array.isArray(m.attachments)) {
@@ -92,11 +107,17 @@ export const useMessages = (initialBookingId?: string | null) => {
               try { parsedAttachments = JSON.parse(m.attachments); } catch (_) {}
             }
 
+            const senderId = m.sender_id || m.senderId;
+            const isSender = (currentUserId && senderId === currentUserId) || m.is_sender === true;
+
             return {
               id: m.id,
-              sender: m.is_sender ? 'photographer' : 'user',
+              sender: isSender ? 'photographer' : 'user',
+              isSender: isSender,
+              role: isSender ? 'user' : 'model',
               text: m.message_text,
               time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              timestamp: new Date(m.created_at).getTime(),
               status: m.is_read ? 'read' : 'delivered',
               type: parsedAttachments.length > 0 ? 'image' : 'text',
               mediaUrl: parsedAttachments[0]
@@ -127,8 +148,11 @@ export const useMessages = (initialBookingId?: string | null) => {
     const optimisticMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       sender: 'photographer',
+      isSender: true,
+      role: 'user',
       text,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
       status: 'sent'
     };
     

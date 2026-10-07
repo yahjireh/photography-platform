@@ -6,6 +6,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt.utils';
 
+// In-memory presence tracker for active sessions
+export const userPresenceMap: Map<string, number> = new Map();
+
+/**
+ * Returns true if user has made an authenticated request in the last 3 minutes
+ */
+export function isUserOnline(userId: string): boolean {
+  if (!userId) return false;
+  const lastActive = userPresenceMap.get(userId);
+  if (!lastActive) return false;
+  return Date.now() - lastActive < 3 * 60 * 1000;
+}
+
 /**
  * TEACHING MOMENT: What is Middleware?
  * 
@@ -110,6 +123,9 @@ export function authenticate(
      * }
      */
     req.user = decoded;
+    if (decoded?.user_id) {
+      userPresenceMap.set(decoded.user_id, Date.now());
+    }
     
     /**
      * STEP 6: Continue to next middleware/route handler

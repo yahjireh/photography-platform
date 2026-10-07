@@ -264,7 +264,10 @@ export async function getClientBookings(
   }
 ) {
   const where: any = {
-    client_id: clientId
+    client_id: clientId,
+    NOT: {
+      event_location: 'Studio Inquiry & Direct Message'
+    }
   };
 
   if (filters?.status) {
@@ -329,7 +332,10 @@ export async function getPhotographerBookings(
   }
 ) {
   const where: any = {
-    photographer_id: photographerId
+    photographer_id: photographerId,
+    NOT: {
+      event_location: 'Studio Inquiry & Direct Message'
+    }
   };
 
   if (filters?.status) {

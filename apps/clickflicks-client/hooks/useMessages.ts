@@ -16,6 +16,8 @@ const mapBackendToConversation = (c: any): Conversation => {
     ? new Date(rawDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
     : 'Recent';
 
+  const isOnline = Boolean(c.isOnline ?? otherUser.isOnline ?? c.online ?? false);
+
   return {
     id: c.bookingId || c.booking_id || c.id,
     participantId: otherUser.id || c.photographerId || c.photographer_id || c.id,
@@ -28,7 +30,7 @@ const mapBackendToConversation = (c: any): Conversation => {
     timestamp: timeFormatted,
     lastMessageTime: timeFormatted,
     unreadCount: c.unreadCount || c.unread_count || 0,
-    online: true,
+    online: isOnline,
     bookingDetails: {
       service: c.occasion_type || c.service || 'Photography Session',
       date: c.eventDate || c.event_date ? new Date(c.eventDate || c.event_date).toLocaleDateString() : 'Upcoming',
@@ -105,6 +107,12 @@ export const useMessages = (initialBookingId?: string | null) => {
       const fetcher = async () => {
         const res = await apiClient.get(`/messages/conversation/${bookingId}`);
         if (res.data?.success && Array.isArray(res.data?.data)) {
+          if (res.data.isOnline !== undefined) {
+            setConversations(prev => prev.map(c => 
+              c.id === bookingId ? { ...c, online: res.data.isOnline } : c
+            ));
+          }
+
           const mapped: ChatMessage[] = res.data.data.map((m: any) => {
             let parsedAttachments: string[] = [];
             if (Array.isArray(m.attachments)) {

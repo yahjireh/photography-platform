@@ -35,6 +35,7 @@ interface PhotographerDetailProps {
   onOpenChat: (photographer?: Photographer) => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  initialOpenBooking?: boolean;
 }
 
 const PhotographerDetail: React.FC<PhotographerDetailProps> = ({ 
@@ -42,9 +43,10 @@ const PhotographerDetail: React.FC<PhotographerDetailProps> = ({
   onBack, 
   onOpenChat, 
   isFavorite = false, 
-  onToggleFavorite 
+  onToggleFavorite,
+  initialOpenBooking = false
 }) => {
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(Boolean(initialOpenBooking));
   const [bookingMode, setBookingMode] = useState<'package' | 'custom'>('package');
   const [selectedPackage, setSelectedPackage] = useState<PhotographerPackage | null>(null);
   const [bookingStep, setBookingStep] = useState<'form' | 'summary'>('form');

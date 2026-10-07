@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import Layout from './components/Layout';
 import BottomNav from './components/BottomNav';
 import PhotographerDashboard from './pages/PhotographerDashboard';
@@ -172,6 +173,56 @@ const AppContent: React.FC = () => {
     };
   }, [isAuthenticated, isAuthLoading, photographerProfile, user?.id]);
 
+  const navStateRef = useRef({
+    flowState,
+    currentView,
+    selectedConversationId,
+    hasModal: Boolean(activeInAppMessage || updateNotice)
+  });
+
+  useEffect(() => {
+    navStateRef.current = {
+      flowState,
+      currentView,
+      selectedConversationId,
+      hasModal: Boolean(activeInAppMessage || updateNotice)
+    };
+  }, [flowState, currentView, selectedConversationId, activeInAppMessage, updateNotice]);
+
+  useEffect(() => {
+    let sub: any;
+    try {
+      sub = CapacitorApp.addListener('backButton', () => {
+        const s = navStateRef.current;
+        if (s.hasModal) {
+          setActiveInAppMessage(null);
+          setUpdateNotice(null);
+          return;
+        }
+        if (s.selectedConversationId) {
+          setSelectedConversationId(null);
+          setActiveChatPartner(null);
+          return;
+        }
+        if (s.flowState === 'kyc') {
+          setFlowState('app');
+          return;
+        }
+        if (s.flowState === 'app' && s.currentView !== 'dashboard') {
+          setCurrentView('dashboard');
+          return;
+        }
+        CapacitorApp.exitApp();
+      });
+    } catch (_) {}
+
+    return () => {
+      if (sub && typeof sub.then === 'function') {
+        sub.then((h: any) => h?.remove?.()).catch(() => {});
+      }
+    };
+  }, []);
+
   const handleInAppAction = (msg: InAppMessageItem) => {
     localStorage.setItem(`clickflicks_pro_msg_dismissed_${msg.id}`, 'true');
     localStorage.setItem(`clickflicks_pro_msg_viewed_${msg.id}`, 'true');
@@ -320,6 +371,7 @@ const AppContent: React.FC = () => {
     if (partnerInfo?.id) {
       const found = conversations.find(c => 
         c.photographerId === partnerInfo.id || 
+        c.participantId === partnerInfo.id ||
         c.id === conversationId || 
         c.id === partnerInfo.id
       );
@@ -327,19 +379,19 @@ const AppContent: React.FC = () => {
         targetConvId = found.id;
         partner = {
           id: partnerInfo.id,
-          name: partnerInfo.name || found.photographerName,
-          avatar: partnerInfo.avatar || found.photographerAvatar || null,
-          isOnline: true
+          name: partnerInfo.name || found.participantName || found.photographerName,
+          avatar: partnerInfo.avatar || found.participantImage || found.photographerAvatar || null,
+          isOnline: partnerInfo.isOnline !== undefined ? partnerInfo.isOnline : (found.online === true)
         };
       }
     } else {
-      const found = conversations.find(c => c.id === conversationId);
+      const found = conversations.find(c => c.id === conversationId || c.photographerId === conversationId || c.participantId === conversationId);
       if (found) {
         partner = {
-          id: found.photographerId,
-          name: found.photographerName,
-          avatar: found.photographerAvatar || null,
-          isOnline: true
+          id: found.participantId || found.photographerId,
+          name: found.participantName || found.photographerName,
+          avatar: found.participantImage || found.photographerAvatar || null,
+          isOnline: found.online === true
         };
       }
     }
@@ -356,7 +408,7 @@ const AppContent: React.FC = () => {
 
   return (
     <Layout 
-      fullScreen={flowState !== 'app'} 
+      fullScreen={flowState !== 'app' || Boolean(selectedConversationId)} 
       onHome={() => {
         setSelectedConversationId(null);
         setActiveChatPartner(null);
@@ -444,7 +496,7 @@ const AppContent: React.FC = () => {
                       const foundBooking = bookings.find(b => b.id === bookingId || b.clientId === clientId);
                       const clientName = foundBooking?.clientName || 'Private Client';
                       const clientAvatar = foundBooking?.clientAvatar || null;
-                      handleOpenChat(bookingId || clientId, { id: clientId, name: clientName, avatar: clientAvatar, isOnline: true });
+                      handleOpenChat(bookingId || clientId, { id: clientId, name: clientName, avatar: clientAvatar });
                     }}
                   />
                 )}
