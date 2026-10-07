@@ -1,10 +1,11 @@
 # 📊 PHOTOGRAPHY PLATFORM - COMPLETE PROJECT PROGRESS
 
-**Last Updated:** February 6, 2026 (Live v1.2.4 Released)
-**Current Phase:** Backend Integration Complete ✅ + Mobile Live OTA v1.2.4 Deployed ✅
-**Backend Status:** 99% Complete (Optimized Rate Limiter & Concurrency Guards) ✅
-**Photographer App Status:** Live v1.2.4 Deployed (Avatar Rate Limiting Loop Fixed & Studio Verification Dismissal Persisted) ✅
-**Admin Dashboard Status:** 100% Complete - All Pages + UI/UX Enhancements ✅  
+**Last Updated:** October 7, 2026 (Live Mobile v1.2.6 Deployed & Stabilized)
+**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.6 Active ✅
+**Backend Status:** 100% Complete (Hardened Rate Limiting, OTP verification, 2FA, Paystack Escrow, RLS & DB Indexes) ✅
+**Photographer App Status:** Live v1.2.6 Deployed (Capgo Cloud OTA, Studio Verification Dismissal, Profile Avatar Sync, Zero Runtime Crashes) ✅
+**Client App Status:** Live v1.2.6 Deployed (Capgo Cloud OTA, Native Push Notifications, OTP Flow, Full Booking Lifecycle) ✅
+**Admin Dashboard Status:** 100% Complete - All 13 Pages + Live Multi-Table Notifications & Release Sync ✅  
 
 ---
 
@@ -1953,7 +1954,153 @@ apps/
 - **Admin Notification Pipeline:** Replaced mock notifications with live PostgreSQL multi-table aggregations (disputes, KYC, users, bookings, payments, reviews), dynamic origin badges, persistent read tracking, and instant WebSocket invalidation.
 - **Identity & Verification Layer:** Implemented DNS MX domain lookups, disposable email blacklisting, Ghanaian/international phone normalization, and 6-digit email/SMS OTP verification with an auto-advancing modal and strict 3-attempt code burning.
 - **Two-Factor Authentication (2FA):** Implemented RFC 6238 TOTP with scannable QR code generation for Google Authenticator / Authy and 8 backup emergency recovery codes.
-- **Hardened Rate Limiting:** Implemented tiered rate limiting (5 req/15min for Auth, 3 req/15min for OTP dispatch, 5 req/15min for OTP verification, 500 req/15min general API, 120 req/min for Paystack webhooks) with progressive exponential backoff (15 min -> 1 hr -> 24 hr) and anti-rotating-proxy account lockout guards.
+- **Hardened Rate Limiting:** Implemented tiered rate limiting (5 req/15min for Auth, 3 req/15min for OTP dispatch, 5 req/15min for OTP verification, 2,500 req/15min general API, 120 req/min for Paystack webhooks) with progressive exponential backoff (15 min -> 1 hr -> 24 hr) and anti-rotating-proxy account lockout guards.
+
+---
+
+## 📱 MOBILE NATIVE & LIVE OTA EVOLUTION (v1.2.0 - v1.2.6)
+
+A major focus of recent engineering sessions was transforming ClickFlicks into a true, native-grade mobile experience for Ghanaian photographers and clients, complete with an automated Over-The-Air (OTA) continuous deployment pipeline via Capgo Cloud, bulletproof runtime resilience, and zero-loss UI persistence.
+
+---
+
+### **1. Monorepo Reorganization & Native Runtime Generation**
+- **Architecture**: Decoupled `/apps` into two standalone, independently deployable applications:
+  - `apps/clickflicks-photographer`: Dedicated Creator Studio app (ports `3003` dev / `5173`).
+  - `apps/clickflicks-client`: Client booking & discovery app (ports `3002` dev / `5174`).
+- **Native Project Scaffolding**:
+  - Initialized official Capacitor runtimes (`npx cap add android`, `npx cap add ios`) in both apps.
+  - Configured Android build toolchains (`gradle.properties`, `build.gradle`) with JDK 21 and current Android SDK paths.
+  - Linked native Firebase push configurations (`google-services.json` and `GoogleService-Info.plist`).
+  - Compiled and verified release-ready debug APKs (`apks/clickflicks-client.apk`, `apks/clickflicks-photographer.apk`).
+
+---
+
+### **2. Automated Capgo Cloud Live OTA Update Pipeline**
+To deliver instant updates and bug fixes directly to users' devices without requiring app store resubmissions:
+- **Core Integration**: Embedded `@capgo/capacitor-updater` with native background sync listeners bound to the `production` channel.
+- **Service Implementation (`services/CapgoUpdateService.ts`)**:
+  - Monitors background download progress (`downloadComplete`, `majorAvailable`, `updateAvailable`).
+  - Emits custom events (`capgo_update_ready`) upon successful bundle extraction.
+  - Renders a floating kinetic restart pill: `"Update vX.X.X Ready - Restart now to apply changes"`.
+  - Triggers instant zero-downtime hot-reloads via `CapacitorUpdater.reload()`.
+- **Automated Deployment Pipeline (`scripts/sync-mobile-release.js`)**:
+  - Automated one-command build, packaging, and deployment:
+    ```bash
+    node scripts/sync-mobile-release.js --app photographer --version <VERSION> --notes "<RELEASE_NOTES>"
+    ```
+  - Directly uploads web archives to Capgo Cloud production channel.
+  - Automatically updates PostgreSQL `system_settings` (`mobile_app_versions`) with semantic version, min supported version, download URLs, and release notes so the backend version endpoint (`/api/mobile/version`) and admin dashboard remain in continuous synchronization.
+- **Automated Workspace Policy (`.agents/rules/auto-push-and-capgo.md`)**:
+  - Codified rule: every code update touching mobile apps is immediately pushed to GitHub `origin/main` and simultaneously deployed live via Capgo OTA.
+
+---
+
+### **3. In-App Update Modal & Store-Readiness UX**
+- **Component**: `components/AppUpdateModal.tsx` in both applications.
+- **Store-Readiness UX Optimization**:
+  - Removed premature "Update Now" store button prior to official Google Play and Apple App Store listings, preventing user confusion from broken deep links.
+  - Retained clean "Dismiss" / "Got It" action with permanent version-scoped suppression.
+- **State Storage**:
+  - Keyed dismissal in `localStorage` under `clickflicks_pro_modal_dismissed_${version}` and `clickflicks_client_modal_dismissed_${version}`.
+  - Integrated semantic version comparisons (`semver.gt`) to guarantee users already running the latest version are never prompted.
+
+---
+
+### **4. Direct Rate Controls & Studio Pricing Persistence**
+- **UI Enhancements (`PhotographerStudio.tsx`)**:
+  - Added direct numeric input fields alongside range sliders for both Hourly Rates (GHS 50 - 5,000) and Starting / Half-Day Rates (GHS 200 - 15,000).
+  - Photographers can now type exact pricing figures directly without relying solely on slider precision.
+- **Persistence Architecture**:
+  - **Issue Resolved**: Rates were resetting to default values whenever the photographer closed and reopened the app.
+  - **Fix**: Implemented optimistic local caching (`clickflicks_rates_${userId}`) backed by real-time synchronization with `photographer.service.ts` (`hourlyRate`, `startingPrice`). Data loads instantly from local storage on launch and verifies against the database in the background.
+
+---
+
+### **5. Profile Picture (Avatar) Upload & Camera Badge Stacking**
+- **Visual Stacking Fix**: Resolved an issue where the camera badge icon was rendered underneath the user avatar circle. Corrected CSS stacking contexts and elevated the camera trigger badge with `z-20` and absolute positioning.
+- **Upload Resilience**:
+  - Separated local preview rendering state (`avatarPreview`) from remote profile state.
+  - Fixed file buffer handling in `storage.service.ts` and `photographer.service.ts` for Supabase bucket uploads (`avatars` bucket).
+  - Replaced infinite upload loading spinner with immediate visual feedback upon photo selection.
+
+---
+
+### **6. Universal Modal & Banner Persistence Policy**
+- **Policy Codification (`.agents/rules/modal-persistence-and-dismissal.md`)**:
+  - Established a strict platform rule: every modal, alert prompt, announcement, or banner must immediately record viewed (`..._viewed_<id>`) and dismissed (`..._dismissed_<id>`) states in `localStorage`.
+  - Once viewed or dismissed, notices must **never** reappear on subsequent app opens or screen navigation.
+
+---
+
+### **7. Financial Security & Git Tracking Cleanup**
+- **Exclusion of Sensitive Documents**:
+  - Removed all production budget spreadsheets and sensitive planning documents from Git tracking (`CLICKFLICKS_PRODUCTION_BUDGET.docx`, `CLICKFLICKS_PRODUCTION_BUDGET.md`, `Infrastructure_Budget.docx`).
+  - Hardened `.gitignore` with broad wildcard patterns (`*budget*`, `*BUDGET*`, `*Budget*`, `*.docx`) to prevent accidental leaks.
+
+---
+
+### **8. Permanent Studio & KYC Verification Dismissal**
+- **Issue Resolved**: Studio verification warning banners repeatedly displayed on the Photographer Dashboard and inside the Studio menu under "Business Core" even after being acknowledged.
+- **Fix**:
+  - Added clear `(X)` dismiss buttons across all verification banner states (rejected, needs more info, unverified, unsubmitted).
+  - Persisted dismissed state under `clickflicks_pro_studio_verification_dismissed_${user.id}` (with global fallback).
+  - Suppresses all verification prompts across both `PhotographerDashboard.tsx` and `PhotographerStudio.tsx` once dismissed.
+
+---
+
+### **9. Avatar Update 429 Rate Limiter Loop & Concurrency Lockdown**
+- **Root Cause Investigation**:
+  - Updating an avatar in `PhotographerStudio.tsx` triggered an API error: *"Too many API requests. Your request limit has been reached. Progressive backoff active."*
+  - **The Culprit**: `updateUser` in `AuthContext.tsx` was recreated on every render because it lacked `useCallback`. In `usePhotographerProfile.ts`, `fetchProfile` listed `updateUser` in its dependency array.
+  - When the avatar updated, `updateUser` was called -> recreated `fetchProfile` -> fired `useEffect` -> requested `/photographers/me` -> called `updateUser` -> fired infinite loop hammering the server with 500+ requests in seconds.
+  - Backend rate limiter exceeded the 500-request threshold, triggering progressive lockout (15min -> 1hr -> 24hr).
+- **Comprehensive Solution**:
+  1. Wrapped `updateUser`, `refreshUser`, `login`, and `logout` in stable `useCallback(..., [])` in `AuthContext.tsx`.
+  2. Implemented `isFetchingRef` concurrency lock in `usePhotographerProfile.ts` to abort duplicate inflight queries.
+  3. Decoupled `updateUser` from the `fetchProfile` dependency list.
+  4. Expanded backend `generalApiLimiter` from 500 to 2,500 requests per 15-minute window in `rate-limiter.middleware.ts` to accommodate multi-tab studio operations.
+
+---
+
+### **10. Post-Update Blank Screen Resolution (v1.2.5)**
+- **Root Cause Investigation**:
+  - After downloading a Capgo OTA update and tapping restart, the app booted into a blank white screen.
+  - **The Culprit**: In `vite.config.ts`, Vite defaults to `base: '/'` (absolute paths). Script tags compiled as `<script src="/assets/index-....js">`.
+  - When Capgo unpacks OTA updates into local sandbox snapshot directories (`.../ionic_built_snapshots/...`), absolute paths `/assets/...` resolve to root system paths rather than the local snapshot directory, causing 404 file load failures.
+  - Additionally, external importmaps referencing `esm.sh` created CDN network dependencies on boot.
+- **Comprehensive Solution**:
+  1. Configured `base: './'` in `apps/clickflicks-photographer/vite.config.ts` and `apps/clickflicks-client/vite.config.ts` so all assets load via relative paths from any local sandbox snapshot.
+  2. Removed external CDN importmaps from `index.html` across both applications.
+  3. Built and integrated `GlobalErrorBoundary` in `apps/clickflicks-photographer/index.tsx` that catches any uncaught runtime exceptions, renders a branded fallback recovery screen with diagnostic error messages, and offers an instant "Restart Studio" button.
+  4. Deployed and verified OTA release `v1.2.5`.
+
+---
+
+### **11. Command Dashboard Runtime Crash Resolution (v1.2.6)**
+- **Root Cause Investigation**:
+  - When clicking the "Command" menu tab on the photographer app, the app immediately crashed with: *"A temporary display error occurred during launch. ReferenceError: kycData is not defined"*.
+  - **The Culprit**: During the verification notice refactor in `PhotographerDashboard.tsx`, the `const [kycData, setKycData] = useState<any>(null);` state declaration was accidentally omitted while JSX references to `kycData` remained in the render tree.
+- **Comprehensive Solution**:
+  1. Restored `const [kycData, setKycData] = useState<any>(null);` in `PhotographerDashboard.tsx`.
+  2. Fixed `GlobalErrorBoundary` TypeScript property types (`hasError: boolean; error: Error | null;`).
+  3. Ran complete TypeScript validation (`npx tsc --noEmit`) to verify zero errors across the entire monorepo.
+  4. Synced native build assets (`npx cap sync android`).
+  5. Deployed live OTA release `v1.2.6` to Capgo Cloud production channel.
+
+---
+
+### **Summary of Mobile Release History**
+
+| Version | Target App | Key Features & Fixes | Status |
+| :--- | :--- | :--- | :--- |
+| **v1.2.0** | Both | Capgo OTA autoUpdate integration, background update announcement modal, curator feedback sync | Deployed ✅ |
+| **v1.2.1** | Both | Camera permissions, Android SDK/JDK 21 path alignment, database `service_area` column sync | Deployed ✅ |
+| **v1.2.2** | Both | Instant restart pill (`CapgoUpdateService`), public channel auto-updates, store button adjustment | Deployed ✅ |
+| **v1.2.3** | Both | Universal modal persistence (`localStorage` flags), rates direct numeric inputs, camera icon z-index | Deployed ✅ |
+| **v1.2.4** | Photographer | Avatar 429 rate limiter loop fix (`useCallback` + `isFetchingRef`), persistent studio verification dismissal | Deployed ✅ |
+| **v1.2.5** | Both | Blank screen on restart fix (`base: './'`), CDN importmap cleanup, `GlobalErrorBoundary` recovery UI | Deployed ✅ |
+| **v1.2.6** | Photographer | Command dashboard crash fix (`kycData` state restoration), TypeScript validation, native asset sync | Deployed ✅ |
 
 ---
 
