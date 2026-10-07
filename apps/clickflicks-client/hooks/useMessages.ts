@@ -186,26 +186,37 @@ export const useMessages = (initialBookingId?: string | null) => {
     });
 
     try {
-      await apiClient.post('/messages', {
+      const res = await apiClient.post('/messages', {
         bookingId: bookingId,
         receiverId: receiverId,
         messageText: text,
         attachments: attachments || []
       });
-      fetchMessagesForBooking(bookingId);
+      const resolvedBookingId = res.data?.data?.bookingId || res.data?.data?.booking_id || bookingId;
+      await fetchMessagesForBooking(resolvedBookingId);
+      fetchConversations();
     } catch (err: any) {
       console.error('Failed to post message:', err.message);
     }
   };
 
+  // Poll conversations every 6s to keep unread badges and chats in continuous sync
   useEffect(() => {
     fetchConversations();
+    const interval = setInterval(() => {
+      fetchConversations();
+    }, 6000);
+    return () => clearInterval(interval);
   }, [fetchConversations]);
 
+  // When active in a conversation, poll for incoming messages every 2.5s for real-time responsiveness
   useEffect(() => {
-    if (initialBookingId) {
+    if (!initialBookingId) return;
+    fetchMessagesForBooking(initialBookingId);
+    const interval = setInterval(() => {
       fetchMessagesForBooking(initialBookingId);
-    }
+    }, 2500);
+    return () => clearInterval(interval);
   }, [initialBookingId, fetchMessagesForBooking]);
 
   const totalUnreadCount = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);

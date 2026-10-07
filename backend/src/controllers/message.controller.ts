@@ -26,10 +26,10 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     const attachments = req.body.attachments;
     
     // Validation
-    if (!bookingId || !receiverId || !messageText) {
+    if ((!bookingId && !receiverId) || !messageText) {
       res.status(400).json({
         success: false,
-        message: 'Missing required fields: bookingId, receiverId, messageText'
+        message: 'Missing required fields: messageText and either receiverId or bookingId'
       });
       return;
     }

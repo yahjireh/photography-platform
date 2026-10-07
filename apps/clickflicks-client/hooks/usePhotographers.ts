@@ -58,6 +58,7 @@ export const mapBackendToPhotographer = (item: any): Photographer => {
 
   return {
     id: item.id,
+    userId: user.id || item.user_id || item.userId,
     name: user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (item.name || 'Artisan Photographer'),
     title: bioText ? (bioText.slice(0, 45) + (bioText.length > 45 ? '...' : '')) : '',
     category: primaryCategory,

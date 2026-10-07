@@ -88,12 +88,12 @@ export async function onBookingCreated(data: {
  */
 export async function onMessageReceived(data: {
   receiverId: string;
-  receiverEmail: string;
-  receiverName: string;
+  receiverEmail?: string;
+  receiverName?: string;
   senderName: string;
   messageText: string;
-  bookingNumber: string;
-  bookingId: string;
+  bookingNumber?: string;
+  bookingId?: string;
 }) {
   console.log(`📬 Triggering notifications: New message received`);
   
@@ -106,7 +106,7 @@ export async function onMessageReceived(data: {
     // Create in-app notification
     await NotificationService.createNotification({
       userId: data.receiverId,
-      type: 'MESSAGE_RECEIVED' as any,  // Add to NotificationType enum if needed
+      type: 'MESSAGE_RECEIVED' as any,
       title: `New message from ${data.senderName}`,
       message: messagePreview,
       data: {
@@ -116,10 +116,11 @@ export async function onMessageReceived(data: {
       }
     });
     
-    // Send email notification
-    await EmailService.sendEmail({
-      to: data.receiverEmail,
-      subject: `New message from ${data.senderName}`,
+    // Send email notification if receiver email is available
+    if (data.receiverEmail) {
+      await EmailService.sendEmail({
+        to: data.receiverEmail,
+        subject: `New message from ${data.senderName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
@@ -167,13 +168,14 @@ export async function onMessageReceived(data: {
       ---
       Photography Platform
       This is an automated notification.
-            `
-          });
-          
-          console.log('✅ Message notification sent');
-        } catch (error) {
-          console.error('❌ Failed to send message notification:', error);
-        }
+      `
+      });
+    }
+    
+    console.log('✅ Message notification sent');
+  } catch (error) {
+    console.error('❌ Failed to send message notification:', error);
+  }
 }
 
 /**
@@ -621,6 +623,7 @@ export async function onUserRegistered(data: {
     text: EmailService.htmlToText(html)
   });
 }
+
 
 /**
  * TEACHING MOMENT: How to Use These Triggers

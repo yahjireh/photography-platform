@@ -1,10 +1,10 @@
 # 📊 PHOTOGRAPHY PLATFORM - COMPLETE PROJECT PROGRESS
 
-**Last Updated:** October 7, 2026 (Live Mobile v1.2.6 Deployed & Stabilized)
-**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.6 Active ✅
-**Backend Status:** 100% Complete (Hardened Rate Limiting, OTP verification, 2FA, Paystack Escrow, RLS & DB Indexes) ✅
-**Photographer App Status:** Live v1.2.6 Deployed (Capgo Cloud OTA, Studio Verification Dismissal, Profile Avatar Sync, Zero Runtime Crashes) ✅
-**Client App Status:** Live v1.2.6 Deployed (Capgo Cloud OTA, Native Push Notifications, OTP Flow, Full Booking Lifecycle) ✅
+**Last Updated:** October 7, 2026 (Live Mobile v1.2.7 Deployed & Stabilized)
+**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.7 Active ✅
+**Backend Status:** 100% Complete (Hardened Rate Limiting, Messaging Inquiries, Push Token Sync, Paystack Escrow, RLS & DB Indexes) ✅
+**Photographer App Status:** Live v1.2.7 Deployed (Capgo Cloud OTA, Real-time Messaging, Local Banners, Studio Verification Dismissal) ✅
+**Client App Status:** Live v1.2.7 Deployed (Capgo Cloud OTA, Real-time Messaging, Local Banners, Native Push Notifications) ✅
 **Admin Dashboard Status:** 100% Complete - All 13 Pages + Live Multi-Table Notifications & Release Sync ✅  
 
 ---
@@ -2090,6 +2090,39 @@ To deliver instant updates and bug fixes directly to users' devices without requ
 
 ---
 
+### **12. Real-time Cross-App Messaging & Physical Device Push Notifications (v1.2.7)**
+- **Root Cause Investigation**:
+  1. *Foreign Key Lockout & Inquiry Routing*:
+     - In `backend/src/services/message.service.ts`, `sendMessage` strictly checked for an existing `bookingId` in the `bookings` table. When a client tapped "Chat" on a photographer's profile before booking, the frontend passed either the photographer's ID or an empty string, causing Prisma to throw `Booking not found (HTTP 400)`.
+     - In `apps/clickflicks-client/hooks/usePhotographers.ts`, the mapped `Photographer` object did not expose `userId` (only the `photographers.id` primary key). Passing this ID as `receiverId` caused the backend verification check `receiverId !== expectedReceiverId` to fail.
+  2. *Zero Real-time Polling / Socket Listeners*:
+     - Neither the client app nor the photographer app polled for new messages inside `useMessages.ts`. Messages were fetched only on initial component mount, leaving chats silent until the user backed out and reopened the view.
+  3. *Android 13+ Physical Device Push Notification Block*:
+     - Neither `AndroidManifest.xml` declared `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` or `VIBRATE`. On Android 13+, Android OS completely ignores or denies push notification requests without this manifest permission.
+     - `apps/clickflicks-client/App.tsx` never imported or initialized `PushNotificationService`.
+     - When devices registered FCM tokens, `PushNotificationService.ts` only logged them to `console.log` and saved them to local storage without syncing them to any backend endpoint.
+     - Remote push events (`pushNotificationReceived`) were silently discarded without scheduling local visual heads-up notification banners.
+  4. *Missing Notification Trigger Function*:
+     - `backend/src/services/message.service.ts` invoked `NotificationTrigger.onMessageReceived({...})`, but `onMessageReceived` was missing from `notification-trigger.service.ts`, causing silent promise rejections.
+- **Comprehensive Solution**:
+  1. *Backend Upgrades*:
+     - Updated `message.service.ts` to automatically resolve photographer table IDs to user IDs.
+     - Added automated inquiry thread generation (`OccasionType: PORTRAIT`, `status: PENDING`, `budget: 0`) when a client reaches out to a photographer without a pre-existing booking.
+     - Added endpoint `POST /api/mobile/push-token` in `backend/src/controllers/mobile.controller.ts` and `backend/src/routes/mobile.routes.ts`, syncing physical device tokens to `system_settings` (`user_device_tokens`).
+     - Added `sendNativePush` helper in `backend/src/services/notification.service.ts` and implemented `onMessageReceived` in `backend/src/services/notification-trigger.service.ts` to dispatch both in-app records and native FCM alerts to recipient devices.
+  2. *Client & Photographer Apps*:
+     - Added `userId?: string` to `Photographer` in `apps/clickflicks-client/types.ts` and mapped it in `usePhotographers.ts`.
+     - Installed `@capacitor/local-notifications@7.0.0` on both client and photographer apps.
+     - Overhauled `PushNotificationService.ts` across both apps: creates high-priority Android notification channel (`clickflicks_alerts`), registers `pushNotificationReceived` listener to schedule native heads-up banners with sound and vibration, and syncs FCM tokens to backend `/api/mobile/push-token`.
+     - Initialized `initPushNotifications()` in `apps/clickflicks-client/App.tsx`.
+     - Added active polling in `useMessages.ts` (2.5s for active conversation threads, 6s for conversation lists).
+     - Added `POST_NOTIFICATIONS` and `VIBRATE` permissions to `AndroidManifest.xml` in both Android projects.
+     - Configured `org.gradle.vfs.watch=false` in `gradle.properties` to eliminate Windows file locking during dex building.
+     - Verified clean debug APK compilation (`gradlew.bat assembleDebug`) for both applications.
+     - Deployed live OTA bundle `v1.2.7` to Capgo Cloud production channel for both client and photographer apps.
+
+---
+
 ### **Summary of Mobile Release History**
 
 | Version | Target App | Key Features & Fixes | Status |
@@ -2101,6 +2134,7 @@ To deliver instant updates and bug fixes directly to users' devices without requ
 | **v1.2.4** | Photographer | Avatar 429 rate limiter loop fix (`useCallback` + `isFetchingRef`), persistent studio verification dismissal | Deployed ✅ |
 | **v1.2.5** | Both | Blank screen on restart fix (`base: './'`), CDN importmap cleanup, `GlobalErrorBoundary` recovery UI | Deployed ✅ |
 | **v1.2.6** | Photographer | Command dashboard crash fix (`kycData` state restoration), TypeScript validation, native asset sync | Deployed ✅ |
+| **v1.2.7** | Both | Cross-app real-time messaging, inquiry thread creation, physical device push notifications (Android 13+ & local banners) | Deployed ✅ |
 
 ---
 

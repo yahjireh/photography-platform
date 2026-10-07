@@ -37,6 +37,7 @@ export interface PhotographerPackage {
 
 export interface Photographer {
   id: string;
+  userId?: string;
   name: string;
   title?: string;
   category: string;

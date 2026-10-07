@@ -9,7 +9,8 @@ import {
   getMobilePublicConfig,
   reportMobileCrash,
   recordMobileInAppMessageView,
-  recordMobileInAppMessageClick
+  recordMobileInAppMessageClick,
+  registerMobilePushToken
 } from '../controllers/mobile.controller';
 
 const router = Router();
@@ -19,6 +20,12 @@ const router = Router();
  * Startup config sync for mobile clients
  */
 router.get('/config', getMobilePublicConfig);
+
+/**
+ * POST /api/mobile/push-token
+ * Register device push token (FCM / APNs) for native mobile alerts
+ */
+router.post('/push-token', registerMobilePushToken);
 
 /**
  * POST /api/mobile/crashes

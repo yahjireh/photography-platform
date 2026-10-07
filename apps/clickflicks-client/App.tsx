@@ -26,6 +26,7 @@ import { Icons } from './components/ui/icons';
 import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './services/MobileConfigService';
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { CapgoUpdateService } from './services/CapgoUpdateService';
+import { initPushNotifications } from './services/PushNotificationService';
 
 type AppState = 'ONBOARDING' | 'AUTH' | 'MAIN';
 type AuthState = 'LOGIN' | 'SIGNUP';
@@ -69,6 +70,7 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
+    initPushNotifications();
     MobileConfigService.init();
     CapgoUpdateService.init((ver) => {
       setUpdateReadyVersion(ver);
@@ -357,13 +359,11 @@ const AppContent: React.FC = () => {
     let pName = typeof photographerIdOrObj === 'object' ? photographerIdOrObj.name : undefined;
     let pAvatar = typeof photographerIdOrObj === 'object' ? (photographerIdOrObj.imageUrl || photographerIdOrObj.avatar) : undefined;
 
-    if (!pName) {
-      const matchP = photographers.find(p => p.id === pId || (p as any).userId === pId);
-      if (matchP) {
-        pName = matchP.name;
-        pAvatar = matchP.imageUrl || matchP.avatar;
-        pId = (matchP as any).userId || matchP.id;
-      }
+    const matchP = photographers.find(p => p.id === pId || p.userId === pId || (p as any).userId === pId);
+    if (matchP) {
+      pName = pName || matchP.name;
+      pAvatar = pAvatar || matchP.imageUrl || matchP.avatar;
+      pId = matchP.userId || pId;
     }
 
     // Check if an existing conversation between this client and photographer exists
@@ -371,7 +371,8 @@ const AppContent: React.FC = () => {
       c.participantId === pId ||
       c.photographerId === pId ||
       (bookingId && c.id === bookingId) ||
-      c.id === pId
+      c.id === pId ||
+      (matchP?.id && (c.participantId === matchP.id || c.photographerId === matchP.id))
     );
 
     if (found) {

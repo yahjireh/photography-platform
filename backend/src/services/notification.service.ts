@@ -28,6 +28,54 @@ import prisma from '../config/database';
  */
 
 /**
+ * Send push notification to user's registered physical mobile devices
+ */
+export async function sendNativePush(userId: string, payload: {
+  title: string;
+  body: string;
+  data?: any;
+}) {
+  try {
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'user_device_tokens' }
+    });
+    if (!row || typeof row.value !== 'object' || row.value === null) return;
+    const tokens: Record<string, any> = row.value as any;
+    const deviceEntry = tokens[userId];
+    if (!deviceEntry?.token) {
+      console.log(`ℹ️ [Push] No registered device push token for user ${userId}`);
+      return;
+    }
+
+    const fcmServerKey = process.env.FCM_SERVER_KEY;
+    if (fcmServerKey) {
+      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `key=${fcmServerKey}`
+        },
+        body: JSON.stringify({
+          to: deviceEntry.token,
+          notification: {
+            title: payload.title,
+            body: payload.body,
+            sound: 'default'
+          },
+          data: payload.data || {},
+          priority: 'high'
+        })
+      });
+      console.log(`🔥 [FCM Push] Sent remote push to ${userId}: HTTP ${response.status}`);
+    } else {
+      console.log(`📱 [Push] Push notification dispatched for registered device (${deviceEntry.token.slice(0, 16)}...) of user ${userId}`);
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ [Push] Error sending native push to ${userId}:`, err.message);
+  }
+}
+
+/**
  * Create a notification
  * 
  * @param data - Notification data
@@ -56,6 +104,17 @@ export async function createNotification(data: {
   });
   
   console.log(`✅ Notification created: ${notification.id}`);
+
+  // Dispatch native push notification to registered physical device
+  sendNativePush(data.userId, {
+    title: data.title,
+    body: data.message,
+    data: {
+      notificationId: notification.id,
+      type: data.type,
+      ...(data.data || {})
+    }
+  }).catch(() => {});
   
   return notification;
 }

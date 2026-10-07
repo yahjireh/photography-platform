@@ -5,20 +5,16 @@
 
 import prisma from '../config/database';
 import * as NotificationTrigger from './notification-trigger.service';
+import { generateBookingNumber } from '../config/constants';
 
 /**
  * TEACHING MOMENT: Messaging Architecture
  * 
  * Our messaging system is BOOKING-SCOPED:
- * - Every message belongs to a specific booking
- * - Only client and photographer of that booking can message
- * - This provides natural context and security
- * 
- * Benefits:
- * - Messages are organized by project/booking
- * - Easy to find conversation about specific shoot
- * - Natural access control (booking participants only)
- * - Clear conversation boundaries
+ * - Every message belongs to a specific booking or inquiry thread
+ * - Client and photographer can message each other seamlessly
+ * - If chatting before booking, an inquiry thread is automatically initialized
+ * - Natural access control and consistent conversation history
  */
 
 /**
@@ -28,47 +24,130 @@ import * as NotificationTrigger from './notification-trigger.service';
  * @returns Created message
  */
 export async function sendMessage(data: {
-  bookingId: string;
+  bookingId?: string;
   senderId: string;
-  receiverId: string;
+  receiverId?: string;
   messageText: string;
   attachments?: string[];  // Array of file URLs
 }) {
-  console.log(`💬 Sending message in booking ${data.bookingId}`);
+  console.log(`💬 Sending message from ${data.senderId} (bookingId: ${data.bookingId || 'none'}, receiverId: ${data.receiverId || 'none'})`);
   
-  // Verify booking exists and sender is participant
-  const booking = await prisma.bookings.findUnique({
+  let targetReceiverId = data.receiverId;
+
+  // If receiverId is provided, resolve in case it's a photographer table ID rather than user ID
+  if (targetReceiverId) {
+    const userExists = await prisma.users.findUnique({ where: { id: targetReceiverId } });
+    if (!userExists) {
+      const photog = await prisma.photographers.findUnique({ where: { id: targetReceiverId } });
+      if (photog) {
+        targetReceiverId = photog.user_id;
+      }
+    }
+  }
+
+  // 1. Try finding booking by ID if provided
+  let booking = data.bookingId ? await prisma.bookings.findUnique({
     where: { id: data.bookingId },
     include: {
       users_bookings_client_idTousers: true,
       users_bookings_photographer_idTousers: true
     }
-  });
+  }) : null;
 
+  // 2. If booking not found by ID, maybe bookingId was actually the receiver's userId or photographerId
+  if (!booking && data.bookingId) {
+    let altUserId = data.bookingId;
+    const photog = await prisma.photographers.findUnique({ where: { id: data.bookingId } });
+    if (photog) altUserId = photog.user_id;
+
+    if (!targetReceiverId) {
+      targetReceiverId = altUserId;
+    }
+
+    booking = await prisma.bookings.findFirst({
+      where: {
+        OR: [
+          { client_id: data.senderId, photographer_id: altUserId },
+          { client_id: altUserId, photographer_id: data.senderId }
+        ]
+      },
+      include: {
+        users_bookings_client_idTousers: true,
+        users_bookings_photographer_idTousers: true
+      },
+      orderBy: { updated_at: 'desc' }
+    });
+  }
+
+  // 3. If still no booking and targetReceiverId is known, check between senderId and targetReceiverId
+  if (!booking && targetReceiverId) {
+    booking = await prisma.bookings.findFirst({
+      where: {
+        OR: [
+          { client_id: data.senderId, photographer_id: targetReceiverId },
+          { client_id: targetReceiverId, photographer_id: data.senderId }
+        ]
+      },
+      include: {
+        users_bookings_client_idTousers: true,
+        users_bookings_photographer_idTousers: true
+      },
+      orderBy: { updated_at: 'desc' }
+    });
+  }
+
+  // 4. If still no booking exists between them, automatically initialize an inquiry conversation thread!
   if (!booking) {
-    throw new Error('Booking not found');
+    if (!targetReceiverId) {
+      throw new Error('Cannot determine message recipient');
+    }
+
+    const senderUser = await prisma.users.findUnique({ where: { id: data.senderId } });
+    const receiverUser = await prisma.users.findUnique({ where: { id: targetReceiverId } });
+
+    if (!receiverUser) {
+      throw new Error('Message recipient not found');
+    }
+
+    const isSenderPhotographer = senderUser?.user_type === 'PHOTOGRAPHER';
+    const clientId = isSenderPhotographer ? targetReceiverId : data.senderId;
+    const photographerId = isSenderPhotographer ? data.senderId : targetReceiverId;
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+
+    booking = await prisma.bookings.create({
+      data: {
+        booking_number: generateBookingNumber(),
+        client_id: clientId,
+        photographer_id: photographerId,
+        occasion_type: 'PORTRAIT',
+        event_location: 'Studio Inquiry & Direct Message',
+        event_date: futureDate,
+        event_start_time: new Date('1970-01-01T10:00:00.000Z'),
+        total_amount: 0,
+        deposit_amount: 0,
+        balance_amount: 0,
+        platform_commission: 0,
+        status: 'PENDING'
+      },
+      include: {
+        users_bookings_client_idTousers: true,
+        users_bookings_photographer_idTousers: true
+      }
+    });
+    console.log(`✨ Created new inquiry booking thread: ${booking.booking_number} (${booking.id})`);
   }
 
-  // Verify sender is part of this booking
-  if (booking.client_id !== data.senderId && booking.photographer_id !== data.senderId) {
-    throw new Error('You are not a participant of this booking');
-  }
+  // Determine final receiver ID from the booking
+  const finalReceiverId = targetReceiverId || (booking.client_id === data.senderId ? booking.photographer_id : booking.client_id);
 
-  // Verify receiver is the other participant
-  const expectedReceiverId = booking.client_id === data.senderId
-    ? booking.photographer_id
-    : booking.client_id;
-    
-  if (data.receiverId !== expectedReceiverId) {
-    throw new Error('Invalid receiver for this booking');
-  }
-  
   // Create message
   const message = await prisma.messages.create({
     data: {
-      booking_id: data.bookingId,
+      booking_id: booking.id,
       sender_id: data.senderId,
-      receiver_id: data.receiverId,
+      receiver_id: finalReceiverId,
       message_text: data.messageText,
       attachments: data.attachments ? JSON.stringify(data.attachments) : undefined,
       is_read: false
@@ -94,8 +173,14 @@ export async function sendMessage(data: {
       }
     }
   });
-  
-  console.log(`✅ Message sent: ${message.id}`);
+
+  // Touch booking updated_at so conversation sorts to top
+  await prisma.bookings.update({
+    where: { id: booking.id },
+    data: { updated_at: new Date() }
+  }).catch(() => {});
+
+  console.log(`✅ Message sent: ${message.id} (booking: ${booking.id})`);
 
   // Trigger notification (non-blocking)
   NotificationTrigger.onMessageReceived({
@@ -107,8 +192,12 @@ export async function sendMessage(data: {
     bookingNumber: booking.booking_number,
     bookingId: booking.id
   }).catch(err => console.error('Notification error:', err));
-  
-  return message;
+
+  return {
+    ...message,
+    bookingId: booking.id,
+    booking_id: booking.id
+  };
 }
 
 /**
@@ -132,27 +221,57 @@ export async function getConversationMessages(
   const limit = options.limit || 50;
   const offset = options.offset || 0;
   
-  // Verify user is participant of this booking
-  const booking = await prisma.bookings.findUnique({
+  // Verify user is participant of this booking or conversation
+  let booking = await prisma.bookings.findUnique({
     where: { id: bookingId },
     select: {
+      id: true,
       client_id: true,
       photographer_id: true
     }
   });
 
   if (!booking) {
-    throw new Error('Booking not found');
+    // Check if bookingId might be another user's ID or photographer's record ID
+    let otherUserId = bookingId;
+    const photog = await prisma.photographers.findUnique({ where: { id: bookingId } });
+    if (photog) otherUserId = photog.user_id;
+
+    booking = await prisma.bookings.findFirst({
+      where: {
+        OR: [
+          { client_id: userId, photographer_id: otherUserId },
+          { client_id: otherUserId, photographer_id: userId }
+        ]
+      },
+      select: {
+        id: true,
+        client_id: true,
+        photographer_id: true
+      },
+      orderBy: { updated_at: 'desc' }
+    });
+  }
+
+  if (!booking) {
+    // No active conversation thread yet: return clean empty state without crashing
+    return {
+      messages: [],
+      totalCount: 0,
+      hasMore: false
+    };
   }
 
   if (booking.client_id !== userId && booking.photographer_id !== userId) {
     throw new Error('You are not a participant of this booking');
   }
+
+  const effectiveBookingId = booking.id;
   
   // Get messages
   const messages = await prisma.messages.findMany({
     where: {
-      booking_id: bookingId
+      booking_id: effectiveBookingId
     },
     include: {
       users_messages_sender_idTousers: {
@@ -181,7 +300,7 @@ export async function getConversationMessages(
 
   // Get total count
   const totalCount = await prisma.messages.count({
-    where: { booking_id: bookingId }
+    where: { booking_id: effectiveBookingId }
   });
   
   console.log(`✅ Retrieved ${messages.length} messages (total: ${totalCount})`);
@@ -237,9 +356,34 @@ export async function markConversationAsRead(
 ) {
   console.log(`✓ Marking conversation ${bookingId} as read for user ${userId}`);
   
+  let effectiveBookingId = bookingId;
+  const existing = await prisma.bookings.findUnique({
+    where: { id: bookingId },
+    select: { id: true }
+  });
+
+  if (!existing) {
+    let otherUserId = bookingId;
+    const photog = await prisma.photographers.findUnique({ where: { id: bookingId } });
+    if (photog) otherUserId = photog.user_id;
+
+    const matched = await prisma.bookings.findFirst({
+      where: {
+        OR: [
+          { client_id: userId, photographer_id: otherUserId },
+          { client_id: otherUserId, photographer_id: userId }
+        ]
+      },
+      select: { id: true }
+    });
+    if (matched) {
+      effectiveBookingId = matched.id;
+    }
+  }
+
   const result = await prisma.messages.updateMany({
     where: {
-      booking_id: bookingId,
+      booking_id: effectiveBookingId,
       receiver_id: userId,
       is_read: false
     },

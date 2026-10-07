@@ -1011,3 +1011,60 @@ export const getMobilePublicConfig = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Failed to resolve mobile app config' });
   }
 };
+
+/**
+ * POST /api/mobile/push-token
+ * Register device push token (FCM / APNs) for native push alerts
+ */
+export const registerMobilePushToken = async (req: Request, res: Response) => {
+  try {
+    const { token, platform, userId: bodyUserId } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Push token is required' });
+    }
+
+    // Try extracting userId from JWT auth header if present
+    let authUserId: string | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const jwtToken = authHeader.substring(7);
+        const jwtSecret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-at-least-32-characters-long-change-in-production';
+        const decoded = (await import('jsonwebtoken')).default.verify(jwtToken, jwtSecret) as any;
+        authUserId = decoded.user_id || decoded.id || null;
+      } catch (_) {}
+    }
+
+    const resolvedUserId = authUserId || bodyUserId || null;
+
+    const row = await prisma.system_settings.findUnique({
+      where: { key: 'user_device_tokens' }
+    });
+    const tokens: Record<string, any> = row && typeof row.value === 'object' && row.value !== null ? (row.value as any) : {};
+
+    const entry = {
+      token,
+      platform: platform || 'android',
+      userId: resolvedUserId,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (resolvedUserId) {
+      tokens[resolvedUserId] = entry;
+    }
+    // Also save under token key
+    tokens[`tok_${token.slice(0, 32)}`] = entry;
+
+    await prisma.system_settings.upsert({
+      where: { key: 'user_device_tokens' },
+      update: { value: tokens },
+      create: { key: 'user_device_tokens', value: tokens }
+    });
+
+    console.log(`📱 Push token registered successfully for: ${resolvedUserId || 'device'}`);
+    return res.json({ success: true, message: 'Push token registered successfully' });
+  } catch (err: any) {
+    console.error('Failed to register push token:', err);
+    return res.status(500).json({ success: false, message: 'Failed to register push token' });
+  }
+};

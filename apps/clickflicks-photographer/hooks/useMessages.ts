@@ -139,27 +139,37 @@ export const useMessages = (initialBookingId?: string | null) => {
     });
 
     try {
-      await apiClient.post('/messages', {
+      const res = await apiClient.post('/messages', {
         bookingId: bookingId,
         receiverId: receiverId,
         messageText: text,
         attachments: attachments || []
       });
-      await fetchMessagesForBooking(bookingId);
+      const resolvedBookingId = res.data?.data?.bookingId || res.data?.data?.booking_id || bookingId;
+      await fetchMessagesForBooking(resolvedBookingId);
       fetchConversations();
     } catch (err: any) {
       console.warn('Message send error:', err.message);
     }
   };
 
+  // Poll conversations every 6s to keep unread counts and conversation list updated
   useEffect(() => {
     fetchConversations();
+    const interval = setInterval(() => {
+      fetchConversations();
+    }, 6000);
+    return () => clearInterval(interval);
   }, [fetchConversations]);
 
+  // When active in a conversation, poll every 2.5s for incoming messages in real-time
   useEffect(() => {
-    if (initialBookingId) {
+    if (!initialBookingId) return;
+    fetchMessagesForBooking(initialBookingId);
+    const interval = setInterval(() => {
       fetchMessagesForBooking(initialBookingId);
-    }
+    }, 2500);
+    return () => clearInterval(interval);
   }, [initialBookingId, fetchMessagesForBooking]);
 
   return {
