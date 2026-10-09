@@ -34,16 +34,19 @@ export const PrivacyConsentModal: React.FC<PrivacyConsentModalProps> = ({ isOpen
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
           {/* Header */}
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-              <Icons.Shield size={22} />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <Icons.Shield size={22} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+                  Ghana Data Protection Act (Act 843)
+                </span>
+                <h2 className="text-lg font-black text-white">Your Privacy Matters at ClickFlicks 🛡️</h2>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
-                Ghana Data Protection Act (Act 843)
-              </span>
-              <h2 className="text-lg font-black text-white">Your Privacy Matters at ClickFlicks 🛡️</h2>
-            </div>
+            <img src="./icon.png" alt="ClickFlicks" className="w-9 h-9 object-contain opacity-80" />
           </div>
 
           {/* Body Content */}

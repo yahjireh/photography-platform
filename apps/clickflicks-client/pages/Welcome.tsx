@@ -67,6 +67,15 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
       </div>
 
+      {/* Top Brand Logo */}
+      <div className="absolute top-12 left-8 z-20 pointer-events-none">
+        <img 
+          src="./logo-white.png" 
+          alt="ClickFlicks" 
+          className="h-10 object-contain drop-shadow-2xl" 
+        />
+      </div>
+
       <div className="relative z-10 px-8 pb-14 w-full">
         
         {/* Subtle Indigenous Ghana Badge */}

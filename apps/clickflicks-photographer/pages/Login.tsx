@@ -182,6 +182,9 @@ const Login: React.FC<LoginProps> = ({ onBack, onSuccess, onRegister }) => {
             className="flex-1 flex flex-col"
           >
             <div className="mb-8">
+              <div className="mb-4">
+                <img src="./logo-white.png" alt="ClickFlicks Studio" className="h-10 object-contain drop-shadow" />
+              </div>
               <h1 className="text-4xl font-serif font-black text-gray-100 mb-2 tracking-tighter italic">Studio Portal</h1>
               <p className="text-gray-300 font-medium text-xs tracking-wide">Enter photographer credentials.</p>
               {errorMessage && (

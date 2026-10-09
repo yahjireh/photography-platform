@@ -31,21 +31,24 @@ const Loading: React.FC = () => {
       />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
+        initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="flex flex-col items-center z-10"
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="flex flex-col items-center z-10 px-8 text-center"
       >
-        <div className="w-24 h-24 bg-gray-900 border border-white/10 rounded-3xl flex items-center justify-center mb-6 shadow-2xl">
-          <Icons.Aperture className="text-brand-light w-12 h-12" strokeWidth={1.5} />
+        <div className="mb-6 p-4 rounded-3xl bg-white/10 border border-white/15 backdrop-blur-xl shadow-2xl flex items-center justify-center">
+          <img 
+            src="./logo-white.png" 
+            alt="ClickFlicks Creator Studio" 
+            className="w-60 max-w-[280px] object-contain drop-shadow-xl"
+          />
         </div>
         
-        <h1 className="text-3xl font-serif font-black text-gray-100 tracking-tight mb-2 italic">ClickFlicks</h1>
         <p className="text-brand-light text-xs tracking-widest uppercase font-bold">Creator Studio Command</p>
       </motion.div>
 
       <div className="absolute bottom-12">
-        <Icons.Loader2 className="w-8 h-8 text-brand-light/50 animate-spin" />
+        <Icons.Loader2 className="w-8 h-8 text-brand-light/60 animate-spin" />
       </div>
     </div>
   );
