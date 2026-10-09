@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert']
     },
     OtaKit: {
-      appId: process.env.OTAKIT_PHOTOGRAPHER_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_photographer',
+      appId: process.env.OTAKIT_PHOTOGRAPHER_APP_ID || 'b327c98d-ba9e-4e78-a6f6-4b88e1f043bb',
       channel: 'production',
       launchPolicy: 'apply-staged',
       resumePolicy: 'shadow'
