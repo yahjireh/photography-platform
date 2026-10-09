@@ -211,4 +211,51 @@ for app_dir in [client_dir, photographer_dir]:
         fg_icon.save(os.path.join(target_folder, 'ic_launcher_foreground.png'), format='PNG')
 
 print("[OK] Saved Android mipmap icons!")
+
+# Generate Android Splash Screens for all drawable directories
+android_splash_sizes = {
+    'drawable': (480, 320),
+    'drawable-land-mdpi': (480, 320),
+    'drawable-land-hdpi': (800, 480),
+    'drawable-land-xhdpi': (1280, 720),
+    'drawable-land-xxhdpi': (1600, 960),
+    'drawable-land-xxxhdpi': (1920, 1280),
+    'drawable-port-mdpi': (320, 480),
+    'drawable-port-hdpi': (480, 800),
+    'drawable-port-xhdpi': (720, 1280),
+    'drawable-port-xxhdpi': (960, 1600),
+    'drawable-port-xxxhdpi': (1280, 1920),
+}
+
+for app_dir in [client_dir, photographer_dir]:
+    is_photographer = (app_dir == photographer_dir)
+    bg_color = (24, 24, 27) if is_photographer else (255, 255, 255)
+    logo_to_use = transparent_logo_white if is_photographer else transparent_logo
+    res_dir = os.path.join(app_dir, 'android', 'app', 'src', 'main', 'res')
+    if not os.path.exists(res_dir):
+        continue
+    for folder, (sw, sh) in android_splash_sizes.items():
+        splash_folder = os.path.join(res_dir, folder)
+        os.makedirs(splash_folder, exist_ok=True)
+        
+        # Determine scale based on portrait vs landscape
+        if sh > sw:  # Portrait
+            target_w = int(sw * 0.65)
+        else:  # Landscape
+            target_w = int(sw * 0.40)
+            
+        target_h = int(logo_to_use.height * (target_w / logo_to_use.width))
+        if target_h > int(sh * 0.6):
+            target_h = int(sh * 0.6)
+            target_w = int(logo_to_use.width * (target_h / logo_to_use.height))
+            
+        scaled_logo = logo_to_use.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        
+        splash_canvas = Image.new('RGBA', (sw, sh), (*bg_color, 255))
+        pos_x = (sw - target_w) // 2
+        pos_y = (sh - target_h) // 2
+        splash_canvas.paste(scaled_logo, (pos_x, pos_y), scaled_logo)
+        splash_canvas.convert('RGB').save(os.path.join(splash_folder, 'splash.png'), format='PNG')
+
+print("[OK] Saved Android splash drawables!")
 print("[SUCCESS] All native & web assets generated successfully!")
