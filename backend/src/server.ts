@@ -27,6 +27,7 @@ import supportRoutes from './routes/support.routes';
 import mobileRoutes from './routes/mobile.routes';
 import { generalApiLimiter, webhookLimiter } from './middleware/rate-limiter.middleware';
 import { recordRequest } from './services/metrics.service';
+import taxLedgerService from './services/tax-ledger.service';
 
 /**
  * TEACHING MOMENT: Load environment variables
@@ -449,6 +450,13 @@ app.listen(PORT, () => {
     validatePaystackConfig();
   } catch (error: any) {
     console.error('⚠️  Paystack configuration error:', error.message);
+  }
+
+  // Initialize Automated GRA Tax Remittance Ledger cron aggregation
+  try {
+    taxLedgerService.startAutomatedCronAggregation();
+  } catch (taxError: any) {
+    console.error('⚠️  Tax ledger aggregation init warning:', taxError?.message);
   }
   console.log('Available endpoints:');
   console.log('');

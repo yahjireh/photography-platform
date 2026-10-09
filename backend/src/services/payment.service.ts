@@ -20,6 +20,57 @@ import * as AvailabilityService from './availability.service';
  */
 
 /**
+ * Calculates the exact Ghanaian platform financial distribution slice.
+ * Complies with Ghana statutory regulations:
+ * - 20% Consumer VAT / Levy bundle (15% standard VAT + 2.5% GETFund + 2.5% NHIL)
+ * - 7.5% Resident Professional Service Withholding Tax (WHT)
+ * 
+ * @param baseShootRate The true listing or negotiated cost of the photography service.
+ * @param commissionTier The app's specific take-rate based on sub-tier variables (0.15, 0.10, 0.05).
+ */
+export function processCentralizedMarketplaceDeductions(
+  baseShootRate: number, 
+  commissionTier: number = 0.15
+) {
+  const UNIFIED_VAT_LEVY_RATE = 0.20;    // 15% Standard VAT + 2.5% GETFund + 2.5% NHIL
+  const WITHHOLDING_TAX_RATE = 0.075;   // 7.5% Resident Professional Service withholding rule
+
+  // A. Revenue collected from consumer
+  const consumerTaxReserve = baseShootRate * UNIFIED_VAT_LEVY_RATE;
+  const grossInvoiceChargedToClient = baseShootRate + consumerTaxReserve;
+
+  // B. Internal Platform Marketplace Split
+  const clickFlicksRevenueCommission = baseShootRate * commissionTier;
+  const withheldServiceTaxReserve = baseShootRate * WITHHOLDING_TAX_RATE;
+
+  // C. Clean Payout distributed to Paystack Escrow Loop Subaccount
+  const finalNetCreatorPayout = baseShootRate - clickFlicksRevenueCommission - withheldServiceTaxReserve;
+
+  // D. Aggregated Pool due to the Ghana Revenue Authority (GRA)
+  const combinedCorporateTaxLiability = consumerTaxReserve + withheldServiceTaxReserve;
+
+  return {
+    totalClientPaymentAmount: Number(grossInvoiceChargedToClient.toFixed(2)),
+    platformRevenueProfit: Number(clickFlicksRevenueCommission.toFixed(2)),
+    escrowPhotographerPayout: Number(finalNetCreatorPayout.toFixed(2)),
+    totalDueToGRA: Number(combinedCorporateTaxLiability.toFixed(2)),
+    breakdown: {
+      consumerLevies: Number(consumerTaxReserve.toFixed(2)),
+      withheldArtisanTax: Number(withheldServiceTaxReserve.toFixed(2)),
+      vatComponent: Number((baseShootRate * 0.15).toFixed(2)),
+      nhilComponent: Number((baseShootRate * 0.025).toFixed(2)),
+      getfundComponent: Number((baseShootRate * 0.025).toFixed(2)),
+      withheldWhtComponent: Number(withheldServiceTaxReserve.toFixed(2))
+    }
+  };
+}
+
+export class PaymentService {
+  public static processCentralizedMarketplaceDeductions = processCentralizedMarketplaceDeductions;
+  public processCentralizedMarketplaceDeductions = processCentralizedMarketplaceDeductions;
+}
+
+/**
  * Initialize deposit payment
  * Client pays 40% to confirm booking
  * 
@@ -38,7 +89,11 @@ export async function initializeDepositPayment(
       users_bookings_client_idTousers: true,
       users_bookings_photographer_idTousers: {
         include: {
-          photographers: true  // ← Photographer model from User
+          photographers: {
+            include: {
+              subscriptions: true
+            }
+          }
         }
       }
     }
@@ -89,9 +144,13 @@ export async function initializeDepositPayment(
   });
   
   /**
-   * Create payment record in database
+   * Create payment record in database with centralized tax compliance fields
    * Status: PENDING (will be updated via webhook)
    */
+  const photographerRate = booking.users_bookings_photographer_idTousers?.photographers?.subscriptions?.commission_rate;
+  const commissionRate = photographerRate ? Number(photographerRate) : (Number(booking.platform_commission) / Number(booking.total_amount) || 0.15);
+  const deductions = processCentralizedMarketplaceDeductions(Number(booking.deposit_amount), commissionRate);
+
   await prisma.payments.create({
     data: {
       booking_id: booking.id,
@@ -100,7 +159,13 @@ export async function initializeDepositPayment(
       amount: booking.deposit_amount,
       status: 'PENDING',
       hold_status: 'HELD',
-      paystack_metadata: paymentData as any
+      paystack_metadata: paymentData as any,
+      gross_amount_charged: deductions.totalClientPaymentAmount,
+      base_shoot_rate: Number(booking.deposit_amount),
+      consumer_tax_reserve: deductions.breakdown.consumerLevies,
+      withheld_service_tax: deductions.breakdown.withheldArtisanTax,
+      platform_commission: deductions.platformRevenueProfit,
+      net_creator_payout: deductions.escrowPhotographerPayout
     }
   });
 
@@ -126,7 +191,16 @@ export async function initializeBalancePayment(
   const booking = await prisma.bookings.findUnique({
     where: { id: bookingId },
     include: {
-      payments: true  // ← Include payments array
+      payments: true,
+      users_bookings_photographer_idTousers: {
+        include: {
+          photographers: {
+            include: {
+              subscriptions: true
+            }
+          }
+        }
+      }
     }
   });
   
@@ -176,6 +250,10 @@ export async function initializeBalancePayment(
     callback_url: process.env.PAYSTACK_CALLBACK_URL || (process.env.CLIENT_APP_URL && !process.env.CLIENT_APP_URL.includes('localhost') ? `${process.env.CLIENT_APP_URL}/bookings/${booking.id}/payment-success` : 'https://clickflicks-api.onrender.com/api/payments/callback')
   });
 
+  const photographerRate = booking.users_bookings_photographer_idTousers?.photographers?.subscriptions?.commission_rate;
+  const commissionRate = photographerRate ? Number(photographerRate) : (Number(booking.platform_commission) / Number(booking.total_amount) || 0.15);
+  const deductions = processCentralizedMarketplaceDeductions(Number(booking.balance_amount), commissionRate);
+
   await prisma.payments.create({
     data: {
       booking_id: booking.id,
@@ -184,7 +262,13 @@ export async function initializeBalancePayment(
       amount: booking.balance_amount,
       status: 'PENDING',
       hold_status: 'HELD',
-      paystack_metadata: paymentData as any
+      paystack_metadata: paymentData as any,
+      gross_amount_charged: deductions.totalClientPaymentAmount,
+      base_shoot_rate: Number(booking.balance_amount),
+      consumer_tax_reserve: deductions.breakdown.consumerLevies,
+      withheld_service_tax: deductions.breakdown.withheldArtisanTax,
+      platform_commission: deductions.platformRevenueProfit,
+      net_creator_payout: deductions.escrowPhotographerPayout
     }
   });
 
@@ -243,14 +327,47 @@ export async function processPaymentWebhook(reference: string) {
     throw new Error('Payment verification failed');
   }
   
-  // Update payment record
+  // Update payment record with status and tax breakdown fields
+  const baseRate = Number(payment.base_shoot_rate || payment.amount);
+  const vat = Number((baseRate * 0.15).toFixed(2));
+  const nhil = Number((baseRate * 0.025).toFixed(2));
+  const getfund = Number((baseRate * 0.025).toFixed(2));
+  const wht = Number((baseRate * 0.075).toFixed(2));
+  const consumerLevies = Number((vat + nhil + getfund).toFixed(2));
+
   const updatedPayment = await prisma.payments.update({
     where: { id: payment.id },
     data: {
       status: 'SUCCESSFUL',
-      held_at: new Date()
+      held_at: new Date(),
+      base_shoot_rate: payment.base_shoot_rate || baseRate,
+      gross_amount_charged: payment.gross_amount_charged || (baseRate + consumerLevies),
+      consumer_tax_reserve: payment.consumer_tax_reserve || consumerLevies,
+      withheld_service_tax: payment.withheld_service_tax || wht
     }
   });
+
+  // Create or link TransactionTaxBreakdown record for compliance audit
+  await prisma.transactionTaxBreakdown.upsert({
+    where: { paymentId: payment.id },
+    update: {
+      baseShootRate: baseRate,
+      vatComponent: vat,
+      nhilComponent: nhil,
+      getfundComponent: getfund,
+      withheldWhtComponent: wht,
+      processedAt: new Date()
+    },
+    create: {
+      paymentId: payment.id,
+      baseShootRate: baseRate,
+      vatComponent: vat,
+      nhilComponent: nhil,
+      getfundComponent: getfund,
+      withheldWhtComponent: wht,
+      processedAt: new Date()
+    }
+  }).catch((err) => console.error('Error logging TransactionTaxBreakdown:', err));
 
   /**
    * Update booking status based on payment stage
@@ -401,16 +518,21 @@ export async function releaseDeposit(bookingId: string) {
     throw new Error('Photographer has not set up payout account');
   }
   
-  // Calculate photographer payout
+  // Calculate photographer payout with centralized 7.5% WHT compliance deduction
   const depositAmount = Number(depositPayment.amount);
-  const commissionRate = Number(booking.platform_commission) / Number(booking.total_amount);
-  const commission = depositAmount * commissionRate;
-  const photographerPayout = depositAmount - commission;
+  const photographerRate = booking.users_bookings_photographer_idTousers.photographers.subscriptions?.commission_rate;
+  const commissionRate = photographerRate ? Number(photographerRate) : (Number(booking.platform_commission) / Number(booking.total_amount) || 0.15);
+  
+  const deductions = processCentralizedMarketplaceDeductions(depositAmount, commissionRate);
+  const commission = deductions.platformRevenueProfit;
+  const withheldTax = deductions.breakdown.withheldArtisanTax;
+  const photographerPayout = deductions.escrowPhotographerPayout;
 
   console.log('💰 Releasing deposit to photographer:');
   console.log('   Deposit amount: ₵' + depositAmount.toFixed(2));
   console.log('   Commission: ₵' + commission.toFixed(2));
-  console.log('   Photographer payout: ₵' + photographerPayout.toFixed(2));
+  console.log('   7.5% Resident WHT: ₵' + withheldTax.toFixed(2));
+  console.log('   Photographer net payout: ₵' + photographerPayout.toFixed(2));
 
   // Initiate transfer (simulated or real based on env)
   let transfer;
@@ -448,7 +570,10 @@ export async function releaseDeposit(bookingId: string) {
     data: {
       hold_status: 'RELEASED_TO_PHOTOGRAPHER',
       released_at: new Date(),
-      release_notes: `Released: ₵${photographerPayout.toFixed(2)} (Commission: ₵${commission.toFixed(2)})`
+      platform_commission: commission,
+      withheld_service_tax: withheldTax,
+      net_creator_payout: photographerPayout,
+      release_notes: `Released Net: ₵${photographerPayout.toFixed(2)} (Commission: ₵${commission.toFixed(2)}, 7.5% WHT: ₵${withheldTax.toFixed(2)})`
     }
   });
 
@@ -515,14 +640,19 @@ export async function releaseBalance(bookingId: string) {
   }
 
   const balanceAmount = Number(balancePayment.amount);
-  const commissionRate = Number(booking.platform_commission) / Number(booking.total_amount);
-  const commission = balanceAmount * commissionRate;
-  const photographerPayout = balanceAmount - commission;
+  const photographerRate = booking.users_bookings_photographer_idTousers.photographers.subscriptions?.commission_rate;
+  const commissionRate = photographerRate ? Number(photographerRate) : (Number(booking.platform_commission) / Number(booking.total_amount) || 0.15);
+
+  const deductions = processCentralizedMarketplaceDeductions(balanceAmount, commissionRate);
+  const commission = deductions.platformRevenueProfit;
+  const withheldTax = deductions.breakdown.withheldArtisanTax;
+  const photographerPayout = deductions.escrowPhotographerPayout;
 
   console.log('💰 Releasing balance to photographer:');
   console.log('   Balance amount: ₵' + balanceAmount.toFixed(2));
   console.log('   Commission: ₵' + commission.toFixed(2));
-  console.log('   Photographer payout: ₵' + photographerPayout.toFixed(2));
+  console.log('   7.5% Resident WHT: ₵' + withheldTax.toFixed(2));
+  console.log('   Photographer net payout: ₵' + photographerPayout.toFixed(2));
 
   // Initiate transfer (simulated or real)
   let transfer;
@@ -559,7 +689,10 @@ export async function releaseBalance(bookingId: string) {
     data: {
       hold_status: 'RELEASED_TO_PHOTOGRAPHER',
       released_at: new Date(),
-      release_notes: `Released: ₵${photographerPayout.toFixed(2)} (Commission: ₵${commission.toFixed(2)})`
+      platform_commission: commission,
+      withheld_service_tax: withheldTax,
+      net_creator_payout: photographerPayout,
+      release_notes: `Released Net: ₵${photographerPayout.toFixed(2)} (Commission: ₵${commission.toFixed(2)}, 7.5% WHT: ₵${withheldTax.toFixed(2)})`
     }
   });
 

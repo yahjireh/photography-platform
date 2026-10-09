@@ -14,7 +14,8 @@ import {
   updatePortfolio,
   deletePortfolio,
   submitKYC,
-  getMyKYC
+  getMyKYC,
+  verifyPhotographerIdentity
 } from '../controllers/photographer.controller';
 
 const router = express.Router();
@@ -104,6 +105,14 @@ router.patch('/profile', authenticate, authorize('PHOTOGRAPHER'), updateProfile)
  * PROTECTED: Must be logged in as photographer
  */
 router.post('/kyc', authenticate, authorize('PHOTOGRAPHER'), submitKYC);
+
+/**
+ * POST /api/photographers/kyc/verify-identity
+ * Live biometric selfie match against Ghana Card NIA IVSP database (L.I. 2523)
+ * 
+ * PROTECTED: Must be logged in as photographer
+ */
+router.post('/kyc/verify-identity', authenticate, authorize('PHOTOGRAPHER'), verifyPhotographerIdentity);
 
 /**
  * POST /api/photographers/portfolio

@@ -128,9 +128,11 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
     region: 'Greater Accra',
     categories: ['PORTRAIT', 'MOBILE_PHOTOGRAPHY'] as string[],
     
-    // National ID & Biometrics
+    // National ID & Biometrics (Ghana L.I. 2523 Compliance)
     ghanaCardNumber: '',
     dateOfBirth: '',
+    selfieUrl: null as string | null,
+    agreedToArtisanTax: true,
     ghanaCardFront: null as string | null,
     ghanaCardBack: null as string | null,
     faceVerificationVideo: null as string | null,
@@ -215,7 +217,7 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
   // Step Titles
   const stepTitles = [
     { title: 'Studio Identity & Location', desc: 'Commercial name, region & specialties' },
-    { title: 'Ghana Card & Biometric Liveness', desc: 'National ID, DOB & live head-movement video' },
+    { title: 'Lawful Identity Verification (L.I. 2523)', desc: 'Text Ghana Card PIN, DOB & live biometric selfie' },
     { title: 'Studio Packages & Flyers', desc: 'Set your bookable rates & upload package flyers' },
     { title: 'Creative Portfolio', desc: 'Years in photography & portfolio link' },
     { title: 'Escrow Settlement Payout', desc: 'Validated MoMo or Bank settlement channel' },
@@ -590,7 +592,9 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
       const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleInputChange('faceVerificationVideo', reader.result as string);
+        const dataUrl = reader.result as string;
+        handleInputChange('faceVerificationVideo', dataUrl);
+        handleInputChange('selfieUrl', dataUrl);
       };
       reader.readAsDataURL(blob);
       setIsRecordingFace(false);
@@ -636,6 +640,8 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
         categories: formData.categories,
         ghanaCardNumber: formData.ghanaCardNumber,
         dateOfBirth: formData.dateOfBirth,
+        selfieUrl: formData.selfieUrl || formData.faceVerificationVideo,
+        agreedToArtisanTax: formData.agreedToArtisanTax,
         ghanaCardFront: formData.ghanaCardFront,
         ghanaCardBack: formData.ghanaCardBack,
         faceVerificationVideo: formData.faceVerificationVideo,
@@ -683,6 +689,8 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
           categories: formData.categories,
           ghanaCardNumber: formData.ghanaCardNumber,
           dateOfBirth: formData.dateOfBirth,
+          selfieUrl: formData.selfieUrl || formData.faceVerificationVideo,
+          agreedToArtisanTax: formData.agreedToArtisanTax,
           ghanaCardFront: formData.ghanaCardFront,
           ghanaCardBack: formData.ghanaCardBack,
           faceVerificationVideo: formData.faceVerificationVideo,
@@ -1045,95 +1053,43 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
                   </p>
                 </div>
 
-                {/* Ghana Card Image Uploads with Live Image Previews */}
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 block mb-2">
-                    Ghana Card Images (Front & Back Preview)
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input 
-                      type="file" 
-                      ref={frontInputRef} 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => handleFileChange('ghanaCardFront', e)} 
-                    />
-                    <input 
-                      type="file" 
-                      ref={backInputRef} 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => handleFileChange('ghanaCardBack', e)} 
-                    />
-
-                    {/* Front Upload / Preview Box */}
-                    <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-3 flex flex-col items-center justify-center min-h-[160px] text-center overflow-hidden">
-                      {formData.ghanaCardFront ? (
-                        <div className="w-full relative group">
-                          <img 
-                            src={formData.ghanaCardFront} 
-                            alt="Ghana Card Front Preview" 
-                            className="w-full h-32 object-cover rounded-xl shadow-xs"
-                          />
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-teal-800 uppercase flex items-center gap-1">
-                              <Icons.CheckCircle size={12} /> Front Uploaded
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => frontInputRef.current?.click()}
-                              className="text-[10px] font-bold text-gray-700 hover:text-gray-900 underline cursor-pointer"
-                            >
-                              Change
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => frontInputRef.current?.click()}
-                          className="w-full py-6 cursor-pointer flex flex-col items-center"
-                        >
-                          <Icons.Upload size={24} className="text-gray-400 mb-1" />
-                          <span className="text-xs font-black text-gray-900">Upload Card Front</span>
-                          <span className="text-[10px] text-gray-400">PNG, JPG or PDF</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Back Upload / Preview Box */}
-                    <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-3 flex flex-col items-center justify-center min-h-[160px] text-center overflow-hidden">
-                      {formData.ghanaCardBack ? (
-                        <div className="w-full relative group">
-                          <img 
-                            src={formData.ghanaCardBack} 
-                            alt="Ghana Card Back Preview" 
-                            className="w-full h-32 object-cover rounded-xl shadow-xs"
-                          />
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-[10px] font-black text-teal-800 uppercase flex items-center gap-1">
-                              <Icons.CheckCircle size={12} /> Back Uploaded
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => backInputRef.current?.click()}
-                              className="text-[10px] font-bold text-gray-700 hover:text-gray-900 underline cursor-pointer"
-                            >
-                              Change
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => backInputRef.current?.click()}
-                          className="w-full py-6 cursor-pointer flex flex-col items-center"
-                        >
-                          <Icons.Upload size={24} className="text-gray-400 mb-1" />
-                          <span className="text-xs font-black text-gray-900">Upload Card Back</span>
-                          <span className="text-[10px] text-gray-400">PNG, JPG or PDF</span>
-                        </div>
-                      )}
+                {/* Ghana L.I. 2523 Statutory Legal Compliance Notice */}
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center space-x-2 text-amber-800">
+                    <Icons.Shield size={18} />
+                    <span className="text-xs font-black uppercase tracking-wider">Lawful Identity Verification (L.I. 2523 Compliance)</span>
+                  </div>
+                  <p className="text-[11px] text-gray-700 leading-relaxed">
+                    To protect our marketplace community from identity theft and fraud, all Photographers on ClickFlicks must pass a secure identity match.
+                  </p>
+                  <div className="bg-white/90 border border-amber-200 p-3 rounded-xl space-y-1.5 text-[11px] text-gray-800">
+                    <p className="font-bold text-amber-900">Important Legal Notice:</p>
+                    <p>In strict compliance with Ghanaian law (L.I. 2523), we do not request, take pictures of, or store images of your physical Ghana Card. You only need to type your card number.</p>
+                    <div className="pt-1 text-[10px] text-gray-600 space-y-1">
+                      <p><strong>1. Enter Card Number:</strong> Type your alphanumeric National ID number (GHA-XXXXXXXXX-X).</p>
+                      <p><strong>2. Take a Live Selfie:</strong> Frame your face clearly below for a live biometric scan.</p>
+                      <p><strong>3. Automated Secure Match:</strong> Our secure validation gateway routes this text data to match your selfie against the official National Identification Authority (NIA) database.</p>
                     </div>
                   </div>
+                  <p className="text-[10px] text-gray-500 italic">
+                    By proceeding below, you grant explicit consent to execute this automated biometric check against official state records.
+                  </p>
+                </div>
+
+                {/* Explicit Platform Tax Withholding Consent */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <label className="flex items-start space-x-3 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.agreedToArtisanTax ?? true} 
+                      onChange={(e) => handleInputChange('agreedToArtisanTax', e.target.checked)}
+                      className="w-5 h-5 mt-0.5 rounded-lg border-gray-300 text-teal-700 focus:ring-teal-700/30 cursor-pointer accent-teal-700" 
+                    />
+                    <div className="text-xs text-gray-700 leading-snug">
+                      <span className="font-bold block text-gray-900 mb-0.5">Explicit Consent for Platform-Managed Tax</span>
+                      I authorize ClickFlicks to withhold the statutory 7.5% Resident Service Withholding Tax (WHT) from my earnings and remit indirect taxes (20% VAT/Levies) directly to the Ghana Revenue Authority (GRA) under centralized corporate vendor registration.
+                    </div>
+                  </label>
                 </div>
 
                 {/* Biometric Face Verification Video Recording */}

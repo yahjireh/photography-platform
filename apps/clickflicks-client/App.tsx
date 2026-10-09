@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './components/ui/icons';
 import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './services/MobileConfigService';
 import { AppUpdateModal } from './components/AppUpdateModal';
+import { PrivacyConsentModal } from './components/PrivacyConsentModal';
 import { OtaKitService } from './services/OtaKitService';
 import { initPushNotifications } from './services/PushNotificationService';
 
@@ -39,6 +40,7 @@ const AppContent: React.FC = () => {
   
   const [appState, setAppState] = useState<AppState>('ONBOARDING');
   const [authState, setAuthState] = useState<AuthState>('LOGIN');
+  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
   const [currentView, setCurrentView] = useState('home');
   const [selectedPhotographer, setSelectedPhotographer] = useState<Photographer | null>(null);
   const [isFetchingPhotographer, setIsFetchingPhotographer] = useState(false);
@@ -270,7 +272,8 @@ const AppContent: React.FC = () => {
     });
   };
 
-  const handleGetStarted = () => {
+  const proceedToAuth = () => {
+    setShowPrivacyConsent(false);
     setTransitionState('closing');
     setTimeout(() => {
         setAppState('AUTH');
@@ -278,6 +281,15 @@ const AppContent: React.FC = () => {
         setTransitionState('opening');
         setTimeout(() => setTransitionState('idle'), 900);
     }, 900);
+  };
+
+  const handleGetStarted = () => {
+    const hasConsented = localStorage.getItem('clickflicks_dpc_privacy_consented') === 'true';
+    if (!hasConsented) {
+      setShowPrivacyConsent(true);
+      return;
+    }
+    proceedToAuth();
   };
 
   const handleAuthSuccess = () => {
@@ -824,6 +836,10 @@ const AppContent: React.FC = () => {
       </AnimatePresence>
 
       <AppUpdateModal />
+      <PrivacyConsentModal 
+        isOpen={showPrivacyConsent} 
+        onConsent={proceedToAuth} 
+      />
     </Layout>
   );
 };

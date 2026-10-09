@@ -23,6 +23,7 @@ import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
 import { apiClient, tokenManager } from './lib/api-client';
 import { AppUpdateModal, CURRENT_PHOTOGRAPHER_APP_VERSION } from './components/AppUpdateModal';
+import { PrivacyConsentModal } from './components/PrivacyConsentModal';
 import { OtaKitService } from './services/OtaKitService';
 
 const CURRENT_APP_VERSION = CURRENT_PHOTOGRAPHER_APP_VERSION;
@@ -44,6 +45,7 @@ const AppContent: React.FC = () => {
     return onboarded ? 'auth' : 'onboarding';
   });
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
   const [kycStatus, setKycStatus] = useState<KYCStatus>('pending');
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -250,7 +252,8 @@ const AppContent: React.FC = () => {
     }
   }, [flowState]);
 
-  const handleOnboardingComplete = () => {
+  const proceedToAuth = () => {
+    setShowPrivacyConsent(false);
     setTransitionState('closing');
     setTimeout(() => {
       localStorage.setItem('clickflicks_photographer_onboarded', 'true');
@@ -259,6 +262,15 @@ const AppContent: React.FC = () => {
       setTransitionState('opening');
       setTimeout(() => setTransitionState('idle'), 900);
     }, 900);
+  };
+
+  const handleOnboardingComplete = () => {
+    const hasConsented = typeof window !== 'undefined' && localStorage.getItem('clickflicks_dpc_privacy_consented') === 'true';
+    if (!hasConsented) {
+      setShowPrivacyConsent(true);
+      return;
+    }
+    proceedToAuth();
   };
 
   const handleAuthSuccess = async () => {
@@ -676,6 +688,11 @@ const AppContent: React.FC = () => {
 
       {/* App Update Announcement Modal (shows once after restart) */}
       <AppUpdateModal />
+
+      <PrivacyConsentModal
+        isOpen={showPrivacyConsent}
+        onConsent={proceedToAuth}
+      />
     </Layout>
   );
 };
