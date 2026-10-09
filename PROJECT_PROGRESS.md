@@ -1,10 +1,10 @@
 # 📊 PHOTOGRAPHY PLATFORM - COMPLETE PROJECT PROGRESS
 
-**Last Updated:** October 7, 2026 (Live Mobile v1.2.7 Deployed & Stabilized)
-**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.7 Active ✅
+**Last Updated:** October 9, 2026 (Migrated Live OTA to OtaKit Free Tier & Fresh APKs Compiled)
+**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.9 (OtaKit) Active ✅
 **Backend Status:** 100% Complete (Hardened Rate Limiting, Messaging Inquiries, Push Token Sync, Paystack Escrow, RLS & DB Indexes) ✅
-**Photographer App Status:** Live v1.2.7 Deployed (Capgo Cloud OTA, Real-time Messaging, Local Banners, Studio Verification Dismissal) ✅
-**Client App Status:** Live v1.2.7 Deployed (Capgo Cloud OTA, Real-time Messaging, Local Banners, Native Push Notifications) ✅
+**Photographer App Status:** Live v1.2.9 Deployed (OtaKit OTA, Real-time Messaging, Local Banners, Studio Verification Dismissal) ✅
+**Client App Status:** Live v1.2.9 Deployed (OtaKit OTA, Real-time Messaging, Local Banners, Native Push Notifications) ✅
 **Admin Dashboard Status:** 100% Complete - All 13 Pages + Live Multi-Table Notifications & Release Sync ✅  
 
 ---
@@ -2178,6 +2178,39 @@ To deliver instant updates and bug fixes directly to users' devices without requ
      - Copied output APKs to `apks/clickflicks-client.apk` and `apks/clickflicks-photographer.apk`.
      - Deployed live OTA updates `v1.2.8` to Capgo Cloud production channel for both applications.
 
+
+---
+
+### **14. Over-The-Air (OTA) Live Updates Migration: Capgo Cloud -> OtaKit (October 9, 2026)**
+- **Context & Motivation**:
+  - The Capgo 30-day trial period expired. To maintain zero-downtime, continuous Over-The-Air updates without recurring subscription overhead, the platform was migrated to **OtaKit** (`@otakit/capacitor-updater` & `@otakit/cli`), which includes an ongoing generous free tier.
+- **Architectural & Code Changes**:
+  1. *Plugin Migration*:
+     - Uninstalled `@capgo/capacitor-updater` and installed `@otakit/capacitor-updater@3.2.0` in both `apps/clickflicks-client` and `apps/clickflicks-photographer`.
+  2. *Capacitor Configuration*:
+     - Updated `capacitor.config.ts` in both mobile apps to register `plugins.OtaKit` with dynamic environment-variable fallback for `appId` (`OTAKIT_CLIENT_APP_ID`, `OTAKIT_PHOTOGRAPHER_APP_ID`, `OTAKIT_APP_ID`), production channel, and launch/resume policies (`launchPolicy: 'apply-staged'`, `resumePolicy: 'shadow'`).
+  3. *Service Layer (`OtaKitService.ts`)*:
+     - Implemented `OtaKitService.ts` in both client and photographer apps providing:
+       - Immediate `OtaKit.notifyAppReady()` call on native platforms during boot to confirm runtime health and prevent rollbacks.
+       - Startup inspection for pre-staged bundles (`OtaKit.getState().staged`).
+       - Event listener for `updateStaged` events to alert the UI when an update is ready for restart.
+       - Proactive background checks (`OtaKit.check()` + `OtaKit.download()`).
+       - Immediate reload activation (`OtaKit.apply()`) with fallback.
+       - Backward compatibility aliasing in `CapgoUpdateService.ts` to ensure legacy references resolve transparently.
+  4. *Main App Integration (`App.tsx` & `index.tsx`)*:
+     - Replaced Capgo imports with `OtaKitService` in `apps/clickflicks-client/App.tsx` and `apps/clickflicks-photographer/App.tsx`.
+     - Updated app entry points (`index.tsx`) to guard and invoke `OtaKit.notifyAppReady()` on native mobile platforms.
+  5. *Automated Release Script (`scripts/sync-mobile-release.js`)*:
+     - Replaced `@capgo/cli` bundle upload commands with `@otakit/cli upload dist --release production`.
+     - Supports `--app-id` flag resolution from environment variables or config, and registers release entries with the Admin Dashboard database.
+  6. *Workspace Policy Sync*:
+     - Updated `.agents/rules/auto-push-and-capgo.md` to establish OtaKit as the primary OTA live update standard for all future mobile commits.
+  7. *Native Android Sync & Compilation*:
+     - Successfully synchronized both Android native projects (`npx cap sync android`), binding the `:otakit-capacitor-updater` native Android library.
+     - Fully compiled fresh debug APKs using Gradle (`assembleDebug`):
+       - `apks/clickflicks-client.apk` (5.19 MB)
+       - `apks/clickflicks-photographer.apk` (5.19 MB)
+
 ---
 
 ### **Summary of Mobile Release History**
@@ -2193,6 +2226,7 @@ To deliver instant updates and bug fixes directly to users' devices without requ
 | **v1.2.6** | Photographer | Command dashboard crash fix (`kycData` state restoration), TypeScript validation, native asset sync | Deployed ✅ |
 | **v1.2.7** | Both | Cross-app real-time messaging, inquiry thread creation, physical device push notifications (Android 13+ & local banners) | Deployed ✅ |
 | **v1.2.8** | Both | Chat bubble alignment & dark/light colors, bottom gap elimination, hardware back gesture navigation, solid red badges, direct "Book Studio" in chat, contract downloads, real online presence | Deployed ✅ |
+| **v1.2.9** | Both | Full migration from Capgo to OtaKit free tier (`@otakit/capacitor-updater`), OtaKitService lifecycle, `scripts/sync-mobile-release.js` update, fresh native APK compilation | Deployed ✅ |
 
 ---
 

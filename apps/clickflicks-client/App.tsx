@@ -26,7 +26,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './components/ui/icons';
 import { MobileConfigService, InAppMessageItem, VersionCheckInfo } from './services/MobileConfigService';
 import { AppUpdateModal } from './components/AppUpdateModal';
-import { CapgoUpdateService } from './services/CapgoUpdateService';
+import { OtaKitService } from './services/OtaKitService';
 import { initPushNotifications } from './services/PushNotificationService';
 
 type AppState = 'ONBOARDING' | 'AUTH' | 'MAIN';
@@ -74,7 +74,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     initPushNotifications();
     MobileConfigService.init();
-    CapgoUpdateService.init((ver) => {
+    OtaKitService.init((ver) => {
       setUpdateReadyVersion(ver);
     });
 
@@ -814,7 +814,7 @@ const AppContent: React.FC = () => {
             </div>
             <button 
               type="button"
-              onClick={() => CapgoUpdateService.applyUpdateNow()}
+              onClick={() => OtaKitService.applyUpdateNow()}
               className="bg-teal-500 hover:bg-teal-400 text-gray-950 text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95 shrink-0"
             >
               Restart

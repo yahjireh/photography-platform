@@ -61,16 +61,23 @@ async function main() {
   const versionToDeploy = targetVersion || pkg.version;
   console.log(`\n🏷️ [2/4] Deploying Version: v${versionToDeploy}`);
 
-  // 3. Upload to Capgo Cloud Live Updates (production channel)
-  console.log(`\n☁️ [3/4] Uploading live bundle to Capgo Cloud...`);
+  // 3. Upload to OtaKit Live Updates (production channel)
+  console.log(`\n☁️ [3/4] Uploading live bundle to OtaKit...`);
   try {
-    execSync(`${npxCmd} @capgo/cli bundle upload ${appId} -c production -b ${versionToDeploy} --comment "${releaseNotes}"`, {
+    const otakitAppId = targetApp === 'client' 
+      ? (process.env.OTAKIT_CLIENT_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_client')
+      : (process.env.OTAKIT_PHOTOGRAPHER_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_photographer');
+
+    const appIdFlag = otakitAppId ? `--app-id ${otakitAppId}` : '';
+
+    execSync(`${npxCmd} @otakit/cli upload dist --release production ${appIdFlag} --version ${versionToDeploy}`, {
       cwd: appDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: { ...process.env, OTAKIT_VERSION: versionToDeploy }
     });
-    console.log(`✅ Capgo live bundle uploaded successfully!`);
+    console.log(`✅ OtaKit live bundle uploaded and released successfully!`);
   } catch (err) {
-    console.warn(`⚠️ Capgo upload warning:`, err.message);
+    console.warn(`⚠️ OtaKit upload notice:`, err.message);
   }
 
   // 4. Register with Admin Dashboard under Mobile App Management

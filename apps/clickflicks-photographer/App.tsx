@@ -23,7 +23,7 @@ import { usePhotographerBookings } from './hooks/usePhotographerBookings';
 import { useMessages } from './hooks/useMessages';
 import { apiClient, tokenManager } from './lib/api-client';
 import { AppUpdateModal, CURRENT_PHOTOGRAPHER_APP_VERSION } from './components/AppUpdateModal';
-import { CapgoUpdateService } from './services/CapgoUpdateService';
+import { OtaKitService } from './services/OtaKitService';
 
 const CURRENT_APP_VERSION = CURRENT_PHOTOGRAPHER_APP_VERSION;
 
@@ -86,7 +86,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     initPushNotifications();
     MobileConfigService.init();
-    CapgoUpdateService.init((ver) => {
+    OtaKitService.init((ver) => {
       setUpdateReadyVersion(ver);
     });
 
@@ -665,7 +665,7 @@ const AppContent: React.FC = () => {
             </div>
             <button 
               type="button"
-              onClick={() => CapgoUpdateService.applyUpdateNow()}
+              onClick={() => OtaKitService.applyUpdateNow()}
               className="bg-teal-500 hover:bg-teal-400 text-gray-950 text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider transition-all active:scale-95 shrink-0"
             >
               Restart

@@ -8,10 +8,11 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']
     },
-    CapacitorUpdater: {
-      autoUpdate: 'atBackground',
-      defaultChannel: 'production',
-      allowSetDefaultChannel: true
+    OtaKit: {
+      appId: process.env.OTAKIT_CLIENT_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_client',
+      channel: 'production',
+      launchPolicy: 'apply-staged',
+      resumePolicy: 'shadow'
     }
   }
 };

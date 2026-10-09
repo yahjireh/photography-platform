@@ -1,14 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
+import { OtaKit } from '@otakit/capacitor-updater';
 
-try {
-  CapacitorUpdater.notifyAppReady().catch((e) => {
-    console.warn('[Capgo] notifyAppReady rejected:', e);
-  });
-} catch (e) {
-  console.warn('[Capgo] notifyAppReady sync error:', e);
+if (Capacitor.isNativePlatform()) {
+  try {
+    OtaKit.notifyAppReady().catch((e) => {
+      console.warn('[OtaKit] notifyAppReady rejected:', e);
+    });
+  } catch (e) {
+    console.warn('[OtaKit] notifyAppReady sync error:', e);
+  }
 }
 
 interface ErrorBoundaryProps {

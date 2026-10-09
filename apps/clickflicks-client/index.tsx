@@ -1,10 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
+import { OtaKit } from '@otakit/capacitor-updater';
 
-// Notify Capgo that client app loaded successfully to confirm update
-CapacitorUpdater.notifyAppReady();
+// Notify OtaKit that client app loaded successfully to confirm update
+if (Capacitor.isNativePlatform()) {
+  OtaKit.notifyAppReady().catch((e) => {
+    console.warn('[OtaKit] notifyAppReady rejected:', e);
+  });
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
