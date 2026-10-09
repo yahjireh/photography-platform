@@ -107,7 +107,8 @@ print("[OK] Saved Web and Public assets!")
 
 # Generate iOS AppIcon (1024x1024) featuring the bold crescent icon mark
 def create_ios_app_icon(is_photographer=False):
-    canvas = Image.new('RGB', (1024, 1024), (255, 255, 255))
+    bg_color = (24, 24, 27) if is_photographer else (255, 255, 255)
+    canvas = Image.new('RGB', (1024, 1024), bg_color)
     
     # Scale the iconic crescent mark to fill ~68% of the icon (Apple HIG standard)
     target_w = 680
@@ -166,6 +167,8 @@ fg_sizes = {
 }
 
 for app_dir in [client_dir, photographer_dir]:
+    is_photographer = (app_dir == photographer_dir)
+    bg_color = (24, 24, 27) if is_photographer else (255, 255, 255)
     res_dir = os.path.join(app_dir, 'android', 'app', 'src', 'main', 'res')
     if not os.path.exists(res_dir):
         continue
@@ -174,7 +177,7 @@ for app_dir in [client_dir, photographer_dir]:
         os.makedirs(target_folder, exist_ok=True)
         
         # Square launcher icon with crescent mark
-        sq_icon = Image.new('RGB', (size, size), (255, 255, 255))
+        sq_icon = Image.new('RGB', (size, size), bg_color)
         target_w = int(size * 0.76)
         scale = target_w / tight_icon.width
         target_h = int(tight_icon.height * scale)
