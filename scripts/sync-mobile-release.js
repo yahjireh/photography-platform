@@ -2,15 +2,16 @@
  * Automated Mobile Release & Admin Dashboard Sync Script
  * 
  * Usage:
- *   node scripts/sync-mobile-release.js --app photographer --version 1.0.1 --notes "Camera permissions & KYC fixes"
- *   node scripts/sync-mobile-release.js --app client --version 1.0.0 --notes "Initial client release"
+ *   node scripts/sync-mobile-release.js --app client --version 1.3.0 --notes "Explore crash fix"
+ *   node scripts/sync-mobile-release.js --app photographer --version 1.3.0 --notes "Performance updates"
+ *   node scripts/sync-mobile-release.js --app both --version 1.3.0 --notes "Universal update"
  */
 
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure environment variables from backend/.env are loaded for Prisma
+// Ensure environment variables from backend/.env are loaded for Prisma & OtaKit
 try {
   require(path.join(__dirname, '..', 'backend', 'node_modules', 'dotenv')).config({
     path: path.join(__dirname, '..', 'backend', '.env')
@@ -23,20 +24,7 @@ const { PrismaClient } = require(path.join(__dirname, '..', 'backend', 'node_mod
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const args = process.argv.slice(2);
-  let targetApp = 'photographer';
-  let targetVersion = '';
-  let releaseNotes = 'Automated live update with performance improvements and bug fixes.';
-  let platform = 'Android';
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--app' && args[i + 1]) targetApp = args[i + 1];
-    if (args[i] === '--version' && args[i + 1]) targetVersion = args[i + 1];
-    if (args[i] === '--notes' && args[i + 1]) releaseNotes = args[i + 1];
-    if (args[i] === '--platform' && args[i + 1]) platform = args[i + 1];
-  }
-
+async function deploySingleApp(targetApp, targetVersion, releaseNotes, platform) {
   const appDir = targetApp === 'client' 
     ? path.join(__dirname, '..', 'apps', 'clickflicks-client')
     : path.join(__dirname, '..', 'apps', 'clickflicks-photographer');
@@ -65,8 +53,8 @@ async function main() {
   console.log(`\n☁️ [3/4] Uploading live bundle to OtaKit...`);
   try {
     const otakitAppId = targetApp === 'client' 
-      ? (process.env.OTAKIT_CLIENT_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_client')
-      : (process.env.OTAKIT_PHOTOGRAPHER_APP_ID || process.env.OTAKIT_APP_ID || 'app_clickflicks_photographer');
+      ? (process.env.OTAKIT_CLIENT_APP_ID || process.env.OTAKIT_APP_ID || '5e735704-6a85-4f05-b0b4-6ac3bb86a0d9')
+      : (process.env.OTAKIT_PHOTOGRAPHER_APP_ID || process.env.OTAKIT_APP_ID || 'b327c98d-ba9e-4e78-a6f6-4b88e1f043bb');
 
     const appIdFlag = otakitAppId ? `--app-id ${otakitAppId}` : '';
 
@@ -131,6 +119,28 @@ async function main() {
     console.log(`View live at: Photography Admin -> Mobile App Management -> Versions`);
   } catch (err) {
     console.warn(`⚠️ Warning: Could not sync version to database:`, err.message);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  let targetApp = 'client';
+  let targetVersion = '';
+  let releaseNotes = 'Automated live update with performance improvements and bug fixes.';
+  let platform = 'Android';
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--app' && args[i + 1]) targetApp = args[i + 1].toLowerCase();
+    if (args[i] === '--version' && args[i + 1]) targetVersion = args[i + 1];
+    if (args[i] === '--notes' && args[i + 1]) releaseNotes = args[i + 1];
+    if (args[i] === '--platform' && args[i + 1]) platform = args[i + 1];
+  }
+
+  if (targetApp === 'all' || targetApp === 'both') {
+    await deploySingleApp('client', targetVersion, releaseNotes, platform);
+    await deploySingleApp('photographer', targetVersion, releaseNotes, platform);
+  } else {
+    await deploySingleApp(targetApp, targetVersion, releaseNotes, platform);
   }
 }
 

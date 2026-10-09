@@ -23,10 +23,11 @@ const PhotographerCard: React.FC<PhotographerCardProps> = ({
   };
 
   const initials = data.name
-    ? data.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    ? data.name.trim().split(/\s+/).map(n => n[0] || '').join('').slice(0, 2).toUpperCase() || 'PH'
     : 'PH';
 
   const hasHourlyRate = data.hourlyRate != null && Number(data.hourlyRate) > 0;
+  const hasStartingPrice = data.startingPrice != null && Number(data.startingPrice) > 0;
   const hasDayRate = data.dayRate != null && Number(data.dayRate) > 0;
   const hasRating = data.rating != null && Number(data.rating) > 0;
 

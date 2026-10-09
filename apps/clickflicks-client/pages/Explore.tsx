@@ -29,13 +29,18 @@ const Explore: React.FC<ExploreProps> = ({
     setActiveFilter(initialFilter);
   }, [initialFilter]);
 
-  const filteredPhotographers = photographers.filter(p => {
-    const term = searchTerm.toLowerCase();
+  const filteredPhotographers = (photographers || []).filter(p => {
+    if (!p) return false;
+    const term = (searchTerm || '').trim().toLowerCase();
+    const name = (p.name || '').toLowerCase();
+    const location = (p.location || '').toLowerCase();
+    const category = (p.category || '').toLowerCase();
+    const tags = Array.isArray(p.tags) ? p.tags : [];
     const matchesSearch = !term || 
-                          p.name.toLowerCase().includes(term) || 
-                          p.location.toLowerCase().includes(term) ||
-                          p.category.toLowerCase().includes(term) ||
-                          (Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(term)));
+                          name.includes(term) || 
+                          location.includes(term) ||
+                          category.includes(term) ||
+                          tags.some(t => typeof t === 'string' && t.toLowerCase().includes(term));
     return matchesSearch;
   }).sort((a, b) => {
     if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);

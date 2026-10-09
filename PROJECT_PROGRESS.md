@@ -1,10 +1,10 @@
 # 📊 PHOTOGRAPHY PLATFORM - COMPLETE PROJECT PROGRESS
 
-**Last Updated:** October 9, 2026 (Migrated Live OTA to OtaKit Free Tier & Fresh APKs Compiled)
-**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.2.9 (OtaKit) Active ✅
+**Last Updated:** October 9, 2026 (Live Mobile v1.3.0 Deployed: Explore Crash Fix & Auto-Deploy Pipeline)
+**Current Phase:** Full-Stack Complete ✅ + Mobile Native Live OTA v1.3.0 (OtaKit) Active ✅
 **Backend Status:** 100% Complete (Hardened Rate Limiting, Messaging Inquiries, Push Token Sync, Paystack Escrow, RLS & DB Indexes) ✅
 **Photographer App Status:** Live v1.2.9 Deployed (OtaKit OTA, Real-time Messaging, Local Banners, Studio Verification Dismissal) ✅
-**Client App Status:** Live v1.2.9 Deployed (OtaKit OTA, Real-time Messaging, Local Banners, Native Push Notifications) ✅
+**Client App Status:** Live v1.3.0 Deployed (OtaKit OTA, Explore Crash Rectified, Real-time Messaging, Local Banners) ✅
 **Admin Dashboard Status:** 100% Complete - All 13 Pages + Live Multi-Table Notifications & Release Sync ✅  
 
 ---
@@ -2211,6 +2211,30 @@ To deliver instant updates and bug fixes directly to users' devices without requ
        - `apks/clickflicks-client.apk` (5.19 MB)
        - `apks/clickflicks-photographer.apk` (5.19 MB)
 
+
+---
+
+### **15. Client App Explore Menu Crash Rectification & Automatic Deployment (October 9, 2026)**
+- **Root Cause Analysis (Explore Crash)**:
+  - When accessing the **Explore** tab in the client app, the application crashed to a blank screen or recovery fallback.
+  - The crash was caused by `ReferenceError: hasStartingPrice is not defined` inside [`apps/clickflicks-client/components/PhotographerCard.tsx`](file:///C:/Users/Kay/Documents/Projects%20(Web)/photography-platform/apps/clickflicks-client/components/PhotographerCard.tsx) (line 140).
+  - In `PhotographerCard.tsx`, the card conditionally checked `hasStartingPrice ? (...)` when a photographer did not specify an hourly rate, but `hasStartingPrice` was never declared or initialized in the component scope.
+  - While other views (such as the Home featured strip) only rendered photographers who happened to have an hourly rate populated, the **Explore** view rendered all master artists across Ghana—including photographers with packages or starting prices only—triggering the unhandled ReferenceError immediately during rendering.
+- **Architectural & Code Fixes**:
+  1. *PhotographerCard Hardening*:
+     - Declared and properly computed `hasStartingPrice = data.startingPrice != null && Number(data.startingPrice) > 0;`.
+     - Hardened avatar initials generation to safely guard against empty strings and whitespace variations (`data.name.trim().split(/\s+/)...`).
+  2. *Explore Page Defensive Filtering*:
+     - Fortified search and category filtering in [`apps/clickflicks-client/pages/Explore.tsx`](file:///C:/Users/Kay/Documents/Projects%20(Web)/photography-platform/apps/clickflicks-client/pages/Explore.tsx) with safe fallbacks: `(photographers || []).filter(...)`, `(p.name || '').toLowerCase()`, `(p.location || '').toLowerCase()`, `(p.category || '').toLowerCase()`, and array checks on `tags`.
+  3. *Automatic Multi-App Deployment Support*:
+     - Enhanced [`scripts/sync-mobile-release.js`](file:///C:/Users/Kay/Documents/Projects%20(Web)/photography-platform/scripts/sync-mobile-release.js) to support `--app both` (and `--app all`) to build, bundle, upload to OtaKit, and register both applications in a single automated command.
+     - Embedded automatic fallback App IDs in the script so releases can be deployed seamlessly even without explicit CLI flags.
+  4. *Automatic Deployment Rule Codification*:
+     - Renamed and codified [`.agents/rules/auto-push-and-otakit.md`](file:///C:/Users/Kay/Documents/Projects%20(Web)/photography-platform/.agents/rules/auto-push-and-otakit.md) establishing that every code update touching the mobile applications is automatically deployed live over the air via OtaKit and synchronized with GitHub `origin/main`.
+  5. *Live Production Release*:
+     - Deployed live OTA release `v1.3.0` directly to OtaKit production channel (`6e1ccd46-95e7-4329-a386-6c7cbc5e956c`).
+     - Registered release `v1.3.0` in the Admin Dashboard Mobile App Management database table.
+
 ---
 
 ### **Summary of Mobile Release History**
@@ -2227,6 +2251,7 @@ To deliver instant updates and bug fixes directly to users' devices without requ
 | **v1.2.7** | Both | Cross-app real-time messaging, inquiry thread creation, physical device push notifications (Android 13+ & local banners) | Deployed ✅ |
 | **v1.2.8** | Both | Chat bubble alignment & dark/light colors, bottom gap elimination, hardware back gesture navigation, solid red badges, direct "Book Studio" in chat, contract downloads, real online presence | Deployed ✅ |
 | **v1.2.9** | Both | Full migration from Capgo to OtaKit free tier (`@otakit/capacitor-updater`), OtaKitService lifecycle, `scripts/sync-mobile-release.js` update, fresh native APK compilation | Deployed ✅ |
+| **v1.3.0** | Client | Rectified Explore menu crash (`ReferenceError: hasStartingPrice`), hardened initials & search filter guards, automated OtaKit release pipeline | Deployed ✅ |
 
 ---
 
