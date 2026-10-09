@@ -62,29 +62,24 @@ for y in range(ch):
             else:
                 transparent_logo_white_text.putpixel((x, y), (fg_r, fg_g, fg_b, alpha))
 
-# Generate Icon alone (crescent swooshes)
-# We isolate the swooshes: on the cropped image, 'Click' text starts at ~ (268 - crop_x1)
-# and is between y ~ (265 - crop_y1) and (425 - crop_y1)
-text_start_x = 268 - crop_x1
-transparent_icon = Image.new('RGBA', (cw, ch), (255, 255, 255, 0))
+# Isolate the circular crescent icon mark (filtering out text and outer borders)
+icon_mark_canvas = Image.new('RGBA', (cw, ch), (255, 255, 255, 0))
 
 for y in range(ch):
     for x in range(cw):
         orig_x = x + crop_x1
         orig_y = y + crop_y1
-        # If in the bounding box of the text 'Click Flicks' & 'Imagine', skip
-        in_click_flicks = (orig_x >= 265 and orig_x <= 732 and orig_y >= 268 and orig_y <= 365)
-        in_imagine = (orig_x >= 265 and orig_x <= 440 and orig_y >= 366 and orig_y <= 425)
-        if not (in_click_flicks or in_imagine):
-            transparent_icon.putpixel((x, y), transparent_logo.getpixel((x, y)))
+        # Filter out text area: 'Click Flicks' & 'Imagine'
+        in_text_zone = (orig_x >= 265 and orig_x <= 735 and orig_y >= 245 and orig_y <= 422)
+        if not in_text_zone:
+            icon_mark_canvas.putpixel((x, y), transparent_logo.getpixel((x, y)))
 
-# Crop the icon to its active non-transparent pixels
-icon_bbox = transparent_icon.getbbox()
+icon_bbox = icon_mark_canvas.getbbox()
 if icon_bbox:
-    tight_icon = transparent_icon.crop(icon_bbox)
-    print(f"Tight icon bounds: {tight_icon.size}")
+    tight_icon = icon_mark_canvas.crop(icon_bbox)
+    print(f"Tight crescent icon mark bounds: {tight_icon.size}")
 else:
-    tight_icon = transparent_icon
+    tight_icon = icon_mark_canvas
 
 # Create destination directories
 client_dir = os.path.join(BASE_DIR, 'apps', 'clickflicks-client')
@@ -110,21 +105,19 @@ for app_dir in [client_dir, photographer_dir]:
 
 print("[OK] Saved Web and Public assets!")
 
-# Generate iOS AppIcon (1024x1024)
+# Generate iOS AppIcon (1024x1024) featuring the bold crescent icon mark
 def create_ios_app_icon(is_photographer=False):
     canvas = Image.new('RGB', (1024, 1024), (255, 255, 255))
     
-    # Scale the full logo or icon mark into the canvas
-    # The full logo looks iconic and professional
-    # Let's fit the full logo into 820px width (leaving 102px margins on sides)
-    target_w = 820
-    scale = target_w / cw
-    target_h = int(ch * scale)
-    scaled_logo = transparent_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+    # Scale the iconic crescent mark to fill ~68% of the icon (Apple HIG standard)
+    target_w = 680
+    scale = target_w / tight_icon.width
+    target_h = int(tight_icon.height * scale)
+    scaled_mark = tight_icon.resize((target_w, target_h), Image.Resampling.LANCZOS)
     
     pos_x = (1024 - target_w) // 2
     pos_y = (1024 - target_h) // 2
-    canvas.paste(scaled_logo, (pos_x, pos_y), scaled_logo)
+    canvas.paste(scaled_mark, (pos_x, pos_y), scaled_mark)
     
     return canvas
 
@@ -133,9 +126,9 @@ ios_client_icon.save(os.path.join(client_dir, 'ios', 'App', 'App', 'Assets.xcass
 
 ios_photographer_icon = create_ios_app_icon(is_photographer=True)
 ios_photographer_icon.save(os.path.join(photographer_dir, 'ios', 'App', 'App', 'Assets.xcassets', 'AppIcon.appiconset', 'AppIcon-512@2x.png'), format='PNG')
-print("[OK] Saved iOS AppIcon (1024x1024) for Client & Photographer!")
+print("[OK] Saved iOS AppIcon (1024x1024) featuring crescent mark for Client & Photographer!")
 
-# Generate iOS Splash Screen (2732x2732)
+# Generate iOS Splash Screen (2732x2732) featuring full brand logo
 def create_ios_splash():
     canvas = Image.new('RGB', (2732, 2732), (255, 255, 255))
     target_w = 1500
@@ -155,7 +148,7 @@ for app_dir in [client_dir, photographer_dir]:
             splash_img.save(os.path.join(splash_dir, name), format='PNG')
 print("[OK] Saved iOS Splash Screens (2732x2732) for Client & Photographer!")
 
-# Generate Android mipmap icons
+# Generate Android mipmap icons using the crescent icon mark
 density_sizes = {
     'mipmap-mdpi': 48,
     'mipmap-hdpi': 72,
@@ -180,27 +173,26 @@ for app_dir in [client_dir, photographer_dir]:
         target_folder = os.path.join(res_dir, folder)
         os.makedirs(target_folder, exist_ok=True)
         
-        # Square launcher icon
+        # Square launcher icon with crescent mark
         sq_icon = Image.new('RGB', (size, size), (255, 255, 255))
-        # Place scaled logo
-        target_w = int(size * 0.88)
-        scale = target_w / cw
-        target_h = int(ch * scale)
-        s_logo = transparent_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        sq_icon.paste(s_logo, ((size - target_w) // 2, (size - target_h) // 2), s_logo)
+        target_w = int(size * 0.76)
+        scale = target_w / tight_icon.width
+        target_h = int(tight_icon.height * scale)
+        s_mark = tight_icon.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        sq_icon.paste(s_mark, ((size - target_w) // 2, (size - target_h) // 2), s_mark)
         sq_icon.save(os.path.join(target_folder, 'ic_launcher.png'), format='PNG')
         sq_icon.save(os.path.join(target_folder, 'ic_launcher_round.png'), format='PNG')
         
     for folder, size in fg_sizes.items():
         target_folder = os.path.join(res_dir, folder)
         os.makedirs(target_folder, exist_ok=True)
-        # Foreground icon (transparent with centered logo)
+        # Foreground icon (transparent with centered crescent mark)
         fg_icon = Image.new('RGBA', (size, size), (255, 255, 255, 0))
-        target_w = int(size * 0.65)
-        scale = target_w / cw
-        target_h = int(ch * scale)
-        s_logo = transparent_logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        fg_icon.paste(s_logo, ((size - target_w) // 2, (size - target_h) // 2), s_logo)
+        target_w = int(size * 0.58)
+        scale = target_w / tight_icon.width
+        target_h = int(tight_icon.height * scale)
+        s_mark = tight_icon.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        fg_icon.paste(s_mark, ((size - target_w) // 2, (size - target_h) // 2), s_mark)
         fg_icon.save(os.path.join(target_folder, 'ic_launcher_foreground.png'), format='PNG')
 
 print("[OK] Saved Android mipmap icons!")
