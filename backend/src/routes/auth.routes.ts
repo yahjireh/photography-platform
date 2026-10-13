@@ -14,7 +14,8 @@ import {
   verifyEmailOtpHandler,
   verifyEmailLinkHandler,
   sendPhoneOtpHandler,
-  verifyPhoneOtpHandler
+  verifyPhoneOtpHandler,
+  logConsentHandler
 } from '../controllers/auth.controller';
 import {
   authLimiter,
@@ -24,6 +25,12 @@ import {
 } from '../middleware/rate-limiter.middleware';
 
 const router = express.Router();
+
+/**
+ * POST /api/auth/consent
+ * Log user agreement to Terms & Conditions and Privacy Policy for legal audit
+ */
+router.post('/consent', logConsentHandler);
 
 /**
  * POST /api/auth/register

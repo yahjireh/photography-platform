@@ -191,6 +191,14 @@ export async function verifyEmailOtp(email: string, code: string): Promise<{ suc
         email_verified_at: new Date()
       }
     });
+
+    await prisma.photographer_kyc.updateMany({
+      where: { email: cleanEmail },
+      data: {
+        email_verified: true,
+        last_updated_at: new Date()
+      }
+    });
   } catch (err) {
     console.error('Error updating verified status in DB:', err);
   }
@@ -303,6 +311,19 @@ export async function verifyPhoneOtp(phone: string, code: string): Promise<{ suc
       },
       data: {
         is_verified: true
+      }
+    });
+
+    await prisma.photographer_kyc.updateMany({
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: rawPhone }
+        ]
+      },
+      data: {
+        phone_verified: true,
+        last_updated_at: new Date()
       }
     });
   } catch (err) {

@@ -120,6 +120,12 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
   const [curatorNotes, setCuratorNotes] = useState<string | null>(null);
   const [kycStatusBadge, setKycStatusBadge] = useState<string | null>(null);
 
+  // Granular Section Verification Statuses (Locked if verified, editable if not)
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [payoutVerified, setPayoutVerified] = useState(false);
+  const [portfolioVerified, setPortfolioVerified] = useState(false);
+  const [contactVerified, setContactVerified] = useState(false);
+
   // Form State
   const defaultFormData = {
     businessName: '',
@@ -256,6 +262,13 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
           setVerificationStatus(photographer?.verification_status || 'PENDING');
           setCuratorNotes(kyc?.decision_notes || null);
           setKycStatusBadge(kyc?.kyc_status || photographer?.verification_status || null);
+
+          // Granular Section Locks:
+          const isFullVerified = photographer?.verification_status === 'VERIFIED' || kyc?.kyc_status === 'APPROVED';
+          setIdentityVerified(isFullVerified || kyc?.identity_check_result === 'PASS');
+          setPayoutVerified(isFullVerified || kyc?.payout_check_result === 'PASS');
+          setPortfolioVerified(isFullVerified || kyc?.portfolio_check_result === 'PASS');
+          setContactVerified(isFullVerified || kyc?.contact_check_result === 'PASS');
 
           let frontDoc: string | null = null;
           let backDoc: string | null = null;
@@ -810,11 +823,11 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
             <div className="flex items-center space-x-2">
               <span className="flex h-2.5 w-2.5 rounded-full bg-teal-600 animate-ping" />
               <p className="text-xs font-bold text-teal-950">
-                KYC In Review • Freely editable until admin fully approves
+                KYC Verification: Only unverified or incomplete fields are editable
               </p>
             </div>
             <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-teal-200/80 text-teal-900 rounded-lg">
-              Draft Editable
+              Selective Edit
             </span>
           </div>
         )}
@@ -1025,28 +1038,43 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
             {/* ============================================================ */}
             {currentStep === 2 && (
               <div className="space-y-5">
+                {identityVerified && (
+                  <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between text-emerald-900 text-xs font-bold">
+                    <div className="flex items-center space-x-2">
+                      <Icons.ShieldCheck size={18} className="text-emerald-600" />
+                      <span>Ghana Card & Biometrics Officially Verified (Locked)</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
+                      <Icons.Lock size={10} /> Verified
+                    </span>
+                  </div>
+                )}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 block mb-1">
-                    Ghana Card PIN Number
+                    Ghana Card PIN Number {identityVerified && '(Verified - Locked)'}
                   </label>
                   <input 
                     type="text" 
                     value={formData.ghanaCardNumber}
+                    disabled={identityVerified}
+                    readOnly={identityVerified}
                     onChange={(e) => handleInputChange('ghanaCardNumber', e.target.value.toUpperCase())}
                     placeholder="GHA-000000000-0" 
-                    className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none uppercase focus:ring-2 focus:ring-teal-700/20"
+                    className={`w-full ${identityVerified ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'} border border-gray-300 p-4 rounded-2xl text-sm font-bold outline-none uppercase focus:ring-2 focus:ring-teal-700/20`}
                   />
                 </div>
 
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 block mb-1">
-                    Date of Birth (as printed on Ghana Card)
+                    Date of Birth (as printed on Ghana Card) {identityVerified && '(Verified - Locked)'}
                   </label>
                   <input 
                     type="date" 
                     value={formData.dateOfBirth}
+                    disabled={identityVerified}
+                    readOnly={identityVerified}
                     onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                    className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none cursor-pointer focus:ring-2 focus:ring-teal-700/20"
+                    className={`w-full ${identityVerified ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'} border border-gray-300 p-4 rounded-2xl text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-teal-700/20`}
                   />
                   <p className="text-[11px] text-gray-500 mt-1">
                     Required for matching verification against your uploaded National ID document.
@@ -1518,14 +1546,26 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
             {/* ============================================================ */}
             {currentStep === 5 && (
               <div className="space-y-4">
+                {payoutVerified && (
+                  <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between text-emerald-900 text-xs font-bold">
+                    <div className="flex items-center space-x-2">
+                      <Icons.ShieldCheck size={18} className="text-emerald-600" />
+                      <span>Settlement Payout Route Officially Verified (Locked)</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-lg text-[9px] font-black uppercase flex items-center gap-1">
+                      <Icons.Lock size={10} /> Verified
+                    </span>
+                  </div>
+                )}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 block mb-1">
-                    Primary Settlement Channel
+                    Primary Settlement Channel {payoutVerified && '(Verified - Locked)'}
                   </label>
                   <select 
                     value={formData.preferredBank}
+                    disabled={payoutVerified}
                     onChange={(e) => handleInputChange('preferredBank', e.target.value)}
-                    className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none cursor-pointer"
+                    className={`w-full ${payoutVerified ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'} border border-gray-300 p-4 rounded-2xl text-sm font-bold outline-none cursor-pointer`}
                   >
                     <option value="MTN Mobile Money">MTN Mobile Money</option>
                     <option value="Vodafone Cash (Telecel)">Vodafone Cash (Telecel)</option>
@@ -1540,14 +1580,16 @@ export const PhotographerKYC: React.FC<PhotographerKYCProps> = ({ onComplete, on
 
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 block mb-1">
-                    Mobile Money / Account Number
+                    Mobile Money / Account Number {payoutVerified && '(Verified - Locked)'}
                   </label>
                   <input 
                     type="text" 
                     value={formData.accountNumber}
+                    disabled={payoutVerified}
+                    readOnly={payoutVerified}
                     onChange={(e) => handleInputChange('accountNumber', e.target.value)}
                     placeholder="e.g. 024 123 4567" 
-                    className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-sm font-bold text-gray-900 outline-none focus:ring-2 focus:ring-teal-700/20"
+                    className={`w-full ${payoutVerified ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900'} border border-gray-300 p-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-teal-700/20`}
                   />
                   
                   {/* Ghana Telecom Prefix Check Alert */}

@@ -4,6 +4,8 @@
  */
 
 import { Request, Response } from 'express';
+import crypto from 'crypto';
+import prisma from '../config/database';
 import { registerUser, loginUser, oauthLoginUser, requestPasswordReset, executePasswordReset } from '../services/auth.service';
 import { RegisterUserDto, LoginUserDto } from '../types/user.types';
 import { validateEmail, validatePhoneNumber } from '../services/validation.service';
@@ -401,5 +403,88 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
       success: false,
       message: error.message || 'Failed to reset password'
     });
+  }
+}
+
+/**
+ * Log and store legal terms & privacy consent for safety, security, and audit compliance
+ * POST /api/auth/consent
+ */
+export async function logConsentHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const {
+      consentType = 'TERMS_AND_PRIVACY',
+      termsVersion = 'v1.2.6',
+      userId,
+      email,
+      platform,
+      clientTimestamp
+    } = req.body;
+
+    const consentId = crypto.randomUUID();
+    const recordedAt = new Date().toISOString();
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'ClickFlicks-Client';
+
+    const consentRecord = {
+      consentId,
+      consentType,
+      termsVersion,
+      complianceFramework: 'Ghana Data Protection Act, 2012 (Act 843) & Platform Escrow Agreement',
+      dataController: 'ClickFlicks Limited (DPC Registered Controller)',
+      userId: userId || null,
+      email: email || null,
+      platform: platform || 'Mobile App',
+      ipAddress,
+      userAgent,
+      clientTimestamp: clientTimestamp || recordedAt,
+      recordedAt,
+      consented: true
+    };
+
+    // 1. Persist to system_settings in database
+    try {
+      await prisma.system_settings.upsert({
+        where: { key: `consent_${consentId}` },
+        update: {
+          value: consentRecord,
+          updated_at: new Date()
+        },
+        create: {
+          key: `consent_${consentId}`,
+          value: consentRecord
+        }
+      });
+    } catch (dbErr) {
+      console.warn('Could not save consent to system_settings table:', dbErr);
+    }
+
+    // 2. Append to persistent log file for audit preservation
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const logDir = path.join(process.cwd(), 'logs');
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      fs.appendFileSync(
+        path.join(logDir, 'legal_consent_audit.log'),
+        JSON.stringify(consentRecord) + '\n',
+        'utf8'
+      );
+    } catch (logErr) {
+      console.warn('Could not write to legal_consent_audit.log:', logErr);
+    }
+
+    console.log(`⚖️ [LEGAL CONSENT LOGGED]: ${consentType} (${termsVersion}) for ${email || userId || 'Guest'} [${ipAddress}]`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Legal terms and privacy consent successfully logged and archived.',
+      receipt: consentRecord
+    });
+  } catch (error: any) {
+    console.error('Consent logging error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to log consent' });
   }
 }

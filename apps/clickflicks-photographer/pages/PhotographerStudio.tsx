@@ -3,6 +3,8 @@ import { Icons } from '../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePhotographerProfile } from '../hooks/usePhotographerProfile';
 import { apiClient } from '../lib/api-client';
+import { LegalTermsModal } from '../components/LegalTermsModal';
+import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 interface PhotographerStudioProps {
   onLogout?: () => void;
@@ -219,6 +221,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
   // Modals state
   const [activeModal, setActiveModal] = useState<'tier' | 'upload' | 'payout' | 'settings' | 'terms' | 'kyc-view' | 'support' | 'delete-account' | null>(null);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpInitialTab, setOtpInitialTab] = useState<'email' | 'phone'>('email');
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -1265,57 +1269,53 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
         {/* Master Controls Section */}
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Business Core</h2>
         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-          {/* Identity & KYC Verification Row - Hidden when dismissed */}
-          {!isVerificationNoticeDismissed && (
-            <div className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <button 
-                onClick={() => {
-                  if (onNavigateKYC && !isVerified) {
-                    onNavigateKYC();
-                  } else {
-                    setActiveModal('kyc-view');
-                  }
-                }} 
-                className="flex-1 flex items-center space-x-3 text-left cursor-pointer"
-              >
-                <div className={`p-2.5 rounded-xl ${isVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {isVerified ? <Icons.ShieldCheck size={18} /> : <Icons.AlertTriangle size={18} />}
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-gray-900">Identity & KYC Verification</p>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    {isVerified ? 'Verified Master Artisan (Read Only)' : isKYCSubmitted ? 'Submitted • Under Review' : 'Action Required • Verify Identity'}
-                  </p>
-                  {curatorNotes && (
-                    <p className="text-[10px] text-amber-800 font-semibold mt-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200/60 leading-tight">
-                      💬 Curator Feedback: "{curatorNotes}"
-                    </p>
-                  )}
-                </div>
-              </button>
-              <div className="flex items-center space-x-2 shrink-0 ml-2">
-                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                  isVerified ? 'bg-emerald-100 text-emerald-800' : isKYCSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
-                }`}>
-                  {isVerified ? 'Verified' : isKYCSubmitted ? 'Submitted' : 'Incomplete'}
-                </span>
-                <Icons.ChevronRight size={16} className="text-gray-400 cursor-pointer" onClick={() => {
-                  if (onNavigateKYC && !isVerified) {
-                    onNavigateKYC();
-                  } else {
-                    setActiveModal('kyc-view');
-                  }
-                }} />
-                <button
-                  onClick={handleDismissStudioVerification}
-                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors ml-1"
-                  title="Dismiss verification notice"
-                >
-                  <Icons.X size={15} />
-                </button>
+          {/* Identity & KYC Verification Row - Permanent in Profile Menu */}
+          <div className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            <button 
+              onClick={() => {
+                if (isVerified) {
+                  setActiveModal('kyc-view');
+                } else if (onNavigateKYC) {
+                  onNavigateKYC();
+                } else {
+                  setActiveModal('kyc-view');
+                }
+              }} 
+              className="flex-1 flex items-center space-x-3 text-left cursor-pointer"
+            >
+              <div className={`p-2.5 rounded-xl ${isVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                {isVerified ? <Icons.ShieldCheck size={18} /> : <Icons.AlertTriangle size={18} />}
               </div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Identity & KYC Verification</p>
+                <p className="text-[10px] text-gray-400 font-medium">
+                  {isVerified ? 'Verified Master Artisan • View Only' : isKYCSubmitted ? 'Submitted • Under Review' : 'Incomplete • Complete Verification'}
+                </p>
+                {curatorNotes && (
+                  <p className="text-[10px] text-amber-800 font-semibold mt-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200/60 leading-tight">
+                    💬 Curator Feedback: "{curatorNotes}"
+                  </p>
+                )}
+              </div>
+            </button>
+            <div className="flex items-center space-x-2 shrink-0 ml-2">
+              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                isVerified ? 'bg-emerald-100 text-emerald-800' : isKYCSubmitted ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
+              }`}>
+                {isVerified && <Icons.Lock size={10} />}
+                {isVerified ? 'Verified' : isKYCSubmitted ? 'Submitted' : 'Incomplete'}
+              </span>
+              <Icons.ChevronRight size={16} className="text-gray-400 cursor-pointer" onClick={() => {
+                if (isVerified) {
+                  setActiveModal('kyc-view');
+                } else if (onNavigateKYC) {
+                  onNavigateKYC();
+                } else {
+                  setActiveModal('kyc-view');
+                }
+              }} />
             </div>
-          )}
+          </div>
 
           <button onClick={() => setActiveModal('tier')} className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center space-x-3">
@@ -1347,7 +1347,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
               <div className="p-2.5 bg-gray-50 text-gray-600 rounded-xl"><Icons.Settings size={18} /></div>
               <div className="text-left">
                 <p className="text-xs font-bold text-gray-900">Studio Preferences</p>
-                <p className="text-[10px] text-gray-400 font-medium">Auto-accept, booking radius</p>
+                <p className="text-[10px] text-gray-400 font-medium">Auto-accept, phone & email verification</p>
               </div>
             </div>
             <Icons.ChevronRight size={16} className="text-gray-400" />
@@ -1357,8 +1357,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
             <div className="flex items-center space-x-3">
               <div className="p-2.5 bg-gray-50 text-gray-600 rounded-xl"><Icons.FileText size={18} /></div>
               <div className="text-left">
-                <p className="text-xs font-bold text-gray-900">Terms of Artistry</p>
-                <p className="text-[10px] text-gray-400 font-medium">Vendor rights & liability</p>
+                <p className="text-xs font-bold text-gray-900">Terms & Conditions</p>
+                <p className="text-[10px] text-gray-400 font-medium">Terms of Artistry, Escrow, GRA tax & Ghana DPC charter</p>
               </div>
             </div>
             <Icons.ChevronRight size={16} className="text-gray-400" />
@@ -1397,7 +1397,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
 
       {/* Sub-Modals */}
       <AnimatePresence>
-        {activeModal && (
+        {activeModal && activeModal !== 'terms' && (
           <div className="fixed inset-0 z-[100] flex items-end justify-center">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveModal(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="relative w-full max-w-[480px] bg-white rounded-t-[40px] p-8 pb-12 z-10 shadow-2xl max-h-[88vh] overflow-y-auto no-scrollbar">
@@ -1458,7 +1458,7 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                   </div>
 
                   <div className="flex gap-3">
-                    {onNavigateKYC && (
+                    {onNavigateKYC && !isVerified && (
                       <button
                         onClick={() => {
                           setActiveModal(null);
@@ -1467,11 +1467,11 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                         className="flex-1 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
                       >
                         <Icons.Edit size={14} />
-                        <span>Edit / Update KYC</span>
+                        <span>Complete Unverified Fields</span>
                       </button>
                     )}
                     <button onClick={() => setActiveModal(null)} className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest cursor-pointer">
-                      Done
+                      Close
                     </button>
                   </div>
                 </div>
@@ -1794,6 +1794,54 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                 <div>
                   <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-6">Studio Preferences</h3>
                   <div className="space-y-4 mb-8">
+                    {/* Email Verification */}
+                    <div className="flex justify-between items-center py-2.5 border-b border-gray-100">
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">Email Address</p>
+                        <p className="text-[10px] text-gray-400">{user?.email || 'Registered account email'}</p>
+                      </div>
+                      {user?.is_verified ? (
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center">
+                          <Icons.Check size={12} className="mr-1" /> Verified
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtpInitialTab('email');
+                            setShowOtpModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-amber-100 cursor-pointer"
+                        >
+                          Verify Email
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Phone Verification */}
+                    <div className="flex justify-between items-center py-2.5 border-b border-gray-100">
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">Phone Number</p>
+                        <p className="text-[10px] text-gray-400">{phoneText || user?.phone_number || 'Mobile contact'}</p>
+                      </div>
+                      {user?.phone_number ? (
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center">
+                          <Icons.Check size={12} className="mr-1" /> Verified
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtpInitialTab('phone');
+                            setShowOtpModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-teal-100 cursor-pointer"
+                        >
+                          Verify SMS
+                        </button>
+                      )}
+                    </div>
+
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
                       <div>
                         <p className="text-xs font-bold text-gray-900">Instant Booking</p>
@@ -1809,26 +1857,8 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
                       <span className="text-xs font-bold text-brand-DEFAULT">{user?.location_city || 'Accra'}</span>
                     </div>
                   </div>
-                  <button onClick={() => setActiveModal(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
+                  <button onClick={() => setActiveModal(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest cursor-pointer">
                     Done
-                  </button>
-                </div>
-              )}
-
-              {/* TERMS MODAL */}
-              {activeModal === 'terms' && (
-                <div>
-                  <h3 className="text-2xl font-serif font-black italic text-gray-900 mb-2">Terms of Artistry</h3>
-                  <div className="h-64 overflow-y-auto no-scrollbar bg-gray-50 p-4 rounded-2xl text-[11px] leading-relaxed text-gray-600 space-y-3 mb-6">
-                    <p className="font-bold text-gray-900">1. Escrow Release</p>
-                    <p>Payments are held in secure escrow until watermarked or final high-resolution assets are uploaded to the platform vault.</p>
-                    <p className="font-bold text-gray-900">2. Cancellation Policy</p>
-                    <p>Photographers who cancel accepted sessions within 48 hours without verifiable emergencies may incur platform penalties.</p>
-                    <p className="font-bold text-gray-900">3. Asset Copyright</p>
-                    <p>Unless custom commercial licenses are purchased, photographers retain master authorship of all original raw captures.</p>
-                  </div>
-                  <button onClick={() => setActiveModal(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest">
-                    Acknowledge
                   </button>
                 </div>
               )}
@@ -2306,6 +2336,29 @@ const PhotographerStudio: React.FC<PhotographerStudioProps> = ({ onLogout, onNav
           </div>
         )}
       </AnimatePresence>
+
+      {/* Legal Terms & Conditions Modal */}
+      <LegalTermsModal
+        isOpen={activeModal === 'terms'}
+        onClose={() => setActiveModal(null)}
+      />
+
+      {/* OTP Verification Modal */}
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        email={user?.email || ''}
+        phoneNumber={phoneText || user?.phone_number || undefined}
+        initialTab={otpInitialTab}
+        autoSendOnOpen={true}
+        onSuccess={() => {
+          setShowOtpModal(false);
+          if (updateUser) {
+            updateUser({ is_verified: true });
+          }
+        }}
+        onClose={() => setShowOtpModal(false)}
+        onSkip={() => setShowOtpModal(false)}
+      />
     </div>
   );
 };

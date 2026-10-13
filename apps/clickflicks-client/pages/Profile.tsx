@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePhotographers } from '../hooks/usePhotographers';
 import apiClient from '../lib/api-client';
 import { OtpVerificationModal } from '../components/OtpVerificationModal';
+import { LegalTermsModal } from '../components/LegalTermsModal';
 
 type VaultSubPage = 'main' | 'persona' | 'billing' | 'collection' | 'comms' | 'security' | 'support';
 type TopUpStep = 'idle' | 'amount' | 'source' | 'waiting' | 'success';
@@ -106,6 +107,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
   // Verification Modal States
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpInitialTab, setOtpInitialTab] = useState<'email' | 'phone'>('email');
+  const [showTermsModal, setShowTermsModal] = useState(false);
   
   // Billing States (Live from PostgreSQL DB)
   const [balance, setBalance] = useState<number>(0.0);
@@ -672,6 +674,7 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
                       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-2">
                           <MenuItem icon={Icons.Compass || Icons.Sparkles} label="App Tour & Guide" detail="Interactive walkthrough of features" onClick={() => onStartTour?.()} />
                           <MenuItem icon={Icons.MessageSquare} label="Comms Center" detail="Live Alerts & Tone" onClick={() => setSubPage('comms')} />
+                          <MenuItem icon={Icons.FileText} label="Terms & Conditions" detail="Legal policies, Escrow & Ghana DPC charter" onClick={() => setShowTermsModal(true)} />
                           <MenuItem icon={Icons.HelpCircle} label="Contact Support" detail="Chat directly with Platform Admin" onClick={() => { setSubPage('support'); loadSupportTickets(); }} />
                           <MenuItem icon={Icons.Lock} label="Security Core" detail="Access & Sessions" onClick={() => setSubPage('security')} />
                       </div>
@@ -1534,6 +1537,12 @@ const Profile: React.FC<ProfileProps> = ({ favorites = [], onToggleFavorite, onV
           await fetchProfile?.();
         }}
         onClose={() => setShowOtpModal(false)}
+      />
+
+      {/* Full Terms & Conditions Legal Modal */}
+      <LegalTermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
       />
     </div>
   );

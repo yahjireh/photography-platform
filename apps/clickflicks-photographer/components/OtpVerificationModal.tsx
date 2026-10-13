@@ -7,18 +7,26 @@ interface OtpVerificationModalProps {
   isOpen: boolean;
   email: string;
   phoneNumber?: string;
+  initialTab?: 'email' | 'phone';
   initialOtpCode?: string;
+  autoSendOnOpen?: boolean;
   onSuccess: () => void;
   onClose?: () => void;
+  onSkip?: () => void;
+  skipLabel?: string;
 }
 
 export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   isOpen,
   email,
   phoneNumber,
+  initialTab = 'email',
   initialOtpCode,
+  autoSendOnOpen = false,
   onSuccess,
-  onClose
+  onClose,
+  onSkip,
+  skipLabel
 }) => {
   const [activeTab, setActiveTab] = useState<'email' | 'phone'>('email');
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -28,6 +36,37 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   const [countdown, setCountdown] = useState(60);
   const [isResending, setIsResending] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(initialOtpCode || null);
+
+  // Sync initial tab when changed
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Auto-send fresh OTP on open if requested
+  useEffect(() => {
+    if (isOpen && autoSendOnOpen) {
+      const targetTab = initialTab || activeTab;
+      if (targetTab === 'email' && email) {
+        apiClient.post('/auth/otp/send-email', { email })
+          .then((res) => {
+            if (res.data?.code) {
+              setDevCode(res.data.code);
+            }
+          })
+          .catch(() => {});
+      } else if (targetTab === 'phone' && phoneNumber) {
+        apiClient.post('/auth/otp/send-phone', { phone: phoneNumber })
+          .then((res) => {
+            if (res.data?.code) {
+              setDevCode(res.data.code);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [isOpen, autoSendOnOpen]);
 
   useEffect(() => {
     if (initialOtpCode) {
@@ -314,6 +353,18 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   'Verify & Continue'
                 )}
               </button>
+
+              {/* Skip Option */}
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  className="w-full mt-2.5 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800/80 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>{skipLabel || 'Skip for now • Verify later in Profile'}</span>
+                  <Icons.ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {/* Resend Code */}
               <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">

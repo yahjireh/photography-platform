@@ -11,6 +11,8 @@ interface OtpVerificationModalProps {
   autoSendOnOpen?: boolean;
   onSuccess: () => void;
   onClose?: () => void;
+  onSkip?: () => void;
+  skipLabel?: string;
 }
 
 export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
@@ -20,7 +22,9 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   initialTab = 'email',
   autoSendOnOpen = false,
   onSuccess,
-  onClose
+  onClose,
+  onSkip,
+  skipLabel
 }) => {
   const [activeTab, setActiveTab] = useState<'email' | 'phone'>(initialTab);
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -350,6 +354,18 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   'Verify & Continue'
                 )}
               </button>
+
+              {/* Skip Option */}
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  className="w-full mt-2.5 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800/80 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>{skipLabel || 'Skip for now • Verify later in Profile'}</span>
+                  <Icons.ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {/* Resend Code */}
               <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">

@@ -55,6 +55,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
         location_country: true,
         user_type: true,
         is_verified: true,
+        email_verified_at: true,
         is_active: true,
         wallet_balance: true,
         created_at: true,

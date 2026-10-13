@@ -337,6 +337,10 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         onClose={() => {
           setShowOtpModal(false);
         }}
+        onSkip={() => {
+          setShowOtpModal(false);
+          onSuccess();
+        }}
       />
     </motion.div>
   );
